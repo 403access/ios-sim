@@ -1,5 +1,4 @@
 ---
-
 title: Overview
 sidebar_position: 1
 description: What this project is, what it proves, and how to read the documentation.

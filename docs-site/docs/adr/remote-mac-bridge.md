@@ -1,5 +1,4 @@
 ---
-
 title: "ADR 0001: Remote Mac bridge over a native port"
 sidebar_position: 1
 description: Why the simulator stays on macOS and Linux clients use a bridge.

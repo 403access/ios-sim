@@ -1,5 +1,4 @@
 ---
-
 title: "ADR 0003: simctl for lifecycle, idb for input"
 sidebar_position: 3
 description: Why the host uses Apple's public CLI and an optional private-SPI tool.

@@ -6,11 +6,11 @@ run macOS on Linux.
 ## Linux client test
 
 ```bash
-npm run test:linux
+bun run test:linux
 ```
 
 This builds `infra/linux/Dockerfile` and runs `scripts/linux-e2e.sh` inside the container. The
-image contains only Node.js, this repository, and a mock host. It proves that the CLI and protocol
+image contains only Bun, this repository, and a mock host. It proves that the CLI and protocol
 do not depend on macOS.
 
 ## Optional: a real Linux machine
@@ -20,7 +20,7 @@ orbctl create ubuntu ios-sim-test
 orbctl run ios-sim-test -- uname -a
 ```
 
-Copy the repo or mount it, install Node 24, run `npm ci && npm run build`, and use
+Copy the repo or mount it, install Bun 1.4.4+, run `bun install --frozen-lockfile && bun run build`, and use
 `scripts/linux-e2e.sh` or connect to a real Mac host. An OrbStack machine is a full Linux VM, so it
 is a stronger check than a container for things like SSH tunnels and `xdg-open`.
 

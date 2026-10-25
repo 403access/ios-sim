@@ -1,5 +1,4 @@
 ---
-
 title: Protocol
 sidebar_position: 4
 description: The shared wire contract, data types, versioning, and compatibility rules.

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { parseArgs } from "node:util";
 import { DEFAULT_PORT } from "@ios-sim/protocol";
 import { createBackend } from "./backends.js";
@@ -20,7 +20,7 @@ Options:
   -h, --help               Show this help
   -v, --version            Print the version
 
-The host must run on macOS with Xcode installed. The Linux client only needs Node.js.
+The host must run on macOS with Xcode installed. The Linux client only needs Bun.
 `;
 
 async function main() {
@@ -51,8 +51,7 @@ async function main() {
   const port = Number.parseInt(values.port ?? process.env.IOS_SIM_PORT ?? "", 10) || DEFAULT_PORT;
   const bind = values.bind ?? process.env.IOS_SIM_BIND ?? "127.0.0.1";
   const backendName = (values.backend ?? process.env.IOS_SIM_BACKEND ?? "simctl") as
-    | "simctl"
-    | "mock";
+    "simctl" | "mock";
 
   if (backendName !== "simctl" && backendName !== "mock") {
     throw new Error(`Unknown backend "${backendName}". Use simctl or mock.`);

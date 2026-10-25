@@ -17,6 +17,8 @@ This repository is a research-backed reference implementation. Keep it honest an
 6. **No Apple binaries.** Never commit SDKs, runtimes, `.app` builds, device data, or tokens.
 7. **Security defaults.** Loopback bind, token auth, explicit capability reporting, no shell
    interpolation.
+8. **Bun only.** Install and run everything with Bun (`bun install`, `bun run`, `bunx`). Format
+   with `bun fmt`. Do not add npm, yarn, pnpm, Biome, or Prettier config/lockfiles.
 
 ## Layout
 
@@ -30,17 +32,18 @@ This repository is a research-backed reference implementation. Keep it honest an
 ## Commands
 
 ```bash
-npm run build
-npm run lint
-npm run typecheck
-npm test
-npm run test:linux
-npm run test:macos
-npm run docs:build
-npm run verify
+bun run build
+bun fmt
+bun run format:check
+bun run typecheck
+bun run test
+bun run test:linux
+bun run test:macos
+bun run docs:build
+bun run verify
 ```
 
-Node 24.22.1 is the tested version (`.nvmrc`). `npm ci` is the supported install.
+Bun 1.4.4 is the tested version. `bun install --frozen-lockfile` is the supported install.
 
 ## Change checklist
 
@@ -51,7 +54,7 @@ Node 24.22.1 is the tested version (`.nvmrc`). `npm ci` is the supported install
 - [ ] macOS integration/smoke run for Apple-tool changes.
 - [ ] Docs/ADR updated for architectural or behavioural changes.
 - [ ] No secrets, Apple binaries, or personal data committed.
-- [ ] `npm run verify` passes.
+- [ ] `bun run verify` passes.
 
 ## Things not to do
 

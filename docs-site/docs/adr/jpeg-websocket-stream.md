@@ -1,5 +1,4 @@
 ---
-
 title: "ADR 0004: JPEG frames over WebSocket"
 sidebar_position: 4
 description: Why v0.1 streams full JPEG frames instead of MJPEG, H.264, or WebRTC.

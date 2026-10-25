@@ -1,5 +1,4 @@
 ---
-
 title: Roadmap
 sidebar_position: 3
 description: Now, next, later — with explicit non-goals and revisit triggers.
@@ -33,7 +32,7 @@ requires `idb`; no session isolation.
 | Rate limits and quotas                          | Protect a shared Mac                 | Configurable; tested                               |
 | CI matrix                                       | Prevent Linux regressions            | Linux unit/E2E + docs on each PR; macOS on release |
 | Better observability                            | Operate a shared host                | Request IDs, structured logs, health detail        |
-| Release automation                              | Consumable packages                  | Versioned npm packages + changelog                 |
+| Release automation                              | Consumable packages                  | Versioned packages + changelog                     |
 
 ## Later — v1.0 (performance and multi-user)
 

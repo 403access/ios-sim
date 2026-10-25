@@ -1,5 +1,4 @@
 ---
-
 title: Browser viewer
 sidebar_position: 4
 description: Use the built-in Linux-friendly simulator viewer.

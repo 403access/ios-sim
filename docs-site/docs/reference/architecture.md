@@ -1,5 +1,4 @@
 ---
-
 title: Architecture
 sidebar_position: 1
 description: Components, data flows, deployment topologies, and trust boundaries.

@@ -54,17 +54,16 @@ Out of scope:
 ## Dependency audit
 
 The runtime dependencies (Fastify, Zod, `ws`, `tar`, Commander) are kept current. The Docusaurus
-documentation toolchain pulls a large webpack/PostCSS dependency tree; `npm audit` may report
+documentation toolchain pulls a large webpack/PostCSS dependency tree; `bun audit` may report
 moderate/low advisories there. Those packages are **build-time only** and are not part of the
 host or CLI runtime.
 
-The root `package.json` uses npm `overrides` for the build chain (`tinypool`,
+The root `package.json` uses Bun `overrides` for the build chain (`tinypool`,
 `serialize-javascript`, `uuid`) to remove known critical/high advisories. Re-run:
 
 ```bash
-npm audit
-npm audit --omit=dev
-npm ls tinypool serialize-javascript uuid
+bun audit
+bun pm ls | grep -E 'tinypool|serialize-javascript|uuid'
 ```
 
 If you deploy the docs site, rebuild it with the current lockfile and review the audit output in

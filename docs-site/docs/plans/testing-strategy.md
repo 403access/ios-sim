@@ -1,5 +1,4 @@
 ---
-
 title: Testing strategy
 sidebar_position: 2
 description: How the bridge is tested on macOS and Linux, what is mocked, and what must be verified against a real simulator.
@@ -18,7 +17,7 @@ flowchart TB
   Manual[Manual smoke: real simulator + browser] --> E2E[macOS integration E2E]
   E2E --> Contract[Protocol contract tests]
   Contract --> Unit[Unit tests: parsers, client, errors]
-  Unit --> Static[Static: typecheck, lint, docs build]
+  Unit --> Static[Static: format, typecheck, docs build]
 ```
 
 | Layer             | What it proves                                      | Runtime            | Speed           |
@@ -34,10 +33,10 @@ flowchart TB
 
 | Environment      | Purpose                               | Requirements                                 |
 | ---------------- | ------------------------------------- | -------------------------------------------- |
-| Developer laptop | Fast unit/contract tests              | Node 22.22+ or 24.x                          |
-| Linux container  | Proves the client is Linux-compatible | Docker/OrbStack, Node image                  |
+| Developer laptop | Fast unit/contract tests              | Bun 1.4.4+                                   |
+| Linux container  | Proves the client is Linux-compatible | Docker/OrbStack, Bun image                   |
 | macOS host       | Real simulator integration            | macOS, Xcode 27+, iOS runtime, booted device |
-| CI Linux runner  | Unit/contract/E2E/docs                | Node, Docker not required for unit           |
+| CI Linux runner  | Unit/contract/E2E/docs                | Bun, Docker not required for unit            |
 | CI macOS runner  | Integration                           | Xcode installed; runtime available           |
 
 The project's CI target is a Linux job on every push and a macOS integration job before release.
@@ -115,13 +114,13 @@ the container. The script:
 3. Asserts JSON output and exit codes.
 4. Verifies that an unauthenticated request fails.
 
-This proves the CLI, protocol client, and Node runtime work on Linux without macOS libraries.
+This proves the CLI, protocol client, and Bun runtime work on Linux without macOS libraries.
 
 The Docker image copies only this repository; there is no Xcode and no Apple binary in it.
 
 ## 7. macOS integration E2E
 
-Gated by `IOS_SIM_MACOS_TESTS=1` so `npm test` remains fast and portable.
+Gated by `IOS_SIM_MACOS_TESTS=1` so `bun run test` remains fast and portable.
 
 Prerequisites:
 
@@ -217,11 +216,11 @@ Do not commit simulator data, tokens, or screenshots containing personal informa
 ## 13. Commands
 
 ```bash
-npm run lint          # Biome
-npm run typecheck     # tsc, all workspaces
-npm test              # unit + contract, any OS
-npm run test:linux    # Docker/OrbStack E2E
-npm run test:macos    # real simulator integration
-npm run docs:build    # Docusaurus, broken-link check
-npm run verify        # all of the above that apply to the host
+bun run format:check   # bun fmt
+bun run typecheck      # tsc, all workspaces
+bun run test           # unit + contract, any OS
+bun run test:linux     # Docker/OrbStack E2E
+bun run test:macos     # real simulator integration
+bun run docs:build     # Docusaurus, broken-link check
+bun run verify         # all of the above that apply to the host
 ```

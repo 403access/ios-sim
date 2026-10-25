@@ -1,5 +1,4 @@
 ---
-
 title: Execution plan
 sidebar_position: 1
 description: Phases, work breakdown, acceptance criteria, risks, and rollout for the remote simulator bridge.
@@ -20,7 +19,7 @@ acceptance gate and a rollback.
 
 1. A developer on Linux can list, boot, view, tap, type into, install to, and read logs from a
    simulator on a Mac without leaving the terminal or browser.
-2. The Linux client has no Apple dependencies and runs in a plain Node.js container.
+2. The Linux client has no Apple dependencies and runs in a plain Bun/Linux container.
 3. The host is the only place that knows about `simctl`, `idb`, Xcode, or macOS.
 4. The contract is typed, versioned, and covered by tests that run on Linux.
 5. The design is honest about private SPI, licensing, and the native-port limit.
@@ -42,7 +41,7 @@ acceptance gate and a rollback.
 | Host backend               | Backend engineer         | `simctl`, `idb`, app upload, logs, errors      |
 | Protocol/client            | Platform engineer        | Schemas, HTTP/WS client, versioning            |
 | CLI/UX                     | Developer-tools engineer | Commands, output, `open`, streaming            |
-| Linux packaging            | DevOps                   | Docker/OrbStack tests, Node support, CI        |
+| Linux packaging            | DevOps                   | Docker/OrbStack tests, Bun support, CI         |
 | Security                   | Security reviewer        | Token, bind rules, threat model, upload limits |
 | Documentation              | Tech writer + engineers  | Research, plans, runbooks, ADRs                |
 | Native research (optional) | Research engineer        | Darling/Metal spike, bounded                   |
@@ -85,12 +84,12 @@ the chosen option passes technical and legal gates.
 
 **Gate G1:**
 
-- [x] `npm test` passes on macOS.
+- [x] `bun run test` passes on macOS.
 - [x] Linux container can `doctor`, list devices, screenshot, and tap against a mock host.
 - [x] macOS integration test captures a real JPEG and resolves display metadata.
 - [x] App upload path installs a bundle (integration test with a fixture app).
 - [x] Unauthorized requests are rejected when a token is configured.
-- [x] `npm run docs:build` succeeds with no broken links.
+- [x] `bun run docs:build` succeeds with no broken links.
 - [x] No Apple binaries are committed.
 
 **Status:** passed on the test machine; CI wiring is part of Phase 2.
@@ -110,7 +109,7 @@ the chosen option passes technical and legal gates.
 | 2.7  | Better errors                                              | Stable error codes documented; no raw stack traces                           |
 | 2.8  | CI matrix                                                  | GitHub Actions: Linux unit/E2E + docs build; macOS integration on a runner   |
 | 2.9  | Observability                                              | Structured logs, request IDs, health details, optional metrics               |
-| 2.10 | Release automation                                         | Versioned npm packages, signed tags, changelog                               |
+| 2.10 | Release automation                                         | Versioned packages, signed tags, changelog                                   |
 
 **Gate G2:** Security review signed off; a 30-minute soak with two clients shows no leak or
 unbounded memory; a Linux user can connect through an SSH tunnel using only the docs.
@@ -200,12 +199,12 @@ A release is acceptable when all of these are true:
 
 | Gate              | Command                   | Runs on               | Required                  |
 | ----------------- | ------------------------- | --------------------- | ------------------------- |
-| Lint/format       | `npm run lint`            | Any                   | Yes                       |
-| Types             | `npm run typecheck`       | Any                   | Yes                       |
-| Unit/contract     | `npm test`                | Any                   | Yes                       |
-| Docs              | `npm run docs:build`      | Any                   | Yes                       |
-| Linux E2E         | `npm run test:linux`      | Linux container       | Yes (CI)                  |
-| macOS integration | `npm run test:macos`      | macOS + Xcode         | Yes before release        |
+| Format            | `bun run format:check`    | Any                   | Yes                       |
+| Types             | `bun run typecheck`       | Any                   | Yes                       |
+| Unit/contract     | `bun run test`            | Any                   | Yes                       |
+| Docs              | `bun run docs:build`      | Any                   | Yes                       |
+| Linux E2E         | `bun run test:linux`      | Linux container       | Yes (CI)                  |
+| macOS integration | `bun run test:macos`      | macOS + Xcode         | Yes before release        |
 | Manual smoke      | `scripts/macos-smoke.sh`  | macOS + booted device | Yes before release        |
 | Security review   | Checklist in threat model | Human                 | Yes before shared hosting |
 
@@ -222,7 +221,7 @@ See [Testing strategy](./testing-strategy.md) for the full matrix and fixtures.
 | R5  | Capture polling saturates host            | Medium     | Medium   | FPS cap, per-device shared loop (Phase 2), backpressure | Host engineer    |
 | R6  | Apple changes `simctl` output             | Medium     | Medium   | Zod parsing, fixtures, integration tests                | Host engineer    |
 | R7  | Licence/hosting issue                     | Medium     | High     | Legal review; no runtime redistribution; document model | Product/legal    |
-| R8  | Linux packaging drift                     | Low        | Medium   | CI container test; Node engines; lockfile               | DevOps           |
+| R8  | Linux packaging drift                     | Low        | Medium   | CI container test; Bun engine; lockfile                 | DevOps           |
 | R9  | Native-port scope creep                   | Medium     | High     | Separate track with kill criteria                       | Engineering lead |
 | R10 | Shared simulator data leaks between users | Medium     | High     | Single-user v0.1; Phase 3 isolation; warning            | Product/security |
 
@@ -248,7 +247,7 @@ See [Testing strategy](./testing-strategy.md) for the full matrix and fixtures.
 
 - **Host:** stop the service (`launchctl bootout` or Ctrl+C). No simulator state is modified by
   the daemon beyond the commands the user issued.
-- **Client:** uninstall the npm package; it stores only `client.json` and optional frames.
+- **Client:** uninstall the Bun package; it stores only `client.json` and optional frames.
 - **Protocol:** `/v1` is additive; clients negotiate features through `/v1/health`. A breaking
   change becomes `/v2` with a deprecation window.
 - **Data:** uploads go to a temp directory and are removed after install; no persistent copy is

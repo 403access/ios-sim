@@ -1,5 +1,4 @@
 ---
-
 title: Threat model
 sidebar_position: 1
 description: Assets, actors, trust boundaries, threats, mitigations, and residual risk.
@@ -29,7 +28,7 @@ loopback or private network with an SSH tunnel).
 | Developer without token | Can reach the port if exposed                             | Untrusted                                                 |
 | Network attacker        | LAN/VPN sniffing, MITM                                    | Untrusted unless TLS/tunnel                               |
 | Malicious app bundle    | Runs in the simulator; may exploit Apple/third-party code | Untrusted input                                           |
-| Malicious dependency    | npm supply chain                                          | Untrusted until reviewed                                  |
+| Malicious dependency    | package supply chain                                      | Untrusted until reviewed                                  |
 | Host operator           | Root/user on the Mac                                      | Trusted, but should be auditable                          |
 
 ## 3. Trust boundaries
@@ -61,7 +60,7 @@ macOS user privileges.
 | **Elevation of privilege** | Upload path traversal / command injection | `execFile` args, temp dir, tar extraction, no shell                         | Apple tool bugs; malicious bundle inside simulator |
 | **CSRF**                   | Browser on another origin calls API       | Bearer token not sent automatically; no permissive CORS; same-origin viewer | Token in URL can be used by anyone who sees it     |
 | **XSS**                    | Viewer renders device names/logs          | `textContent`, no HTML injection; logs are text                             | Browser extensions can read DOM                    |
-| **Supply chain**           | Malicious npm/idb update                  | Lockfile, pinned versions, review, npm audit                                | Upstream compromise                                |
+| **Supply chain**           | Malicious package/idb update              | Lockfile, pinned versions, review, bun audit                                | Upstream compromise                                |
 
 ## 5. Key threats in detail
 
@@ -145,7 +144,7 @@ network.
 - [ ] Host runs as a dedicated user if shared; full-disk access reviewed.
 - [ ] Simulator data classified; retention policy documented.
 - [ ] App uploads restricted to trusted artifacts; size limit reviewed.
-- [ ] `idb`/npm dependencies pinned and reviewed.
+- [ ] `idb`/package dependencies pinned and reviewed.
 - [ ] Logs do not contain tokens; redaction checked.
 - [ ] Incident procedure: stop host, rotate token, review access, notify.
 

@@ -20,3 +20,9 @@ ios-sim-frames/
 
 # Local REA evidence
 rea-evidence/
+
+# Bun owns dependency state; ignore other package managers' lockfiles
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb

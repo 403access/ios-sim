@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && chmod +x dist/bin.js",
-    "dev": "tsx src/bin.ts",
+    "dev": "bun --watch src/bin.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {

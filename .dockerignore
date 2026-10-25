@@ -13,3 +13,8 @@ fixtures/hello-sim/build
 test-results
 *.log
 .DS_Store
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+.nvmrc

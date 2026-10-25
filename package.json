@@ -4,8 +4,9 @@
   "private": true,
   "description": "Control an iOS Simulator running on a Mac from any Linux machine.",
   "type": "module",
+  "packageManager": "bun@1.4.4",
   "engines": {
-    "node": ">=22.22.0"
+    "bun": ">=1.4.4"
   },
   "workspaces": [
     "packages/*",
@@ -13,27 +14,29 @@
     "docs-site"
   ],
   "scripts": {
-    "build": "npm run build -w @ios-sim/protocol && npm run build -w @ios-sim/host && npm run build -w @ios-sim/cli",
-    "dev:host": "npm run dev -w @ios-sim/host",
-    "dev:docs": "npm run start -w docs-site",
-    "docs:build": "npm run build -w docs-site",
+    "build": "bun run --cwd packages/protocol build && bun run --cwd apps/host build && bun run --cwd apps/cli build",
+    "dev:host": "bun run --cwd apps/host dev",
+    "dev:docs": "bun run --cwd docs-site start",
+    "docs:build": "bun run --cwd docs-site build",
+    "ios-sim": "bun apps/cli/dist/bin.js",
+    "ios-sim-host": "bun apps/host/dist/bin.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:macos": "IOS_SIM_MACOS_TESTS=1 vitest run tests/macos",
     "test:linux": "./scripts/test-linux.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "biome check .",
-    "format": "biome format --write .",
-    "check": "npm run lint && npm run typecheck && npm test && npm run docs:build",
+    "format": "bun fmt",
+    "format:check": "bun fmt --check",
+    "check": "bun run format:check && bun run typecheck && bun run test && bun run docs:build",
     "verify": "./scripts/verify.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.7",
     "@types/node": "^24.10.0",
     "@types/ws": "^8.18.1",
-    "tsx": "^4.20.6",
+    "tar": "^7.5.22",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "ws": "^8.18.3"
   },
   "overrides": {
     "serialize-javascript": "^7.1.3",

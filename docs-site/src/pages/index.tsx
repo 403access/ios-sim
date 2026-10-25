@@ -70,7 +70,7 @@ export default function Home(): ReactNode {
           </div>
           <pre>
             <code>{`# on the Mac
-npm run dev:host
+bun run dev:host
 
 # on Linux
 ios-sim connect http://mac.local:7777 --token …

@@ -1,5 +1,4 @@
 ---
-
 title: Prior art
 sidebar_position: 4
 description: Projects that solve adjacent problems, what we reuse, and what we deliberately do not.
@@ -100,7 +99,7 @@ Linux protocol. It confirms the architecture is commercially acceptable.
 1. **Separate control from pixels.** `simctl` is a good control plane; it is not a video codec.
 2. **Make private dependencies optional.** The bridge works view-only without `idb`.
 3. **Use normalized coordinates.** Display scale is a real source of bugs.
-4. **Test the client in Linux, not just on the Mac.** A Node script that imports macOS modules is
+4. **Test the client in Linux, not just on the Mac.** A script that imports macOS modules is
    not a Linux client.
 5. **Write down the legal gate.** Technical feasibility does not imply permission to operate.
 6. **Keep a transport seam.** JPEG today; H.264/WebRTC tomorrow without changing the API shape.

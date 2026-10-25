@@ -1,5 +1,4 @@
 ---
-
 title: References
 sidebar_position: 7
 description: Primary sources, local evidence, and further reading.
@@ -68,7 +67,7 @@ The QEMU page is the source for the "Apple Silicon host / macOS 12 guest" prereq
 | Docusaurus | [docusaurus.io](https://docusaurus.io/)                                                    |
 | Fastify    | [fastify.dev](https://fastify.dev/)                                                        |
 | Zod        | [zod.dev](https://zod.dev/)                                                                |
-| Node.js    | [nodejs.org](https://nodejs.org/)                                                          |
+| Bun        | [bun.com](https://bun.com/)                                                                |
 
 ## Local evidence
 

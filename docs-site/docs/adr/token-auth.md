@@ -1,5 +1,4 @@
 ---
-
 title: "ADR 0005: Token auth, loopback by default, no in-process TLS"
 sidebar_position: 5
 description: The v0.1 security posture and why transport security is delegated.

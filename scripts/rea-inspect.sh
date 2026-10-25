@@ -12,7 +12,7 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 1
 fi
 
-REA=(npx -y rea-agents@latest)
+REA=(bunx rea-agents@latest)
 
 "${REA[@]}" inspect-macho \
   /Applications/Xcode.app/Contents/SharedFrameworks/SimulatorKit.framework/SimulatorKit \

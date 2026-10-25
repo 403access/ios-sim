@@ -1,5 +1,4 @@
 ---
-
 title: Troubleshooting
 sidebar_position: 5
 description: Diagnose host, client, input, streaming, and upload failures.
@@ -53,7 +52,7 @@ Another host is running, or the port is taken:
 
 ```bash
 lsof -nP -iTCP:7777 -sTCP:LISTEN
-node apps/host/dist/bin.js --port 7778
+bun apps/host/dist/bin.js --port 7778
 ```
 
 ### `Refusing --no-auth on a non-loopback bind`
@@ -67,7 +66,7 @@ The host is macOS-only. On Linux, use `--backend mock` for a demo, or run the ho
 ### launchd service cannot find `xcrun`
 
 launchd starts with a minimal `PATH`. Add `/usr/bin` and `/opt/homebrew/bin` to
-`EnvironmentVariables.PATH` in the plist, and use absolute paths for `node`.
+`EnvironmentVariables.PATH` in the plist, and use absolute paths for `bun`.
 
 ## 3. Connection and auth
 
@@ -223,7 +222,7 @@ After updating Xcode/runtime:
 
 1. `xcrun simctl list runtimes` — new runtime registered?
 2. `scripts/macos-smoke.sh` — boot, screenshot, install fixture.
-3. `npm run test:macos` — full integration.
+3. `bun run test:macos` — full integration.
 4. Test tap/text/Home with `idb`; private HID paths are the most likely breakage.
 5. Update the version table in the [host setup](./host-setup.md) and the
    [findings](../research/findings.md).
@@ -233,7 +232,7 @@ After updating Xcode/runtime:
 Include:
 
 - Host macOS, Xcode, runtime, device, bridge version.
-- Client OS, Node version, command.
+- Client OS, Bun version, command.
 - `ios-sim doctor --json` output (redact the token).
 - The exact error code/message.
 - Host log excerpt with the request id if available.

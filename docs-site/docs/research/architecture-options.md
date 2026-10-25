@@ -1,5 +1,4 @@
 ---
-
 title: Architecture options
 sidebar_position: 3
 description: Five ways to give Linux developers an iOS Simulator, with requirements, costs, and blockers.
@@ -136,7 +135,7 @@ This is the architecture implemented in this repository.
 | App install/launch | `simctl install/launch/terminate`  | Public command-line surface                   |
 | Logs               | `simctl spawn … log stream`        | Public command-line surface                   |
 | Transport          | HTTP + WebSocket                   | Standard, testable, no Apple dependency       |
-| Viewer             | Browser / CLI                      | Runs on any Linux with Node or a browser      |
+| Viewer             | Browser / CLI                      | Runs on any Linux with Bun or a browser       |
 
 ### Variants considered
 

@@ -1,5 +1,4 @@
 ---
-
 title: Findings
 sidebar_position: 2
 description: Evidence-based findings on the simulator's architecture, dependencies, Linux porting surface, and measured behaviour.
@@ -111,6 +110,7 @@ the REA session; the facts below are reproducible with the commands in
 | `AccessibilityPlatformTranslation.framework` | Accessibility bridge                       |
 | `libswiftXPC.dylib`                          | Swift XPC bindings                         |
 | `libswiftMetal.dylib`                        | Swift Metal bindings                       |
+
 - Imported symbols include `CGEventCopyIOHIDEvent`, `IOHIDEventSystemClientCreateWithType`,
   `CFMachPortCreateRunLoopSource`, `CGBitmapContext*`, and Metal/QuartzCore entry points. These
   are not portable shims; they are the host event and rendering model.
@@ -301,11 +301,11 @@ find /Library/Developer/CoreSimulator/Volumes -name launchd_sim | head
 xcrun simctl list -j runtimes
 
 # 3. Inspect Mach-O dependencies and imports with REA
-npx -y rea-agents@latest inspect-macho \
+bunx rea-agents@latest inspect-macho \
   /Applications/Xcode.app/Contents/SharedFrameworks/SimulatorKit.framework/SimulatorKit --format json
-npx -y rea-agents@latest inspect-macho \
+bunx rea-agents@latest inspect-macho \
   /Library/Developer/PrivateFrameworks/CoreSimulator.framework/CoreSimulator --format json
-npx -y rea-agents@latest inspect-macho \
+bunx rea-agents@latest inspect-macho \
   "/Library/Developer/CoreSimulator/Volumes/iOS_23E254a/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.4.simruntime/Contents/Resources/RuntimeRoot/sbin/launchd_sim" --format json
 
 # 4. Measure capture and input

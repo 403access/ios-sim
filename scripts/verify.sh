@@ -5,26 +5,26 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-echo "== lint =="
-npm run lint
+echo "== format =="
+bun run format:check
 
 echo "== typecheck =="
-npm run typecheck
+bun run typecheck
 
 echo "== unit + contract =="
-npm test
+bun run test
 
 echo "== docs =="
-npm run docs:build
+bun run docs:build
 
 if [[ "$(uname -s)" == "Darwin" && "${IOS_SIM_MACOS_TESTS:-0}" == "1" ]]; then
   echo "== macOS integration =="
-  npm run test:macos
+  bun run test:macos
 fi
 
 if [[ "${IOS_SIM_LINUX_TESTS:-0}" == "1" ]]; then
   echo "== Linux E2E =="
-  npm run test:linux
+  bun run test:linux
 fi
 
 echo "Verification complete."

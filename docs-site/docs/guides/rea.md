@@ -1,5 +1,4 @@
 ---
-
 title: REA setup and use
 sidebar_position: 6
 description: How REA was installed, how it was used for the Mach-O evidence, and how to reproduce it.
@@ -15,8 +14,9 @@ evidence about the simulator's dependencies without opening a GUI disassembler.
 
 | Item                 | Version / location                                             |
 | -------------------- | -------------------------------------------------------------- |
-| Node.js              | 24.22.1 (REA requires 22.23.4+, 24.22.1+, or 26.12.1+)         |
-| `rea-agents`         | 6.8.0 (via `npx`)                                              |
+| Bun                  | 1.4.4 (runs `bunx`; tested with REA 6.8.0)                     |
+| Node.js (optional)   | 24.22.1 (REA upstream requirement if Bun compatibility fails)  |
+| `rea-agents`         | 6.8.0 (via `bunx`)                                             |
 | MCP registration     | `~/.config/opencode/opencode.jsonc` → `mcp.rea`                |
 | Agent skill          | `~/.agents/skills/reverse-engineer-anything`                   |
 | Static Mach-O engine | Built in; no Hopper/Ghidra required for `inspect-macho`        |
@@ -25,19 +25,17 @@ evidence about the simulator's dependencies without opening a GUI disassembler.
 The setup command used:
 
 ```bash
-nvm install 24.22.1
-nvm use 24.22.1
-npx -y rea-agents@latest setup --yes --client opencode
-npx -y rea-agents@latest doctor --client opencode
+bun --version
+bunx rea-agents@latest setup --yes --client opencode
+bunx rea-agents@latest doctor --client opencode
 ```
 
 `doctor` reported the OpenCode registration healthy. It also reported the optional native
 analysis providers as missing; that is expected and does not block static Mach-O inspection.
 
-:::note Node version
-REA initially refused to register with Node 24.10.0 because it was below the supported patch
-level. Installing 24.22.1 fixed it. If `rea doctor` complains about the runtime, check the
-engine requirements before debugging anything else.
+:::note Runtime
+REA documents Node.js engine requirements. Bun 1.4.4 runs the 6.8.0 CLI used here; if a future
+REA release rejects Bun's Node compatibility, use the Node version REA declares.
 :::
 
 ## 2. MCP configuration
@@ -49,10 +47,10 @@ The setup writes a registration equivalent to:
   "mcp": {
     "rea": {
       "type": "local",
-      "command": ["npx", "-y", "rea-agents@6.8.0", "mcp"],
-      "enabled": true
-    }
-  }
+      "command": ["bunx", "rea-agents@6.8.0", "mcp"],
+      "enabled": true,
+    },
+  },
 }
 ```
 
@@ -64,7 +62,7 @@ Restart the agent after changing MCP configuration. In OpenCode, the REA tools a
 ### Mach-O summary
 
 ```bash
-npx -y rea-agents@latest inspect-macho \
+bunx rea-agents@latest inspect-macho \
   /Applications/Xcode.app/Contents/SharedFrameworks/SimulatorKit.framework/SimulatorKit \
   --format json
 ```
@@ -79,7 +77,7 @@ Use the MCP tool `inspect_analysis_view` with:
 ```jsonc
 {
   "source": { "kind": "retained-evidence", "evidence_id": "ev_…" },
-  "view": { "kind": "macho", "facet": "dependencies", "offset": 0, "limit": 64 }
+  "view": { "kind": "macho", "facet": "dependencies", "offset": 0, "limit": 64 },
 }
 ```
 
@@ -128,22 +126,22 @@ provide keys or licences.
 
 ```bash
 # 1. Confirm the toolchain
-node -v
-npx -y rea-agents@latest doctor
+bun --version
+bunx rea-agents@latest doctor
 
 # 2. Inspect the framework
-npx -y rea-agents@latest inspect-macho \
+bunx rea-agents@latest inspect-macho \
   /Applications/Xcode.app/Contents/SharedFrameworks/SimulatorKit.framework/SimulatorKit \
   --format json > simulator-kit.json
 
 # 3. Inspect the lifecycle service
-npx -y rea-agents@latest inspect-macho \
+bunx rea-agents@latest inspect-macho \
   /Library/Developer/PrivateFrameworks/CoreSimulator.framework/CoreSimulator \
   --format json > core-simulator.json
 
 # 4. Inspect the runtime init
 RUNTIME="/Library/Developer/CoreSimulator/Volumes/iOS_23E254a/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.4.simruntime"
-npx -y rea-agents@latest inspect-macho "$RUNTIME/Contents/Resources/RuntimeRoot/sbin/launchd_sim" \
+bunx rea-agents@latest inspect-macho "$RUNTIME/Contents/Resources/RuntimeRoot/sbin/launchd_sim" \
   --format json > launchd-sim.json
 ```
 

@@ -22,14 +22,16 @@ WebSocket, a Linux-friendly CLI, and a browser viewer.
 
 ## Quickstart
 
+Install [Bun](https://bun.com) 1.4.4+ on both machines.
+
 On the Mac:
 
 ```bash
 git clone https://github.com/403access/ios-sim.git
 cd ios-sim
-npm ci
-npm run build
-node apps/host/dist/bin.js --bind 127.0.0.1
+bun install --frozen-lockfile
+bun run build
+bun apps/host/dist/bin.js --bind 127.0.0.1
 ```
 
 On Linux:
@@ -37,11 +39,11 @@ On Linux:
 ```bash
 git clone https://github.com/403access/ios-sim.git
 cd ios-sim
-npm ci
-npm run build
-node apps/cli/dist/bin.js connect http://127.0.0.1:7777 --token '<token from the host>'
-node apps/cli/dist/bin.js doctor
-node apps/cli/dist/bin.js open
+bun install --frozen-lockfile
+bun run build
+bun apps/cli/dist/bin.js connect http://127.0.0.1:7777 --token '<token from the host>'
+bun apps/cli/dist/bin.js doctor
+bun apps/cli/dist/bin.js open
 ```
 
 With an SSH tunnel, keep the host on loopback:
@@ -80,18 +82,20 @@ tests/macos        real-simulator integration suite
 
 ## Development
 
-Requires Node.js 22.22+ or 24.x. The tested version is 24.22.1 (see `.nvmrc`).
+Requires Bun 1.4.4+. Bun owns dependency installation, scripts, formatting, the CLI, the host,
+and the test/docs toolchain.
 
 ```bash
-npm ci
-npm run build
-npm run lint
-npm run typecheck
-npm test                  # unit + contract, any OS
-npm run test:linux        # Docker/OrbStack Linux E2E
-npm run test:macos        # real simulator (macOS, gated)
-npm run docs:build
-npm run verify            # local full check
+bun install --frozen-lockfile
+bun run build
+bun fmt                 # format everything
+bun run format:check    # CI check
+bun run typecheck
+bun run test            # unit + contract, any OS
+bun run test:linux      # Docker/OrbStack Linux E2E
+bun run test:macos      # real simulator (macOS, gated)
+bun run docs:build
+bun run verify          # local full check
 ```
 
 Input requires `idb` on the host:
@@ -116,7 +120,7 @@ pipx install fb-idb
 Run the site locally:
 
 ```bash
-npm run dev:docs
+bun run dev:docs
 ```
 
 ## Security

@@ -1,5 +1,4 @@
 ---
-
 title: Feasibility matrix
 sidebar_position: 5
 description: Weighted decision matrix, evidence, sensitivity analysis, and the gates each option must pass.

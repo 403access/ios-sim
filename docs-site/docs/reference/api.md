@@ -1,5 +1,4 @@
 ---
-
 title: API reference
 sidebar_position: 2
 description: HTTP and WebSocket endpoints, payloads, errors, and limits.

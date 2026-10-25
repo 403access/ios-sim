@@ -1,5 +1,4 @@
 ---
-
 title: Linux client
 sidebar_position: 3
 description: Install and use the CLI and browser viewer on a Linux workstation or container.
@@ -7,25 +6,23 @@ description: Install and use the CLI and browser viewer on a Linux workstation o
 
 # Linux client
 
-The client is a Node.js CLI plus a browser viewer. It has no Apple dependencies and never loads
-macOS binaries. It talks to the host over HTTP and WebSocket.
+The client is a TypeScript CLI plus a browser viewer. It has no Apple dependencies and never
+loads macOS binaries. It talks to the host over HTTP and WebSocket.
 
 ## 1. Prerequisites
 
 | Component | Requirement                                                |
 | --------- | ---------------------------------------------------------- |
 | OS        | Any modern Linux (x86_64 or arm64)                         |
-| Node.js   | 22.22+ or 24.x                                             |
+| Bun       | 1.4.4+                                                     |
 | Network   | Reachability to the host, preferably through an SSH tunnel |
 | Browser   | Any Chromium/Firefox/Safari for the viewer                 |
 
-Install Node with your distribution, `nvm`, or `fnm`:
+Install Bun:
 
 ```bash
-# Example: nvm
-nvm install 24.22.1
-nvm use 24.22.1
-node -v
+curl -fsSL https://bun.com/install | bash
+bun --version
 ```
 
 ## 2. Install the CLI
@@ -35,17 +32,19 @@ The packages are currently workspace-private. Clone and build:
 ```bash
 git clone https://github.com/403access/ios-sim.git
 cd ios-sim
-npm ci
-npm run build
+bun install --frozen-lockfile
+bun run build
 
 # Put `ios-sim` on PATH for this user
-npm link -w @ios-sim/cli
+cd apps/cli
+bun link
+cd ../..
 ios-sim --version
 ```
 
-Without linking, use `node apps/cli/dist/bin.js` in place of `ios-sim` in every command.
+Without linking, use `bun apps/cli/dist/bin.js` in place of `ios-sim` in every command.
 
-When the packages are published, this becomes `npm install -g @ios-sim/cli` (planned; see the
+When the packages are published, this becomes `bun add -g @ios-sim/cli` (planned; see the
 [roadmap](../plans/roadmap.md)).
 
 ## 3. Connect

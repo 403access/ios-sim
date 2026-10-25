@@ -51,7 +51,7 @@ const sidebars: SidebarsConfig = {
       label: "Decisions",
       items: [
         "adr/remote-mac-bridge",
-        "adr/typescript-node",
+        "adr/typescript-bun",
         "adr/simctl-and-idb",
         "adr/jpeg-websocket-stream",
         "adr/token-auth",

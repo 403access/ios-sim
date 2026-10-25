@@ -1,5 +1,4 @@
 ---
-
 title: Legal and licensing
 sidebar_position: 6
 description: The non-technical constraints that shape what this project may ship and host.
@@ -85,15 +84,15 @@ build a compatibility layer, involve counsel early.
 
 ## 6. Third-party licences
 
-| Dependency                                                | Licence                | Notes                                         |
-| --------------------------------------------------------- | ---------------------- | --------------------------------------------- |
-| Node.js, TypeScript, Fastify, Zod, Commander, `ws`, `tar` | MIT / ISC / Apache-2.0 | Permissive; keep notices                      |
-| `idb` / `idb_companion`                                   | MIT                    | Optional host dependency, not bundled         |
-| Docusaurus, React                                         | MIT                    | Documentation site only                       |
-| REA                                                       | MIT                    | Development tooling, not a runtime dependency |
-| Apple frameworks                                          | Proprietary            | Not redistributed; used on the licensed host  |
+| Dependency                                            | Licence                | Notes                                         |
+| ----------------------------------------------------- | ---------------------- | --------------------------------------------- |
+| Bun, TypeScript, Fastify, Zod, Commander, `ws`, `tar` | MIT / ISC / Apache-2.0 | Permissive; keep notices                      |
+| `idb` / `idb_companion`                               | MIT                    | Optional host dependency, not bundled         |
+| Docusaurus, React                                     | MIT                    | Documentation site only                       |
+| REA                                                   | MIT                    | Development tooling, not a runtime dependency |
+| Apple frameworks                                      | Proprietary            | Not redistributed; used on the licensed host  |
 
-Run `npm ls --all` and your organisation's licence scanner before distributing binaries.
+Run `bun pm ls --all` and your organisation's licence scanner before distributing binaries.
 
 ## 7. Security and privacy obligations
 

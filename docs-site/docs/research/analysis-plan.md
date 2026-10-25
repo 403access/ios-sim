@@ -1,5 +1,4 @@
 ---
-
 title: Analysis plan
 sidebar_position: 1
 description: The research questions, hypotheses, evidence standards, and decision gates used to choose an architecture.
@@ -127,12 +126,12 @@ provenance and explicit limitations instead of a screenshot of a GUI.
 | Video                     | `xcrun simctl io booted recordVideo`                   | Whether a built-in streaming source exists            |
 | Process model             | `ps`, `launchctl`, runtime root inspection             | Where `launchd_sim` and apps actually run             |
 | Latency                   | repeated timed captures and taps                       | Whether polling capture is usable                     |
-| Linux client              | Node client in an OrbStack Linux container             | That the client is genuinely Linux-compatible         |
+| Linux client              | Bun client in an OrbStack Linux container              | That the client is genuinely Linux-compatible         |
 
 ### 5.4 Linux validation
 
 The client must run in a real Linux userland, not just "should work". The validation unit is a
-container built from `node:24-bookworm-slim`, run by OrbStack's Docker engine on the Mac. The
+container built from `oven/bun:1.4.4`, run by OrbStack's Docker engine on the Mac. The
 container gets no macOS binaries and no Xcode; it talks to the host daemon over TCP. A second
 path uses an OrbStack Linux machine for SSH-tunnel testing.
 

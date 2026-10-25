@@ -1,5 +1,4 @@
 ---
-
 title: Host setup
 sidebar_position: 2
 description: Prepare a Mac to run the simulator bridge safely and reliably.
@@ -12,14 +11,14 @@ appliance: install deliberately, expose it minimally, and keep it updated.
 
 ## 1. Prerequisites
 
-| Component       | Version used here   | Notes                                     |
-| --------------- | ------------------- | ----------------------------------------- |
-| macOS           | 27.0.1 (26A434)     | Apple Silicon recommended                 |
-| Xcode           | 27.1 (27A9275)      | Full Xcode, not only Command Line Tools   |
-| iOS runtime     | 18.4 / 18.5 / 26.4  | Install via Xcode Settings → Components   |
-| Node.js         | 24.22.1 (or 22.22+) | Runtime for host and CLI                  |
-| `idb_companion` | 1.7.7               | Optional; required for input              |
-| `fb-idb`        | 1.7.7               | Optional; Python CLI, install with `pipx` |
+| Component       | Version used here  | Notes                                     |
+| --------------- | ------------------ | ----------------------------------------- |
+| macOS           | 27.0.1 (26A434)    | Apple Silicon recommended                 |
+| Xcode           | 27.1 (27A9275)     | Full Xcode, not only Command Line Tools   |
+| iOS runtime     | 18.4 / 18.5 / 26.4 | Install via Xcode Settings → Components   |
+| Bun             | 1.4.4+             | Runtime, package manager, and formatter   |
+| `idb_companion` | 1.7.7              | Optional; required for input              |
+| `fb-idb`        | 1.7.7              | Optional; Python CLI, install with `pipx` |
 
 ## 2. Verify Xcode and the simulator
 
@@ -83,9 +82,9 @@ not part of the protocol's guarantees.
 ```bash
 git clone https://github.com/403access/ios-sim.git
 cd ios-sim
-npm ci
-npm run build
-node apps/host/dist/bin.js --bind 127.0.0.1
+bun install --frozen-lockfile
+bun run build
+bun apps/host/dist/bin.js --bind 127.0.0.1
 ```
 
 Options:
@@ -116,7 +115,7 @@ Create `~/Library/LaunchAgents/dev.ios-sim.host.plist` (adjust paths and user):
   <string>dev.ios-sim.host</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/local/bin/node</string>
+    <string>/Users/you/.bun/bin/bun</string>
     <string>/Users/you/ios-sim/apps/host/dist/bin.js</string>
     <string>--bind</string>
     <string>127.0.0.1</string>
@@ -124,7 +123,7 @@ Create `~/Library/LaunchAgents/dev.ios-sim.host.plist` (adjust paths and user):
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <string>/Users/you/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
@@ -165,7 +164,7 @@ This avoids opening a port and keeps the token inside the tunnel.
 ### LAN with a token
 
 ```bash
-node apps/host/dist/bin.js --bind 0.0.0.0
+bun apps/host/dist/bin.js --bind 0.0.0.0
 ```
 
 Then:
@@ -191,12 +190,12 @@ streams. Do not disable the token just because TLS is present.
 
 ## 7. Updates
 
-| Component       | Update                                              | Re-test                                        |
-| --------------- | --------------------------------------------------- | ---------------------------------------------- |
-| Xcode / runtime | App Store / Xcode Settings                          | `npm run test:macos`, `scripts/macos-smoke.sh` |
-| `idb`           | `brew upgrade idb-companion`, `pipx upgrade fb-idb` | tap/text/button                                |
-| Node            | `nvm install` / package manager                     | `npm test`, Linux E2E                          |
-| Bridge          | `git pull && npm ci && npm run build`               | `doctor`, smoke                                |
+| Component       | Update                                                       | Re-test                                        |
+| --------------- | ------------------------------------------------------------ | ---------------------------------------------- |
+| Xcode / runtime | App Store / Xcode Settings                                   | `bun run test:macos`, `scripts/macos-smoke.sh` |
+| `idb`           | `brew upgrade idb-companion`, `pipx upgrade fb-idb`          | tap/text/button                                |
+| Bun             | `bun upgrade`                                                | `bun run test`, Linux E2E                      |
+| Bridge          | `git pull && bun install --frozen-lockfile && bun run build` | `doctor`, smoke                                |
 
 Record versions in the host runbook. Private SPI breaks silently; a quick tap test after every
 Xcode update is cheaper than debugging a user report.
@@ -215,7 +214,7 @@ Xcode update is cheaper than debugging a user report.
 
 - [ ] Xcode and an iOS runtime installed; `simctl` works.
 - [ ] A device can boot and screenshot.
-- [ ] Node 22.22+/24.x installed; repo built.
+- [ ] Bun 1.4.4+ installed; repo built.
 - [ ] `idb` installed if input is required; `idb ui tap` works.
 - [ ] Token stored with `0600`; no token in shell history/scripts.
 - [ ] Bind is loopback or a private interface.

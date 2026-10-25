@@ -1,5 +1,4 @@
 ---
-
 title: CLI reference
 sidebar_position: 3
 description: Commands, options, environment variables, and output formats.
@@ -259,7 +258,7 @@ ios-sim --device "$UDID" tap 0.5 0.5 --unit normalized
 
 ```bash
 # On any OS
-node apps/host/dist/bin.js --backend mock --port 7777
+bun apps/host/dist/bin.js --backend mock --port 7777
 ios-sim --url http://127.0.0.1:7777 doctor
 ios-sim --url http://127.0.0.1:7777 tap 0.5 0.5 --unit normalized
 ```

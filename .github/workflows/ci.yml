@@ -15,17 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24.22.1
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run docs:build
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run format:check
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run docs:build
 
   linux-e2e:
     name: Linux container E2E
@@ -40,17 +37,16 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24.22.1
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun run test
       - name: Show simulator environment
         run: |
           xcodebuild -version
           xcrun simctl list runtimes || true
       # Real-simulator integration is run manually or on a dedicated macOS host:
-      #   IOS_SIM_MACOS_TESTS=1 npm run test:macos
+      #   IOS_SIM_MACOS_TESTS=1 bun run test:macos
       # Runners do not reliably have a booted iOS 26.x runtime.
