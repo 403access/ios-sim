@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.gitignore
+docs-site/build
+docs-site/.docusaurus
+coverage
+artifacts
+ios-sim-frames
+fixtures/hello-sim/build
+test-results
+*.log
+.DS_Store

@@ -1,0 +1,22 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+
+# Docusaurus
+docs-site/.docusaurus/
+docs-site/build/
+
+# Local runtime state
+.ios-sim/
+*.log
+
+# Test output
+test-results/
+fixtures/hello-sim/build/
+artifacts/
+ios-sim-frames/
+
+# Local REA evidence
+rea-evidence/

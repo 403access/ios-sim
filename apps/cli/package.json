@@ -1,0 +1,22 @@
+{
+  "name": "@ios-sim/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Linux-friendly CLI client for a remote iOS Simulator host.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "ios-sim": "./dist/bin.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && chmod +x dist/bin.js",
+    "dev": "tsx src/bin.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ios-sim/protocol": "0.1.0",
+    "commander": "^14.0.2",
+    "tar": "^7.5.1",
+    "ws": "^8.18.3"
+  }
+}

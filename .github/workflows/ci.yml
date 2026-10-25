@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux unit, contract, docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.1
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run docs:build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+  linux-e2e:
+    name: Linux container E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f infra/linux/Dockerfile -t ios-sim-linux-test .
+      - run: docker run --rm ios-sim-linux-test
+
+  macos:
+    name: macOS unit, contract, build
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.1
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: Show simulator environment
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes || true
+      # Real-simulator integration is run manually or on a dedicated macOS host:
+      #   IOS_SIM_MACOS_TESTS=1 npm run test:macos
+      # Runners do not reliably have a booted iOS 26.x runtime.

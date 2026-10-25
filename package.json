@@ -1,0 +1,43 @@
+{
+  "name": "ios-sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Control an iOS Simulator running on a Mac from any Linux machine.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "docs-site"
+  ],
+  "scripts": {
+    "build": "npm run build -w @ios-sim/protocol && npm run build -w @ios-sim/host && npm run build -w @ios-sim/cli",
+    "dev:host": "npm run dev -w @ios-sim/host",
+    "dev:docs": "npm run start -w docs-site",
+    "docs:build": "npm run build -w docs-site",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:macos": "IOS_SIM_MACOS_TESTS=1 vitest run tests/macos",
+    "test:linux": "./scripts/test-linux.sh",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "npm run lint && npm run typecheck && npm test && npm run docs:build",
+    "verify": "./scripts/verify.sh"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.7",
+    "@types/node": "^24.10.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.1.3",
+    "tinypool": "^2.1.1",
+    "uuid": "^11.1.1"
+  }
+}

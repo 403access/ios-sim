@@ -1,0 +1,30 @@
+:root {
+  --ifm-color-primary: #6ea8fe;
+  --ifm-color-primary-dark: #4d92fd;
+  --ifm-color-primary-darker: #3c87fd;
+  --ifm-color-primary-darkest: #0b62f7;
+  --ifm-color-primary-light: #8fbfff;
+  --ifm-color-primary-lighter: #a0caff;
+  --ifm-color-primary-lightest: #d1e3ff;
+  --ifm-background-color: #0b0d12;
+  --ifm-background-surface-color: #151922;
+  --ifm-navbar-background-color: #11151d;
+  --ifm-footer-background-color: #0f131b;
+  --ifm-code-font-size: 92%;
+  --docusaurus-highlighted-code-line-bg: rgba(110, 168, 254, 0.18);
+}
+
+[data-theme="light"] {
+  --ifm-color-primary: #1a5fd0;
+  --ifm-background-color: #ffffff;
+}
+
+article img {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+}
+
+table {
+  display: table;
+  width: 100%;
+}
