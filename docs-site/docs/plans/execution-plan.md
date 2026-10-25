@@ -145,6 +145,27 @@ committing the product.
 **Gate G4:** A written go/no-go with evidence. Default answer is "no"; the burden of proof is on
 the spike.
 
+#### Phase 4a — substrate (implemented on branch `option-a-native-darwin`)
+
+This branch does not claim Gate G4. It implements the foundation the spikes would need, so the
+next spike starts from executable code instead of a diagram:
+
+| Deliverable                                 | Evidence                                       |
+| ------------------------------------------- | ---------------------------------------------- |
+| Mach-O parser, chained fixups, export tries | `packages/darwin-compat/src/macho`, unit tests |
+| User-space dyld, slides, binds/rebases      | `src/dyld`, cross-image integration test       |
+| AArch64 integer interpreter                 | `src/arm64`, instruction/flag/memory tests     |
+| Mach ports, rights, bootstrap services      | `src/mach`, message/reply/service tests        |
+| XPC-style RPC and MIG-lite                  | `src/xpc`, `src/mach/mig.ts`                   |
+| Jailed Darwin syscalls                      | `src/syscall`, open/read/mmap/escape tests     |
+| launchd-style jobs                          | `src/launchd`, plist/RunAtLoad/KeepAlive tests |
+| CLI + generated fixtures                    | `apps/native`, `ios-sim-native demo`           |
+| Real clang Mach-O smoke                     | `scripts/build-native-fixtures.sh`, gated test |
+
+**Still open:** threads/blocking receive, shared cache, legacy dyld bindings, Apple runtime ABI,
+Metal/IOSurface, UIKit/AppKit, code signing/TCC, CoreSimulator, SpringBoard. The
+[native roadmap](../native/roadmap.md) orders them and defines the gates.
+
 ## 4. Work breakdown and estimates
 
 Estimates are engineer-weeks for one experienced engineer, with confidence ranges.

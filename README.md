@@ -9,6 +9,14 @@ Linux without reimplementing a large part of Darwin. This repository documents t
 ships the practical alternative: a macOS host daemon that exposes CoreSimulator over HTTP and
 WebSocket, a Linux-friendly CLI, and a browser viewer.
 
+> **This branch (`option-a-native-darwin`) implements Option A.** It contains a real, tested
+> user-space Darwin substrate: Mach-O loader, chained fixups, AArch64 interpreter, Mach ports,
+> XPC-style RPC, jailed syscalls, and launchd-style jobs. It executes generated arm64 Mach-O
+> programs and a real `clang`-built fixture. It does **not** run the iOS Simulator, CoreSimulator,
+> UIKit, or Metal. See the [native track overview](docs-site/docs/native/overview.md) and
+> [limitations](docs-site/docs/native/limitations.md). The remote bridge remains the shipping
+> workflow on `main`.
+
 ## What you get
 
 - **Host (macOS):** device lifecycle, screenshots, app upload/install, launch/terminate, logs,
@@ -19,6 +27,8 @@ WebSocket, a Linux-friendly CLI, and a browser viewer.
   runbooks. Built with Docusaurus.
 - **Tests:** unit/contract tests on any OS, Linux container E2E, gated macOS integration with a
   real simulator and a fixture UIKit app.
+- **Native research track (this branch):** `packages/darwin-compat` and `apps/native`, with
+  per-layer tests, generated Mach-O fixtures, and a real-clang smoke test.
 
 ## Quickstart
 
@@ -54,15 +64,44 @@ ssh -N -L 7777:127.0.0.1:7777 you@mac-host
 
 See the [quickstart](https://403access.github.io/ios-sim/docs/guides/quickstart) for details.
 
-## Why not native?
+## Native track (Option A)
 
-| Option                            | Result                                                                                 |
-| --------------------------------- | -------------------------------------------------------------------------------------- |
-| Native Darwin compatibility layer | Years of Mach/XPC/launchd/Metal/framework work; no current-runtime path                |
-| macOS VM on ARM64 Linux           | QEMU `vmapple` needs an Apple Silicon/macOS host and a macOS 12 guest; licence blocked |
-| **Remote Mac bridge**             | **Works today; implemented here**                                                      |
-| Commercial device cloud           | Viable buy option, not the reference implementation                                    |
-| Physical devices                  | Different fidelity; complementary                                                      |
+This branch does more than document the native option. It implements the first layers and runs
+programs:
+
+```bash
+bun install --frozen-lockfile
+bun run --cwd packages/darwin-compat build
+
+bun apps/native/src/bin.ts doctor
+bun apps/native/src/bin.ts demo                 # generated arm64 Mach-O, exit 42
+bun apps/native/src/bin.ts inspect <macho>      # segments, imports, fixups, exports
+bun apps/native/src/bin.ts run <macho>          # jailed, budgeted execution
+bun apps/native/src/bin.ts launchd <plist>      # launchd-style jobs
+
+# optional: build a real Mach-O from our assembly with Xcode clang
+./scripts/build-native-fixtures.sh
+```
+
+Implemented: Mach-O parsing and chained fixups, user-space dyld with slides and dependency
+linking, an AArch64 integer interpreter, Mach rights/messages/reply ports/bootstrap services,
+MIG-lite, an XPC-style codec, a Darwin syscall subset, and launchd-style plists.
+
+Not implemented: threads/blocking Mach receive, legacy dyld bindings, the shared cache,
+Objective-C/Swift/Foundation, Metal/IOSurface/QuartzCore, UIKit/AppKit, code signing, TCC,
+`launchd_sim`, CoreSimulator, SpringBoard, and APFS images. It cannot run the simulator or an
+Apple app. The [roadmap](docs-site/docs/native/roadmap.md) sequences the remaining multi-year
+work with kill criteria.
+
+## Why not native as the shipping product?
+
+| Option                            | Result                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Native Darwin compatibility layer | Foundations implemented on this branch; threads/Metal/frameworks/CoreSimulator remain blockers |
+| macOS VM on ARM64 Linux           | QEMU `vmapple` needs an Apple Silicon/macOS host and a macOS 12 guest; licence blocked         |
+| **Remote Mac bridge**             | **Works today; implemented here**                                                              |
+| Commercial device cloud           | Viable buy option, not the reference implementation                                            |
+| Physical devices                  | Different fidelity; complementary                                                              |
 
 The evidence (including Mach-O dependencies collected with [REA](https://github.com/morluto/rea))
 is in the [findings](docs-site/docs/research/findings.md).
@@ -72,12 +111,15 @@ is in the [findings](docs-site/docs/research/findings.md).
 ```text
 apps/host          macOS daemon (Fastify, simctl, idb)
 apps/cli           ios-sim CLI
+apps/native        ios-sim-native CLI for the Option A research track
 packages/protocol  Zod schemas + typed client
+packages/darwin-compat  Mach-O, dyld, arm64, Mach, XPC, syscalls, launchd
 docs-site          Docusaurus research, plans, guides, ADRs
 scripts            E2E, smoke, measurement, REA evidence
 infra              Linux test image, OrbStack/QEMU notes
-fixtures           minimal UIKit app for integration tests
+fixtures           UIKit app for integration tests; clang Mach-O fixture source
 tests/macos        real-simulator integration suite
+tests/native       optional real-clang Mach-O integration (skips with a reason)
 ```
 
 ## Development
@@ -94,6 +136,8 @@ bun run typecheck
 bun run test            # unit + contract, any OS
 bun run test:linux      # Docker/OrbStack Linux E2E
 bun run test:macos      # real simulator (macOS, gated)
+bun run test:native     # native substrate tests only
+bun run native          # build and run the native CLI
 bun run docs:build
 bun run verify          # local full check
 ```
@@ -112,6 +156,10 @@ pipx install fb-idb
 - [Analysis plan](docs-site/docs/research/analysis-plan.md)
 - [Findings](docs-site/docs/research/findings.md)
 - [Architecture options](docs-site/docs/research/architecture-options.md)
+- [Native track overview](docs-site/docs/native/overview.md)
+- [Native architecture](docs-site/docs/native/architecture.md)
+- [Native ABI](docs-site/docs/native/abi.md)
+- [Native limitations](docs-site/docs/native/limitations.md)
 - [Feasibility matrix](docs-site/docs/research/feasibility-matrix.md)
 - [Execution plan](docs-site/docs/plans/execution-plan.md)
 - [Testing strategy](docs-site/docs/plans/testing-strategy.md)

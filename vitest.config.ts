@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@ios-sim/protocol": fromRoot("./packages/protocol/src/index.ts"),
+      "@ios-sim/darwin-compat": fromRoot("./packages/darwin-compat/src/index.ts"),
       "@ios-sim/host": fromRoot("./apps/host/src/index.ts"),
     },
   },

@@ -41,6 +41,14 @@ flowchart LR
 
 ## Option A: native Darwin compatibility layer
 
+:::info Selected for implementation on this branch
+Branch `option-a-native-darwin` chooses Option A and implements its foundational user-space
+layers. It still does **not** run the iOS Simulator. See the
+[native track overview](../native/overview.md),
+[limitations](../native/limitations.md), and [ADR 0006](../adr/native-research-track.md) for the
+executable evidence and the remaining gates. Option C remains the shipping workflow on `main`.
+:::
+
 **Idea:** Reimplement enough of Darwin and Apple's frameworks on Linux to run the simulator's
 user-space processes natively.
 
@@ -71,15 +79,34 @@ expensive by orders of magnitude.
 | GNUstep / libobjc2                              | Objective-C runtime and AppKit-like toolkit                                                                  | Apple ABI/SPI, UIKit, Metal                                                  |
 | Swift on Linux                                  | Swift compiler/runtime and corelibs                                                                          | Apple frameworks and simulator services                                      |
 
-### Why it is not the project
+### What this branch implements
+
+The branch does not stop at a diagram. It implements and tests the substrate:
+
+| Layer            | Implemented on this branch                                                         |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| Loader           | Mach-O 64/fat parsing, chained fixups, export tries, user-space dyld, slides       |
+| Execution        | AArch64 integer interpreter with syscall traps and instruction/deadline budgets    |
+| Kernel interface | User-space Mach ports, rights, messages, reply ports, bootstrap registry, MIG-lite |
+| IPC              | XPC-style typed codec and request/reply over Mach                                  |
+| Process model    | Sparse 64-bit VM, launchd-style plist jobs, MachServices, bounded KeepAlive        |
+| Syscalls         | Darwin BSD subset with a jailed file layer and mmap                                |
+| Evidence         | Generated fixtures plus a real `clang`-built arm64 Mach-O smoke test               |
+
+It does **not** implement threads, the shared cache, Objective-C/Swift/Foundation, Metal,
+IOSurface, UIKit/AppKit, code signing, TCC, `launchd_sim`, CoreSimulator, or SpringBoard.
+The [roadmap](../native/roadmap.md) sequences those gates.
+
+### Why it is still not the shipping product
 
 The simulator's private frameworks call Apple APIs directly. A compatibility layer must satisfy
-those calls well enough for SpringBoard to boot, render, and accept touches. That is a
-multi-year systems effort with an uncertain endpoint, and it is sensitive to every Xcode release.
-It is a legitimate research programme, not a deliverable for a team that needs a workflow this
-quarter.
+those calls well enough for SpringBoard to boot, render, and accept touches. The implemented
+substrate proves the first layers are tractable; it does not shorten the multi-year work that
+remains, and it is sensitive to every Xcode release. The remote bridge is still the answer for a
+team that needs a workflow this quarter.
 
-**Verdict:** Rejected for v0.1. Keep as an explicit research track with kill criteria.
+**Verdict:** Selected for the research implementation on this branch, with explicit kill criteria.
+Not a v0.1 product. The shipping decision on `main` remains Option C.
 
 ## Option B: macOS VM on ARM64 Linux
 
@@ -207,15 +234,22 @@ score and the sensitivity analysis.
 
 ## Decision
 
-Adopt **Option C**, the remote Mac bridge, with these boundaries:
+**On this branch:** adopt **Option A** as the implementation target. The native track is
+delivered as a layered user-space substrate with tests, documentation, and an ABI. It is
+deliberately honest about the fact that it cannot boot the simulator yet.
 
-1. The simulator remains on macOS. No Apple runtime is redistributed.
-2. The Linux client has no Apple dependencies; it speaks HTTP/WebSocket.
-3. `simctl` and `idb` are adapters, not architecture. They can be replaced without changing the
-   client contract.
-4. v0.1 is single-host, token-authenticated, and intended for loopback, LAN, or SSH tunnels.
-5. Native-port research is kept as a separate track with explicit kill criteria, not mixed into
-   the product roadmap.
+Boundaries for the native track:
+
+1. No Apple binaries, SDKs, runtimes, shared caches, or firmware are committed or redistributed.
+2. Every layer must be testable without a Mac; macOS-only checks are gated and print why.
+3. Unsupported instructions, bindings, syscalls, and pointer formats fail with stable codes.
+4. The substrate is not a sandbox for untrusted code; file access is jailed and execution is
+   bounded, but the host remains in the trust boundary.
+5. The shipping product on `main` remains the remote Mac bridge (Option C) until the native
+   [gates](../native/limitations.md#kill-criteria) pass.
+
+**On `main`:** the original decision in ADR 0001 is unchanged. This branch is an experiment with
+real code, not a claim that the experiment is finished.
 
 ## Revisit triggers
 

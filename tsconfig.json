@@ -4,7 +4,8 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@ios-sim/protocol": ["packages/protocol/src/index.ts"]
+      "@ios-sim/protocol": ["packages/protocol/src/index.ts"],
+      "@ios-sim/darwin-compat": ["packages/darwin-compat/src/index.ts"]
     }
   },
   "include": ["packages/*/src/**/*.ts", "apps/*/src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]

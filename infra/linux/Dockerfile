@@ -13,8 +13,10 @@ WORKDIR /app
 # Copy manifests first so dependency installation is cached.
 COPY package.json bun.lock ./
 COPY packages/protocol/package.json packages/protocol/package.json
+COPY packages/darwin-compat/package.json packages/darwin-compat/package.json
 COPY apps/host/package.json apps/host/package.json
 COPY apps/cli/package.json apps/cli/package.json
+COPY apps/native/package.json apps/native/package.json
 COPY docs-site/package.json docs-site/package.json
 RUN bun install --frozen-lockfile
 

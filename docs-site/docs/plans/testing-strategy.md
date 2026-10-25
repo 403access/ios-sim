@@ -224,3 +224,37 @@ bun run test:macos     # real simulator integration
 bun run docs:build     # Docusaurus, broken-link check
 bun run verify         # all of the above that apply to the host
 ```
+
+## 14. Native track tests
+
+The Option A substrate has its own pyramid. Every layer is testable without a Mac; the only
+macOS-only check compiles a real Mach-O and prints its skip reason elsewhere.
+
+| Layer      | Test file(s)                       | What is proved                                             |
+| ---------- | ---------------------------------- | ---------------------------------------------------------- |
+| Mach-O     | `src/macho/parse.test.ts`          | valid/truncated/fat images, chained fixups, symbols, tries |
+| AArch64    | `src/arm64/cpu.test.ts`            | arithmetic, flags, branches, memory, calls, syscall traps  |
+| Mach       | `src/mach/kernel.test.ts`          | rights, replies, queue depth, services, MIG calls          |
+| XPC        | `src/xpc/xpc.test.ts`              | codec limits, request/reply, handler errors, timeouts      |
+| Syscalls   | `src/syscall/kernel.test.ts`       | jailing, file I/O, mmap, time, pid, strict/lenient errors  |
+| Plist      | `src/plist/plist.test.ts`          | all types, entities, duplicates, unsafe keys, depth        |
+| launchd    | `src/launchd/launchd.test.ts`      | parsing, services, RunAtLoad, KeepAlive, duplicate labels  |
+| dyld + CPU | `src/dyld/loader.test.ts`          | generated entry, cross-image bind, Mach ping, missing deps |
+| CLI        | `apps/native/src/cli.test.ts`      | doctor/inspect/run/demo/help/error paths                   |
+| Real clang | `tests/native/macos-clang.test.ts` | a clang-produced arm64 Mach-O runs end-to-end              |
+
+Generated fixtures are built from the repository's own A64 encoder and Mach-O writer. No Apple
+binary is committed. The optional clang fixture is compiled into a temporary directory from
+`fixtures/darwin-hello/hello.s`; on Linux the test is skipped with a printed reason.
+
+Commands:
+
+```bash
+bun run test:native
+bun run --cwd packages/darwin-compat build
+bun apps/native/src/bin.ts demo
+./scripts/build-native-fixtures.sh   # macOS + clang; runs the smoke test
+```
+
+Native tests enforce the same discipline as the bridge: deterministic, no sleeps, stable error
+codes, and explicit skips rather than hidden failures.

@@ -23,11 +23,14 @@ This repository is a research-backed reference implementation. Keep it honest an
 ## Layout
 
 - `packages/protocol` — Zod schemas, typed client, shared constants.
+- `packages/darwin-compat` — Option A research substrate: Mach-O/dyld, arm64, Mach, XPC, syscalls, launchd.
 - `apps/host` — macOS daemon; `simctl`/`idb` adapters; embedded viewer.
 - `apps/cli` — `ios-sim` commands, coordinate conversion, output.
+- `apps/native` — `ios-sim-native` CLI for the Option A research track.
 - `docs-site` — Docusaurus; research and plans live here.
 - `scripts` — verify, Linux E2E, macOS smoke/measure, fixture build, REA evidence.
 - `tests/macos` — gated real-simulator integration.
+- `tests/native` — gated real-clang Mach-O integration; must print its skip reason.
 
 ## Commands
 
@@ -39,6 +42,7 @@ bun run typecheck
 bun run test
 bun run test:linux
 bun run test:macos
+bun run test:native
 bun run docs:build
 bun run verify
 ```
@@ -58,7 +62,9 @@ Bun 1.4.4 is the tested version. `bun install --frozen-lockfile` is the supporte
 
 ## Things not to do
 
-- Do not implement a native simulator port or claim one works.
+- Do not implement a native simulator port or claim one works. The Option A research track may
+  implement documented user-space substrate layers (see `docs-site/docs/native/`), but it must
+  state the remaining blockers and must never imply the simulator boots.
 - Do not reimplement Indigo HID; use `idb` behind the adapter.
 - Do not enable CORS, disable auth, or bind `0.0.0.0` by default.
 - Do not run shell commands with interpolated user input; use argument arrays.

@@ -24,6 +24,10 @@ This repository does three things instead of pretending otherwise:
    that exposes `simctl` + `idb` over an authenticated HTTP/WebSocket API, a Linux-friendly CLI,
    and a browser viewer. The simulator still runs on a Mac; the Linux machine gets the pixels,
    input, apps, and logs.
+4. **Implements the foundation of Option A on this branch**: Mach-O/dyld, an AArch64
+   interpreter, Mach ports, XPC-style RPC, jailed syscalls, and launchd-style jobs. It runs
+   generated and real-clang Mach-O programs, but it still cannot run the simulator. The
+   [native track](./native/overview.md) documents exactly where that line is.
 
 :::tip The one-sentence architecture
 Keep the iOS Simulator on macOS where Apple supports it; move the developer's _interaction_ to
@@ -47,13 +51,13 @@ dependency and import data collected with [REA](https://github.com/morluto/rea).
 
 ## The options at a glance
 
-| Option                               | What it really is                                                      | Verdict                                          |
-| ------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------ |
-| A. Native Darwin compatibility layer | Reimplement Mach/XPC/launchd/Metal/frameworks on Linux (Darling-style) | Research project, not a product; years of work   |
-| B. macOS VM on ARM64 Linux           | Boot macOS under QEMU/other hypervisor, run Xcode inside               | Blocked by hardware/guest support and licensing  |
-| **C. Remote Mac bridge**             | macOS host runs the simulator; Linux streams and controls it           | **Recommended and implemented here**             |
-| D. Commercial device cloud           | Corellium, BrowserStack, Sauce Labs, AWS, MacStadium                   | Buy instead of build; useful fallback            |
-| E. Physical device farm              | Real iPhones over USB/network                                          | Best fidelity, worst ergonomics, not a simulator |
+| Option                               | What it really is                                                      | Verdict                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| A. Native Darwin compatibility layer | Reimplement Mach/XPC/launchd/Metal/frameworks on Linux (Darling-style) | Foundations implemented on this branch; simulator still out of reach |
+| B. macOS VM on ARM64 Linux           | Boot macOS under QEMU/other hypervisor, run Xcode inside               | Blocked by hardware/guest support and licensing                      |
+| **C. Remote Mac bridge**             | macOS host runs the simulator; Linux streams and controls it           | **Recommended and implemented here**                                 |
+| D. Commercial device cloud           | Corellium, BrowserStack, Sauce Labs, AWS, MacStadium                   | Buy instead of build; useful fallback                                |
+| E. Physical device farm              | Real iPhones over USB/network                                          | Best fidelity, worst ergonomics, not a simulator                     |
 
 The full comparison, including cost and risk, is in
 [Architecture options](./research/architecture-options.md) and the
@@ -76,6 +80,9 @@ The full comparison, including cost and risk, is in
 - **Phase 0 (research): complete.** Evidence and decision recorded.
 - **Phase 1 (bridge MVP): implemented and tested** on macOS 27.0.1, Xcode 27.1, iOS 26.4, and
   in a Linux container through OrbStack.
+- **Native track (this branch):** substrate implemented and tested; threads, shared cache,
+  Metal, UIKit, CoreSimulator, and SpringBoard remain open gates. See the
+  [native roadmap](./native/roadmap.md).
 - **Not implemented:** H.264/WebRTC video, multi-tenant isolation, native Linux simulator.
   These are deliberate roadmap items, not accidental omissions. See the
   [roadmap](./plans/roadmap.md).
@@ -93,3 +100,5 @@ The full comparison, including cost and risk, is in
 2. [Findings](./research/findings.md) — what the binaries and the running system actually show.
 3. [Execution plan](./plans/execution-plan.md) — phases, acceptance criteria, and risks.
 4. [Quickstart](./guides/quickstart.md) — run the bridge in about five minutes.
+5. [Native track overview](./native/overview.md) — what Option A actually runs today, and what it
+   does not.

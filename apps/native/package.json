@@ -1,0 +1,20 @@
+{
+  "name": "@ios-sim/native",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CLI for the Option A Darwin compatibility layer research track.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "ios-sim-native": "./dist/bin.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && chmod +x dist/bin.js",
+    "dev": "bun --watch src/bin.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ios-sim/darwin-compat": "0.1.0",
+    "commander": "^14.0.2"
+  }
+}

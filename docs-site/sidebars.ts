@@ -19,6 +19,18 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: "category",
+      label: "Native track (Option A)",
+      collapsed: false,
+      items: [
+        "native/overview",
+        "native/architecture",
+        "native/abi",
+        "native/limitations",
+        "native/roadmap",
+      ],
+    },
+    {
+      type: "category",
       label: "Plans",
       collapsed: false,
       items: ["plans/execution-plan", "plans/testing-strategy", "plans/roadmap"],
@@ -55,6 +67,7 @@ const sidebars: SidebarsConfig = {
         "adr/simctl-and-idb",
         "adr/jpeg-websocket-stream",
         "adr/token-auth",
+        "adr/native-research-track",
       ],
     },
   ],

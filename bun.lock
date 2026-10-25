@@ -41,6 +41,17 @@
         "zod": "^4.1.12",
       },
     },
+    "apps/native": {
+      "name": "@ios-sim/native",
+      "version": "0.1.0",
+      "bin": {
+        "ios-sim-native": "./dist/bin.js",
+      },
+      "dependencies": {
+        "@ios-sim/darwin-compat": "0.1.0",
+        "commander": "^14.0.2",
+      },
+    },
     "docs-site": {
       "name": "docs-site",
       "version": "0.1.0",
@@ -61,6 +72,10 @@
         "@docusaurus/tsconfig": "^3.10.2",
         "@docusaurus/types": "^3.10.2",
       },
+    },
+    "packages/darwin-compat": {
+      "name": "@ios-sim/darwin-compat",
+      "version": "0.1.0",
     },
     "packages/protocol": {
       "name": "@ios-sim/protocol",
@@ -518,7 +533,11 @@
 
     "@ios-sim/cli": ["@ios-sim/cli@workspace:apps/cli"],
 
+    "@ios-sim/darwin-compat": ["@ios-sim/darwin-compat@workspace:packages/darwin-compat"],
+
     "@ios-sim/host": ["@ios-sim/host@workspace:apps/host"],
+
+    "@ios-sim/native": ["@ios-sim/native@workspace:apps/native"],
 
     "@ios-sim/protocol": ["@ios-sim/protocol@workspace:packages/protocol"],
 

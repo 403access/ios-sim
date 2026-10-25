@@ -48,12 +48,14 @@ requires `idb`; no session isolation.
 Video work starts with a spike, not a rewrite: measure glass-to-glass latency for each source,
 then choose. The protocol keeps a transport seam so the API shape does not change.
 
-## Research track (optional, time-boxed)
+## Research track (separate, gated)
 
 A native Darwin compatibility layer is **not** on the product roadmap. It is a separate track with
-explicit kill criteria:
+explicit kill criteria. Branch `option-a-native-darwin` implements the A0 substrate (loader,
+interpreter, Mach, syscalls, launchd jobs) and documents the remaining gates in the
+[native roadmap](../native/roadmap.md). The next spikes are:
 
-1. Run `launchd_sim` under Darling far enough to report its version.
+1. Run `launchd_sim` under the substrate far enough to report its version.
 2. Render a trivial UIKit view offscreen with a Metal-on-Vulkan shim.
 3. Identify the minimal CoreSimulator XPC surface for boot.
 4. Legal review of a compatibility layer.

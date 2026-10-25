@@ -39,6 +39,15 @@ for _ in $(seq 1 50); do
   sleep 0.1
 done
 
+echo "== native substrate =="
+set +e
+NATIVE_OUT="$(bun apps/native/dist/bin.js demo)"
+NATIVE_STATUS=$?
+set -e
+[[ $NATIVE_STATUS -eq 42 ]] || { echo "native demo expected status 42, got $NATIVE_STATUS" >&2; exit 1; }
+contains "$NATIVE_OUT" 'hello from darwin'
+bun apps/native/dist/bin.js doctor --json | grep -q '"simulator": false'
+
 echo "== health =="
 HEALTH="$(curl -fsS "$BASE/v1/health")"
 contains "$HEALTH" '"backend":"mock"'

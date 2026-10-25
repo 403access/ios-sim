@@ -152,7 +152,9 @@ so the constraint would have to be relaxed or the project funded as multi-year r
 
 ## 6. Decision and kill criteria
 
-**Decision:** C, remote Mac bridge.
+**Decision:** C, remote Mac bridge, on `main`. On branch `option-a-native-darwin`, the
+foundational layers of A are implemented and tested; that does not change the feasibility gaps
+for the simulator itself. See [ADR 0006](../adr/native-research-track.md).
 
 **Kill criteria for C** (move to D or re-plan):
 
@@ -162,7 +164,8 @@ so the constraint would have to be relaxed or the project funded as multi-year r
 - Apple's licence terms prohibit the intended hosting model after legal review.
 - Operating Mac hosts becomes more expensive than a commercial cloud at the actual usage level.
 
-**Kill criteria for the native research track** (stop spending):
+**Kill criteria for the native research track** (stop spending; the branch documents its
+substrate but does not claim a simulator):
 
 - No path to boot even a minimal UIKit app on a Darling-like layer after a bounded spike.
 - Metal/IOSurface proves to be a hard blocker with no plausible open implementation.
