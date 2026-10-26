@@ -516,8 +516,9 @@ unwinding through thrown ObjcErrors. RT-005 adds block copy/retain/release lifet
 retain/copy/assign associated objects tied to dealloc. RT-006 adds clean-room
 NSString/NSArray/NSDictionary containers with 100-operation conformance tests and stable bounds
 errors. RT-007 adds jailed files, file URLs, JSON, and XML-plist round-trips. RT-008 adds
-toll-free CF wrappers with retain/release and a timer/source run loop. RT-009 (Swift metadata) is
-next.
+toll-free CF wrappers with retain/release and a timer/source run loop. RT-009 parses `__swift5_types`
+and `__swift5_proto` descriptors; running a real Swift binary remains blocked on the Swift runtime
+and ABI. RT-010 (libSystem/libc) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

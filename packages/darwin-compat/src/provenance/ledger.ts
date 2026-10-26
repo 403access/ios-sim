@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-009",
+    claim: "Parses Swift 5 type and protocol descriptors from __swift5 sections.",
+    status: "partial",
+    evidence: [
+      "packages/darwin-compat/src/swift/metadata.ts",
+      "packages/darwin-compat/src/swift/metadata.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/swift/metadata.test.ts",
+    limitation: "Metadata only; a real Swift binary cannot run without the Swift runtime/ABI.",
+  },
+  {
     id: "RT-008",
     claim: "Provides toll-free CF wrappers and a timer/source run loop.",
     status: "implemented",

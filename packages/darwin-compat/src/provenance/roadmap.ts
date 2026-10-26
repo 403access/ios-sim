@@ -21,7 +21,7 @@ export interface RoadmapReport {
   readonly problems: readonly RoadmapProblem[];
 }
 
-const STATUS = /^\*{0,2}(done|ready|next|blocked|proposed|in_progress)\*{0,2}$/i;
+const STATUS = /^\*{0,2}(done|ready|next|blocked|proposed|partial|in_progress)\*{0,2}$/i;
 
 export function validateRoadmap(text: string): RoadmapReport {
   const lines = text.split("\n");
