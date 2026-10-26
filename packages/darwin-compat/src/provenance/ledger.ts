@@ -273,6 +273,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     limitation: "This is a clean-room API subset and software renderer, not Apple UIKit.",
   },
   {
+    id: "LEG-004",
+    claim: "Audits documentation/source for false simulator, iOS, or Apple UIKit claims.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/provenance/claims.ts",
+      "packages/darwin-compat/src/provenance/claims.test.ts",
+      "scripts/check-claims.ts",
+    ],
+    command: "bun run claims",
+  },
+  {
     id: "BLOCKED-UIKIT",
     claim: "Apple UIKit, Metal, CoreSimulator, launchd_sim, and SpringBoard are not runnable here.",
     status: "blocked",

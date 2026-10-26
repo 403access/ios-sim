@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 72 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 73 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -45,13 +45,13 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LEG-004` is the next task;
-`DX-006` remains in the developer-tooling lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `DX-006` is the next task;
+`REL-004` remains in the release lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-41 are complete through OBS-006 (substrate, loader, threads, quality, observability,
-release, provenance, quickstart, and fault diagnostics). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-42 are complete through LEG-004 (substrate, loader, threads, quality, observability,
+release, provenance, quickstart, fault diagnostics, and claims audit). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -198,14 +198,14 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `LEG-001`  | Provenance ledger              | P0       | S    | **done**  | A0               | 25 claims, evidence paths verified                         |
 | `LEG-002`  | Runtime legal review           | P0       | M    | blocked   | LEG-001          | Written gate                                               |
 | `LEG-003`  | Hosting/deployment model       | P1       | M    | blocked   | LEG-002          | Allowed patterns                                           |
-| `LEG-004`  | Claims audit                   | P1       | S    | **next**  | A0               | No false simulator claims                                  |
+| `LEG-004`  | Claims audit                   | P1       | S    | **done**  | A0               | Negation-aware audit gates CI                              |
 | `LEG-005`  | Kill/continue log              | P1       | S    | blocked   | gates            | Written outcomes                                           |
 | `DX-001`   | Disassembler                   | P1       | M    | **done**  | A0               | `inspect --disasm`                                         |
 | `DX-002`   | Trace UX                       | P2       | S    | blocked   | OBS-005          | Filtered trace                                             |
 | `DX-003`   | Capability doctor              | P2       | S    | **done**  | A0               | Versioned schema, JSON Schema, validator                   |
 | `DX-004`   | Repro bundle                   | P2       | M    | blocked   | OBS-004          | Reproduce on another host                                  |
 | `DX-005`   | Native quickstart              | P1       | S    | **done**  | A0               | One command, visible clang skip                            |
-| `DX-006`   | Roadmap validator              | P2       | S    | proposed  | backlog          | CI catches stale IDs/status                                |
+| `DX-006`   | Roadmap validator              | P2       | S    | **next**  | backlog          | CI catches stale IDs/status                                |
 
 ### A2 — loader and runtime
 

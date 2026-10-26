@@ -494,7 +494,9 @@ report a versioned capability schema (`schemaVersion: 1`, per-feature `yes/parti
 runs the generated demo, writes doctor/demo JSON, and optionally builds/exercises the real-clang
 fixture with a visible skip on non-macOS. OBS-006 attaches a JSON-safe fault snapshot (PC,
 encoding, disassembly, registers, SP/NZCV, nearby maps, images) to interpreter faults, instruction
-limits, and deadlines; CLI catches print it. LEG-004 (claims audit) is next.
+limits, and deadlines; CLI catches print it. LEG-004 adds a claims audit that fails on false
+simulator/iOS/UIKit wording while allowing explicit negations; CI runs it with the provenance
+check. DX-006 (roadmap validator) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
