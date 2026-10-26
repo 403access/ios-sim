@@ -259,6 +259,29 @@ export function parseLegacyBinds(
   size: number,
   segments: readonly LegacySegment[],
 ): LegacyBind[] {
+  return decodeBinds(bytes, offset, size, segments, false);
+}
+
+/**
+ * Decode a lazy-bind stream. Lazy streams use `DONE` as an entry separator,
+ * not only as the end marker, so every entry is returned.
+ */
+export function parseLegacyLazyBinds(
+  bytes: Uint8Array,
+  offset: number,
+  size: number,
+  segments: readonly LegacySegment[],
+): LegacyBind[] {
+  return decodeBinds(bytes, offset, size, segments, true);
+}
+
+function decodeBinds(
+  bytes: Uint8Array,
+  offset: number,
+  size: number,
+  segments: readonly LegacySegment[],
+  continueAfterDone: boolean,
+): LegacyBind[] {
   const state = { segments };
   const stream = cursor(bytes, offset, size, "bind");
   const binds: LegacyBind[] = [];
@@ -287,7 +310,8 @@ export function parseLegacyBinds(
     const immediate = byte & BIND_IMMEDIATE_MASK;
     switch (opcode) {
       case BIND_OPCODE_DONE:
-        return binds;
+        if (!continueAfterDone) return binds;
+        break;
       case BIND_OPCODE_SET_DYLIB_ORDINAL_IMM:
         ordinal = immediate;
         break;
@@ -359,6 +383,7 @@ export function encodeLegacyBinds(
     addend?: number;
     weak?: boolean;
   }>,
+  separator = false,
 ): Uint8Array {
   const out = new ByteSink();
   let currentAddend = 0;
@@ -384,6 +409,7 @@ export function encodeLegacyBinds(
     out.u8(BIND_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB | (entry.segmentIndex & 0xf));
     out.uleb(entry.segmentOffset);
     out.u8(BIND_OPCODE_DO_BIND);
+    if (separator) out.u8(BIND_OPCODE_DONE);
   }
   out.u8(BIND_OPCODE_DONE);
   return out.toUint8Array();

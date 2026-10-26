@@ -223,9 +223,11 @@ exits cleanly; the host can tear everything down without leaks.
 **Can start before KRN-G1** for opcode/parser work; initializers and `dlopen` need thread-safe
 state.
 
-**Status:** LDR-001 is implemented in `packages/darwin-compat/src/macho/legacy-fixups.ts` and
-wired into `ImageLoader` (`legacyFixups` fixtures, rebase sliding, ordinal bind resolution,
-malformed-stream errors). LDR-002 (lazy/weak binding) is next.
+**Status:** LDR-001/002 are implemented in `packages/darwin-compat/src/macho/legacy-fixups.ts` and
+wired into `ImageLoader`. Rebase streams slide in-image pointers; bind streams resolve by ordinal;
+lazy sites are recorded and bound on first `bindLazy(address)`; weak binds resolve flat and
+missing symbols become null. LDR-003 (initializers) is next. Executable lazy-stub trampolines and
+general weak-definition coalescing are explicitly still absent.
 
 | ID      | Task                                     | Size | Depends          | Deliverable                                        | Acceptance                                                                    |
 | ------- | ---------------------------------------- | ---- | ---------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |

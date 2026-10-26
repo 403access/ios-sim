@@ -63,8 +63,8 @@ native X11 window, not Apple UIKit. It does not satisfy UI-G1. The native bounda
 
 ## What is deliberately absent
 
-The parts that make the simulator a simulator are missing: the dynamic shared cache, lazy/weak dyld
-binding, Objective-C/Swift runtimes, Foundation, UIKit/AppKit, Metal/IOSurface/QuartzCore,
+The parts that make the simulator a simulator are missing: the dynamic shared cache, lazy-stub
+trampolines and weak coalescing, Objective-C/Swift runtimes, Foundation, UIKit/AppKit, Metal/IOSurface/QuartzCore,
 code signing and entitlements, TCC, keychain, `launchd_sim`, CoreSimulator XPC services,
 SpringBoard, jetsam, and APFS disk images. See [Limitations](./limitations.md) for the full
 matrix and the [roadmap](./roadmap.md) for the order in which they would be attacked.

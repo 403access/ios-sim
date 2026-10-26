@@ -121,6 +121,49 @@ export function buildLegacyRebaseProgram() {
 }
 
 /**
+ * Legacy lazy-bind fixture: `__DATA[0]` is a lazy site that the loader records
+ * but leaves unbound until `bindLazy` is called (LDR-002).
+ */
+export function buildLegacyLazyProgram() {
+  const text = words(
+    adrp(10, HELLO_DATA_BASE, HELLO_TEXT_BASE),
+    addImm(10, 10, HELLO_DATA_BASE & 0xfff),
+    ldrUnsigned(9, 10, 0, 3),
+    blr(9),
+    movz(0, 7),
+    movz(16, 1),
+    svc(0x80),
+  );
+  return buildMachO({
+    text,
+    data: new Uint8Array(0x4000),
+    dependencies: [{ name: "/lib/libhelper.dylib" }],
+    legacyLazyFixups: [{ kind: "bind", offset: 0, symbol: "_helper", ordinal: 1 }],
+    symbols: [{ name: "_start", value: HELLO_TEXT_BASE }],
+    exports: [{ name: "_start", address: HELLO_TEXT_BASE }],
+  });
+}
+
+/**
+ * Legacy weak-bind fixture: `__DATA[0]` resolves a present weak symbol and
+ * `__DATA[8]` resolves a missing one to null (LDR-002).
+ */
+export function buildLegacyWeakProgram() {
+  const text = words(movz(0, 0), movz(16, 1), svc(0x80));
+  return buildMachO({
+    text,
+    data: new Uint8Array(0x4000),
+    dependencies: [{ name: "/lib/libhelper.dylib" }],
+    legacyWeakFixups: [
+      { kind: "bind", offset: 0, symbol: "_helper", ordinal: 1 },
+      { kind: "bind", offset: 8, symbol: "_missing_weak", ordinal: 1 },
+    ],
+    symbols: [{ name: "_start", value: HELLO_TEXT_BASE }],
+    exports: [{ name: "_start", address: HELLO_TEXT_BASE }],
+  });
+}
+
+/**
  * Mach bootstrap ping: create a reply port, send a 4-byte message to the
  * bootstrap port, receive the reply, and exit 0 only when the reply body is
  * exactly 0xbeef.

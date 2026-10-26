@@ -126,9 +126,14 @@ Legacy `LC_DYLD_INFO`/`LC_DYLD_INFO_ONLY` rebase and bind opcode streams are dec
 `src/macho/legacy-fixups.ts` and applied at load time (LDR-001). The decoder validates stream
 bounds, ULEB/SLEB encoding, segment references, and symbol names. Rebase opcodes mark locations;
 the existing pointer is slid only when it points inside the image. Bind opcodes resolve through
-their dependency ordinal exactly like chained binds. Lazy-bind and weak-bind streams fail with
-`legacy_lazy_bindings_unimplemented` / `legacy_weak_bindings_unimplemented`; dyld3 threaded binds
-fail with `legacy_threaded_bind_unimplemented` until LDR-002.
+their dependency ordinal exactly like chained binds.
+
+Lazy-bind streams are decoded into `LoadedProgram.lazyBindings`; the loader does not write them
+until `bindLazy(address)` is called, which returns `true` once and `false` on repeat calls
+(no double-patch). This is the first-call semantic without generating executable lazy-stub
+trampolines yet. Weak-bind streams resolve in the flat namespace; a missing weak symbol writes
+null. General weak-definition coalescing and real stub trampolines remain future work. dyld3
+threaded binds fail with `legacy_threaded_bind_unimplemented`.
 
 ## MIG-lite
 

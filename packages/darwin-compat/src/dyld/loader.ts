@@ -7,11 +7,13 @@
  * symbol-table fallback, chained binds/rebases (including arm64e pointer
  * formats), and `LC_MAIN`/`LC_UNIXTHREAD` entry selection.
  *
- * Implemented since LDR-001: legacy `LC_DYLD_INFO` rebase/bind opcodes.
+ * Implemented: legacy `LC_DYLD_INFO` rebase/bind opcodes (LDR-001), lazy
+ * binding entries resolved on demand (LDR-002), and weak binds with flat
+ * lookup that resolve missing symbols to null (LDR-002).
  *
- * Not implemented: the dyld shared cache, lazy binding stubs and weak-bind
- * coalescing (LDR-002), initializers, `dlopen`, and code signing. Each has a
- * stable error code instead of silent success.
+ * Not implemented: the dyld shared cache, real lazy-stub trampolines, general
+ * weak-definition coalescing, initializers, `dlopen`, and code signing. Each
+ * has a stable error code instead of silent success.
  */
 
 import { readFileSync } from "node:fs";
@@ -27,7 +29,12 @@ import {
   MH_EXECUTE,
 } from "../macho/constants.js";
 import type { ExportEntry } from "../macho/exports-trie.js";
-import { parseLegacyBinds, parseLegacyRebases } from "../macho/legacy-fixups.js";
+import type { LegacyBind } from "../macho/legacy-fixups.js";
+import {
+  parseLegacyBinds,
+  parseLegacyLazyBinds,
+  parseLegacyRebases,
+} from "../macho/legacy-fixups.js";
 import type { MachOImage } from "../macho/types.js";
 import { VirtualMemory } from "./vm.js";
 
@@ -72,6 +79,13 @@ export interface LoadStats {
   cacheHits: number;
 }
 
+export interface LazyBindingView {
+  readonly address: bigint;
+  readonly symbol: string;
+  readonly ordinal: number;
+  readonly bound: boolean;
+}
+
 export interface LoadedProgram {
   readonly main: LoadedImage;
   readonly images: readonly LoadedImage[];
@@ -80,7 +94,11 @@ export interface LoadedProgram {
   readonly stackSize: number;
   readonly stats: LoadStats;
   readonly provider: FileProvider;
+  /** Lazy-bind sites decoded from `LC_DYLD_INFO`, in stream order. */
+  readonly lazyBindings: readonly LazyBindingView[];
   resolveExport(name: string): bigint | null;
+  /** Resolve one lazy site on first use. Returns false when already bound. */
+  bindLazy(address: bigint): boolean;
 }
 
 export interface LoaderOptions {
@@ -90,6 +108,13 @@ export interface LoaderOptions {
   readonly extraRpaths?: readonly string[];
   readonly maxImages?: number;
   readonly externalSymbols?: ReadonlyMap<string, bigint>;
+}
+
+interface LazyState {
+  readonly address: bigint;
+  readonly bind: LegacyBind;
+  readonly image: LoadedImage;
+  bound: boolean;
 }
 
 interface LoadContext {
@@ -103,6 +128,8 @@ interface LoadContext {
   readonly cache: Map<string, LoadedImage>;
   readonly order: LoadedImage[];
   readonly stats: LoadStats;
+  readonly lazyStates: LazyState[];
+  readonly lazyByAddress: Map<string, LazyState>;
 }
 
 const MAX_IMAGES = 128;
@@ -144,6 +171,8 @@ export class ImageLoader {
       cache: this.cache,
       order: this.order,
       stats: this.stats,
+      lazyStates: [],
+      lazyByAddress: new Map(),
     };
     const main = this.loadImage(executablePath, context);
     if (main.image.header.fileType !== MH_EXECUTE) {
@@ -155,6 +184,7 @@ export class ImageLoader {
     }
     const entry = entryPoint(main);
     const stackSize = main.image.main?.stackSize ?? 8 * 1024 * 1024;
+    const lazyStates = context.lazyStates;
     return {
       main,
       images: this.order,
@@ -163,7 +193,16 @@ export class ImageLoader {
       stackSize,
       stats: { ...this.stats, images: this.order.length },
       provider: this.provider,
+      get lazyBindings() {
+        return lazyStates.map((state) => ({
+          address: state.address,
+          symbol: state.bind.symbol,
+          ordinal: state.bind.ordinal,
+          bound: state.bound,
+        }));
+      },
       resolveExport: (name: string) => lookupFlat(main, name),
+      bindLazy: (address: bigint) => bindLazy(context, address),
     };
   }
 
@@ -341,18 +380,6 @@ function applyFixups(loaded: LoadedImage, context: LoadContext, slice: Uint8Arra
 function applyLegacyFixups(loaded: LoadedImage, context: LoadContext, slice: Uint8Array): void {
   const info = loaded.image.dyldInfo;
   if (!info) return;
-  if ((info.lazyBindSize ?? 0) > 0) {
-    throw new LoaderError(
-      "legacy_lazy_bindings_unimplemented",
-      `${loaded.path} uses lazy dyld bindings; LDR-002 implements lazy stubs`,
-    );
-  }
-  if ((info.weakBindSize ?? 0) > 0) {
-    throw new LoaderError(
-      "legacy_weak_bindings_unimplemented",
-      `${loaded.path} uses weak dyld bindings; LDR-002 implements weak coalescing`,
-    );
-  }
   const segments = loaded.image.segments.map((segment) => ({
     index: segment.index,
     vmAddress: segment.vmAddress,
@@ -365,6 +392,14 @@ function applyLegacyFixups(loaded: LoadedImage, context: LoadContext, slice: Uin
   const binds =
     (info.bindSize ?? 0) > 0
       ? parseLegacyBinds(slice, info.bindOffset, info.bindSize, segments)
+      : [];
+  const weakBinds =
+    (info.weakBindSize ?? 0) > 0
+      ? parseLegacyBinds(slice, info.weakBindOffset, info.weakBindSize, segments)
+      : [];
+  const lazyBinds =
+    (info.lazyBindSize ?? 0) > 0
+      ? parseLegacyLazyBinds(slice, info.lazyBindOffset, info.lazyBindSize, segments)
       : [];
 
   for (const rebase of rebases) {
@@ -386,6 +421,41 @@ function applyLegacyFixups(loaded: LoadedImage, context: LoadContext, slice: Uin
     context.stats.binds += 1;
     context.stats.fixups += 1;
   }
+
+  for (const bind of weakBinds) {
+    const address = legacyAddress(loaded, bind.segmentIndex, bind.segmentOffset);
+    // Weak bind streams have no dylib ordinal: resolve flat and allow null.
+    const target = resolveSymbol(loaded, bind.symbol, -3, true, context);
+    context.memory.write(address, 8, BigInt.asUintN(64, target + bind.addend));
+    context.stats.binds += 1;
+    context.stats.fixups += 1;
+  }
+
+  for (const bind of lazyBinds) {
+    const address = legacyAddress(loaded, bind.segmentIndex, bind.segmentOffset);
+    const existing = context.lazyByAddress.get(address.toString());
+    if (existing) continue;
+    const state: LazyState = { address, bind, image: loaded, bound: false };
+    context.lazyByAddress.set(address.toString(), state);
+    context.lazyStates.push(state);
+  }
+}
+
+function bindLazy(context: LoadContext, address: bigint): boolean {
+  const state = context.lazyByAddress.get(address.toString());
+  if (!state || state.bound) return false;
+  const target = resolveSymbol(
+    state.image,
+    state.bind.symbol,
+    state.bind.ordinal,
+    state.bind.weak,
+    context,
+  );
+  context.memory.write(state.address, 8, BigInt.asUintN(64, target + state.bind.addend));
+  state.bound = true;
+  context.stats.binds += 1;
+  context.stats.fixups += 1;
+  return true;
 }
 
 function legacyAddress(loaded: LoadedImage, segmentIndex: number, offset: number): bigint {

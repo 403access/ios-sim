@@ -3,6 +3,7 @@ import {
   encodeLegacyBinds,
   encodeLegacyRebases,
   parseLegacyBinds,
+  parseLegacyLazyBinds,
   parseLegacyRebases,
 } from "./legacy-fixups.js";
 
@@ -33,6 +34,21 @@ describe("legacy dyld opcodes", () => {
       { segmentIndex: 2, segmentOffset: 0, symbol: "_one", ordinal: 1, addend: 0n, weak: false },
       { segmentIndex: 2, segmentOffset: 8, symbol: "_two", ordinal: 3, addend: -16n, weak: true },
       { segmentIndex: 2, segmentOffset: 16, symbol: "_flat", ordinal: -2, addend: 0n, weak: false },
+    ]);
+  });
+
+  it("keeps decoding lazy streams across DONE separators", () => {
+    const stream = encodeLegacyBinds(
+      [
+        { segmentIndex: 2, segmentOffset: 0, symbol: "_a", ordinal: 1 },
+        { segmentIndex: 2, segmentOffset: 8, symbol: "_b", ordinal: 2, addend: 4 },
+      ],
+      true,
+    );
+    const binds = parseLegacyLazyBinds(stream, 0, stream.length, segments);
+    expect(binds.map((bind) => [bind.symbol, bind.segmentOffset, bind.addend])).toEqual([
+      ["_a", 0, 0n],
+      ["_b", 8, 4n],
     ]);
   });
 

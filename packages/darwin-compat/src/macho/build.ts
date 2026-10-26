@@ -94,6 +94,10 @@ export interface BuildMachOOptions {
   readonly fixups?: readonly BuildFixup[];
   /** Emit `LC_DYLD_INFO_ONLY` rebase/bind opcodes instead of chained fixups. */
   readonly legacyFixups?: readonly BuildFixup[];
+  /** Legacy lazy-bind stream (entries resolved on demand by the loader). */
+  readonly legacyLazyFixups?: readonly BuildFixup[];
+  /** Legacy weak-bind stream (flat lookup; missing symbols become null). */
+  readonly legacyWeakFixups?: readonly BuildFixup[];
   readonly dependencies?: readonly BuildDependency[];
   readonly installName?: string;
   readonly uuid?: Uint8Array;
@@ -157,7 +161,10 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   const exports = options.exports ?? [];
   const fixups = options.fixups ?? [];
   const legacyFixups = options.legacyFixups ?? [];
-  if (fixups.length > 0 && legacyFixups.length > 0) {
+  const legacyLazyFixups = options.legacyLazyFixups ?? [];
+  const legacyWeakFixups = options.legacyWeakFixups ?? [];
+  const allLegacy = [...legacyFixups, ...legacyLazyFixups, ...legacyWeakFixups];
+  if (fixups.length > 0 && allLegacy.length > 0) {
     throw new MachOError(
       "mixed_fixups",
       "a fixture cannot mix chained fixups and legacy dyld opcodes",
@@ -195,26 +202,42 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   const chainedFixups =
     fixups.length > 0 ? buildChainedFixups(fixups, dataFileOffset, data.length, pageSize) : null;
   const dataSegmentIndex = 2;
-  const legacyRebases = encodeLegacyRebases(
-    legacyFixups
-      .filter((fixup) => fixup.kind === "rebase")
-      .map((fixup) => ({ segmentIndex: dataSegmentIndex, segmentOffset: fixup.offset })),
-  );
-  const legacyBinds = encodeLegacyBinds(
-    legacyFixups
-      .filter((fixup) => fixup.kind === "bind")
-      .map((fixup) => ({
-        segmentIndex: dataSegmentIndex,
-        segmentOffset: fixup.offset,
-        symbol: fixup.symbol ?? "",
-        ordinal: fixup.ordinal ?? 0,
-        addend: fixup.addend,
-        weak: fixup.weak,
-      })),
-  );
+  const legacyRebaseEntries = legacyFixups.filter((fixup) => fixup.kind === "rebase");
+  const legacyRebases =
+    legacyRebaseEntries.length > 0
+      ? encodeLegacyRebases(
+          legacyRebaseEntries.map((fixup) => ({
+            segmentIndex: dataSegmentIndex,
+            segmentOffset: fixup.offset,
+          })),
+        )
+      : new Uint8Array();
+  const toBind = (fixup: BuildFixup) => ({
+    segmentIndex: dataSegmentIndex,
+    segmentOffset: fixup.offset,
+    symbol: fixup.symbol ?? "",
+    ordinal: fixup.ordinal ?? 0,
+    addend: fixup.addend,
+    weak: fixup.weak,
+  });
+  const legacyBindEntries = legacyFixups.filter((fixup) => fixup.kind === "bind");
+  const legacyBinds =
+    legacyBindEntries.length > 0
+      ? encodeLegacyBinds(legacyBindEntries.map(toBind))
+      : new Uint8Array();
+  const legacyLazyBinds =
+    legacyLazyFixups.length > 0
+      ? encodeLegacyBinds(legacyLazyFixups.map(toBind), true)
+      : new Uint8Array();
+  const legacyWeakBinds =
+    legacyWeakFixups.length > 0
+      ? encodeLegacyBinds(legacyWeakFixups.map(toBind))
+      : new Uint8Array();
   const hasLegacyStreams =
     legacyFixups.some((fixup) => fixup.kind === "rebase") ||
-    legacyFixups.some((fixup) => fixup.kind === "bind");
+    legacyFixups.some((fixup) => fixup.kind === "bind") ||
+    legacyLazyFixups.length > 0 ||
+    legacyWeakFixups.length > 0;
 
   const linkeditOffset = dataEnd;
   const symtabOffset = 0;
@@ -223,7 +246,9 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   const chainedFixupsOffset = align(exportTrieOffset + exportTrie.length, 8);
   const legacyRebaseOffset = align(chainedFixupsOffset + (chainedFixups?.bytes.length ?? 0), 8);
   const legacyBindOffset = align(legacyRebaseOffset + legacyRebases.length, 8);
-  const linkeditLength = legacyBindOffset + legacyBinds.length;
+  const legacyWeakOffset = align(legacyBindOffset + legacyBinds.length, 8);
+  const legacyLazyOffset = align(legacyWeakOffset + legacyWeakBinds.length, 8);
+  const linkeditLength = legacyLazyOffset + legacyLazyBinds.length;
   const fileSize = align(linkeditOffset + linkeditLength, pageSize);
   const linkeditVm = PREFERRED_BASE + linkeditOffset;
 
@@ -379,10 +404,10 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
     command.u32(legacyRebases.length);
     command.u32(linkeditOffset + legacyBindOffset);
     command.u32(legacyBinds.length);
-    command.u32(0); // weak bind offset
-    command.u32(0); // weak bind size
-    command.u32(0); // lazy bind offset
-    command.u32(0); // lazy bind size
+    command.u32(linkeditOffset + legacyWeakOffset);
+    command.u32(legacyWeakBinds.length);
+    command.u32(linkeditOffset + legacyLazyOffset);
+    command.u32(legacyLazyBinds.length);
     command.u32(0); // export offset
     command.u32(0); // export size
     addLoadCommand(command.toUint8Array());
@@ -444,6 +469,8 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   if (hasLegacyStreams) {
     file.set(legacyRebases, linkeditOffset + legacyRebaseOffset);
     file.set(legacyBinds, linkeditOffset + legacyBindOffset);
+    file.set(legacyWeakBinds, linkeditOffset + legacyWeakOffset);
+    file.set(legacyLazyBinds, linkeditOffset + legacyLazyOffset);
   }
 
   return {

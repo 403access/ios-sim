@@ -8,7 +8,9 @@ import {
   buildHello,
   buildHelperDylib,
   buildLegacyDependentProgram,
+  buildLegacyLazyProgram,
   buildLegacyRebaseProgram,
+  buildLegacyWeakProgram,
   buildMachPingProgram,
   HELLO_DATA_BASE,
 } from "../testing/fixtures.js";
@@ -109,6 +111,46 @@ describe("dyld loader and runtime", () => {
     const secondPointer = second.memory.read(second.main.base + 0x4100n, 8);
     expect(firstPointer).toBe(first.main.base + 0x1800n);
     expect(secondPointer).toBe(second.main.base + 0x1800n);
+  });
+
+  it("defers lazy binds until the first explicit resolution", () => {
+    const provider = new MapFileProvider(
+      new Map([
+        ["/lazy", buildLegacyLazyProgram().bytes],
+        ["/lib/libhelper.dylib", buildHelperDylib().bytes],
+      ]),
+    );
+    const program = new ImageLoader({ provider }).load("/lazy");
+    expect(program.lazyBindings).toHaveLength(1);
+    expect(program.lazyBindings[0]).toMatchObject({
+      address: BigInt(HELLO_DATA_BASE),
+      symbol: "_helper",
+      bound: false,
+    });
+    expect(program.memory.read(BigInt(HELLO_DATA_BASE), 8)).toBe(0n);
+    expect(program.stats.binds).toBe(0);
+
+    expect(program.bindLazy(BigInt(HELLO_DATA_BASE))).toBe(true);
+    expect(program.bindLazy(BigInt(HELLO_DATA_BASE))).toBe(false);
+    expect(program.memory.read(BigInt(HELLO_DATA_BASE), 8)).toBe(
+      program.images[1]?.exports.get("_helper"),
+    );
+    expect(program.lazyBindings[0]?.bound).toBe(true);
+  });
+
+  it("resolves weak binds flat and turns missing symbols into null", () => {
+    const provider = new MapFileProvider(
+      new Map([
+        ["/weak", buildLegacyWeakProgram().bytes],
+        ["/lib/libhelper.dylib", buildHelperDylib().bytes],
+      ]),
+    );
+    const program = new ImageLoader({ provider }).load("/weak");
+    expect(program.memory.read(BigInt(HELLO_DATA_BASE), 8)).toBe(
+      program.images[1]?.exports.get("_helper"),
+    );
+    expect(program.memory.read(BigInt(HELLO_DATA_BASE) + 8n, 8)).toBe(0n);
+    expect(program.stats.binds).toBe(2);
   });
 
   it("reports a missing dependency with a stable code", () => {

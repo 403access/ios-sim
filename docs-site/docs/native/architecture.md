@@ -130,9 +130,10 @@ load dependencies → apply fixups.
   `-3` weak flat lookup. Special ordinals follow Apple's chained-fixup constants.
 - Missing non-weak symbols fail with `symbol_not_found`; weak lookups produce a null pointer.
 
-**Not implemented:** shared cache, lazy stubs and weak coalescing, initializers, `dlopen`,
-two-level namespace enforcement beyond ordinals, and code-signing validation. Legacy
-`LC_DYLD_INFO` rebase/bind opcodes are implemented; lazy, weak, and threaded bind streams are not.
+**Not implemented:** shared cache, executable lazy-stub trampolines, general weak-definition
+coalescing, initializers, `dlopen`, two-level namespace enforcement beyond ordinals, and
+code-signing validation. Legacy `LC_DYLD_INFO` rebase/bind, lazy, and weak streams are decoded
+(LDR-001/002); threaded bind streams remain unsupported.
 
 **Tested by:** entry selection, cross-image chained binds, sliding, dependency errors, and
 execution of the resulting program.
