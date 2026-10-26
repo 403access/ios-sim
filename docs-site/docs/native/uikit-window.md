@@ -143,7 +143,7 @@ int main(void) {
 
 `UI-000` is an **out-of-order vertical spike**, recorded in the
 [backlog](../roadmaps/native/backlog.md). It de-risks the host window and software renderer while
-the critical path remains `KRN-001` (native boundary) and the loader/runtime phases. The next UI
+the critical path is the native boundary/thread work, then the loader/runtime phases. The next UI
 work remains `UI-001` (UIKit surface inventory) after the graphics/runtime gates.
 
 ## Source layout
