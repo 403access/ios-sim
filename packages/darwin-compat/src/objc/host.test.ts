@@ -261,6 +261,24 @@ describe("ObjC UIKit demo", () => {
     expect(at(325, 215)).toEqual([127, 127, 127]);
   });
 
+  it("selects a table row and sends value-changed", () => {
+    const result = runDemo([
+      { x: 60, y: 600 },
+      { x: 170, y: 179 },
+    ]);
+    expect(result.frames).toHaveLength(3);
+    expect(result.program.memory.read(result.program.resolveExport("_tableSelection")!, 8)).toBe(
+      2n,
+    );
+    const frame = result.frames.at(-1)!;
+    const at = (x: number, y: number): number[] => {
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    expect(at(25, 119)).toEqual([255, 255, 255]);
+    expect(at(25, 179)).toEqual([214, 228, 250]);
+  });
+
   it("pushes and pops view controllers in a navigation stack", () => {
     const opened = runDemo([{ x: 60, y: 600 }]);
     expect(opened.frames).toHaveLength(2);

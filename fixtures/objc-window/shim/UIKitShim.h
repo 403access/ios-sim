@@ -247,6 +247,16 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)fire;
 @end
 
+@interface UITableView : UIScrollView
+- (void)setRows:(id)rows;
+- (unsigned long)numberOfRows;
+- (double)rowHeight;
+- (void)setRowHeight:(double)height;
+- (long)selectedRow;
+- (void)setSelectedRow:(long)row;
+- (void)addTarget:(id)target action:(SEL)action forControlEvents:(NSUInteger)events;
+@end
+
 @interface UILabel : UIView
 - (void)setText:(id)text;
 - (id)text;

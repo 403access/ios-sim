@@ -94,8 +94,8 @@ These items have visible value even if G2 never lands:
 
 - Simultaneous recognition, gesture dependencies, and the view-controller responder step
   (superview forwarding, tap and pan recognisers are done).
-- `UITabBarController`, `UITableView`/`UICollectionView` with a data source, `UIAlertController`
-  (navigation is in).
+- `UITabBarController`, a real table data source/delegate and cells, `UICollectionView`,
+  `UIAlertController` (navigation and a host-managed table are in).
 - Auto Layout/`NSLayoutConstraint`, `contentMode`, `transform`, `CALayer`,
   `bringSubviewToFront:`, multiple windows.
 - Scroll physics and edge clamping; `CADisplayLink`.

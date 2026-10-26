@@ -87,7 +87,8 @@ started.
 - [~] `CALayer` corner radius on view backgrounds (masks/opacity stored, no transforms)
 - [x] `UISegmentedControl` selection, rendering, and value-changed actions
 - [x] `UINavigationController` push/pop with a host-built bar, title, and back button
-- [ ] `UITableView`/`UICollectionView`-lite with a data source
+- [x] `UITableView` with host-managed rows, selection, and value-changed actions
+- [ ] `UITableViewCell`/reuse, `UICollectionView`, and a delegate protocol
 - [x] Tap and pan gesture recognisers (fire on touches that reach the default handler)
 - [x] Block literals bind (`__NSConcreteStackBlock`) and `+[UIView animateWithDuration:animations:]`
 - [ ] Simultaneous recognition, gesture dependencies, and the view-controller responder step

@@ -200,6 +200,14 @@ navigation view from its superview (a demo convenience). There are no animated t
 interactive pop gesture, no navigation-bar customisation, and pushed controllers' lifecycle
 callbacks are not sent.
 
+### Tables
+
+`UITableView` is a `UIScrollView` with host-managed rows: `-setRows:` takes an `NSArray` of strings
+(no data source, cells, or reuse), sets `contentSize` from the row count and height, and selects the
+first row. Painting offsets rows by the scroll position and draws a selection band, titles, and
+separators. A touch selects the row under its y (using the table's absolute origin) and sends
+value-changed through the control-action list, because there is no `UITableViewDelegate`.
+
 ### Layers
 
 `-layer` returns a lazily created `CALayer` per view. Its corner radius rounds the view's own

@@ -100,6 +100,10 @@ const SELECTORS = {
   pushViewController: "pushViewController:animated:",
   setTitle: "setTitle:",
   openScreen: "openScreen:",
+  setRows: "setRows:",
+  setRowHeight: "setRowHeight:",
+  selectedRow: "selectedRow",
+  rowSelected: "rowSelected:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
   beginAnimations: "beginAnimations:context:",
@@ -266,7 +270,11 @@ type SlotName =
   | "detailController"
   | "nav"
   | "window"
-  | "openButton";
+  | "openButton"
+  | "classTable"
+  | "tableRows"
+  | "tableView"
+  | "tableSelection";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -322,6 +330,8 @@ interface Plan {
   readonly segmentRect: number;
   readonly openRect: number;
   readonly openLabelRect: number;
+  readonly tableRect: number;
+  readonly tableRowHeight: number;
   readonly cornerRadius: number;
   readonly wrapRect: number;
   readonly animationDuration: number;
@@ -495,6 +505,10 @@ function planData(): Plan {
     "nav",
     "window",
     "openButton",
+    "classTable",
+    "tableRows",
+    "tableView",
+    "tableSelection",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -540,6 +554,10 @@ function planData(): Plan {
     "ROOT",
     "DETAIL",
     "OPEN",
+    "ALPHA",
+    "BETA",
+    "GAMMA",
+    "DELTA",
     '{"count":3,"items":["a","b"]}',
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
@@ -563,7 +581,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 13 * 24;
+  cursor += 8 + 14 * 24;
   const appCategory = cursor;
   cursor += 48;
   const lifecycleCategory = cursor;
@@ -671,6 +689,10 @@ function planData(): Plan {
   cursor += 32;
   const openLabelRect = cursor;
   cursor += 32;
+  const tableRect = cursor;
+  cursor += 32;
+  const tableRowHeight = cursor;
+  cursor += 8;
   const cornerRadius = cursor;
   cursor += 8;
   const timerInterval = cursor;
@@ -790,6 +812,8 @@ function planData(): Plan {
     segmentRect,
     openRect,
     openLabelRect,
+    tableRect,
+    tableRowHeight,
     cornerRadius,
     wrapRect,
     animationDuration,
@@ -940,6 +964,19 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(movReg(4, 20));
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
+  emitWord(ldpPost(19, 20, 31, 16));
+  emitWord(ldpPost(29, 30, 31, 16));
+  emitWord(ret());
+
+  label("rowSelected");
+  emitWord(stpPre(29, 30, 31, -16));
+  emitWord(stpPre(19, 20, 31, -16));
+  emitWord(movReg(19, 2));
+  emitWord(movReg(0, 19));
+  emitAddress(1, selector(SELECTORS.selectedRow));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitStore(0, slot("tableSelection"));
   emitWord(ldpPost(19, 20, 31, 16));
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
@@ -1116,6 +1153,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("gestureTapped") ?? 0),
     bases.textBase + (code.labels.get("segmentChanged") ?? 0),
     bases.textBase + (code.labels.get("openScreen") ?? 0),
+    bases.textBase + (code.labels.get("rowSelected") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -1176,6 +1214,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_gestureMarker",
         value: dataAddress(plan.slotOffsets.gestureMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_tableSelection",
+        value: dataAddress(plan.slotOffsets.tableSelection),
         sectionIndex: 2,
       },
       {
@@ -2381,6 +2424,67 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // NSMutableArray *rows = [NSMutableArray array]; ... ALPHA..DELTA
+    emitPointer(0, slot("classMutableArray"));
+    emitAddress(1, selector(SELECTORS.array));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("tableRows"));
+    for (const row of ["ALPHA", "BETA", "GAMMA", "DELTA"] as const) {
+      emitPointer(0, slot("classString"));
+      emitAddress(1, selector(SELECTORS.stringWithUTF8String));
+      emitAddress(2, dataAddress(plan.stringOffsets[row]!));
+      emitPointer(16, slot("msgSend"));
+      emitWord(blr(16));
+      emitWord(movReg(2, 0));
+      emitPointer(0, slot("tableRows"));
+      emitAddress(1, selector(SELECTORS.addObject));
+      emitPointer(16, slot("msgSend"));
+      emitWord(blr(16));
+    }
+    // UITableView *table = [[UITableView alloc] initWithFrame:(20,60,300,120)];
+    emitPointer(0, slot("classTable"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.tableRect));
+    emitDouble(1, dataAddress(plan.tableRect + 8));
+    emitDouble(2, dataAddress(plan.tableRect + 16));
+    emitDouble(3, dataAddress(plan.tableRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setRowHeight));
+    emitDouble(0, dataAddress(plan.tableRowHeight));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setRows));
+    emitPointer(2, slot("tableRows"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.addTarget));
+    emitPointer(2, slot("delegateSelf"));
+    emitAddress(3, selector(SELECTORS.rowSelected));
+    emitWord(movz(4, 4096));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(21, slot("tableView"));
+    emitPointer(0, slot("detailController"));
+    emitAddress(1, selector(SELECTORS.view));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitPointer(2, slot("tableView"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // UIButton *open = [[UIButton alloc] initWithFrame:(20,586,140,28)];
     emitPointer(0, slot("classButton"));
     emitAddress(1, selector(SELECTORS.alloc));
@@ -2615,6 +2719,7 @@ function emitData(
   gestureTappedImp: number,
   segmentChangedImp: number,
   openScreenImp: number,
+  rowSelectedImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -2649,6 +2754,10 @@ function emitData(
     "ROOT",
     "DETAIL",
     "OPEN",
+    "ALPHA",
+    "BETA",
+    "GAMMA",
+    "DELTA",
     '{"count":3,"items":["a","b"]}',
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
@@ -2683,7 +2792,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 13);
+  u32(plan.appCategoryMethods + 4, 14);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -2747,6 +2856,10 @@ function emitData(
   rebase(openEntry, selector(SELECTORS.openScreen));
   rebase(openEntry + 8, selector(TYPES));
   rebase(openEntry + 16, openScreenImp);
+  const rowEntry = plan.appCategoryMethods + 320;
+  rebase(rowEntry, selector(SELECTORS.rowSelected));
+  rebase(rowEntry + 8, selector(TYPES));
+  rebase(rowEntry + 16, rowSelectedImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }
@@ -2918,6 +3031,7 @@ function emitData(
   bind(plan.slotOffsets.classSegmented, "_OBJC_CLASS_$_UISegmentedControl");
   bind(plan.slotOffsets.classJson, "_OBJC_CLASS_$_NSJSONSerialization");
   bind(plan.slotOffsets.classNav, "_OBJC_CLASS_$_UINavigationController");
+  bind(plan.slotOffsets.classTable, "_OBJC_CLASS_$_UITableView");
   bind(plan.slotOffsets.classTapGesture, "_OBJC_CLASS_$_UITapGestureRecognizer");
   bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
   bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");
@@ -3003,6 +3117,11 @@ function emitData(
   f64(plan.openLabelRect + 8, 0);
   f64(plan.openLabelRect + 16, 140);
   f64(plan.openLabelRect + 24, 28);
+  f64(plan.tableRect, 20);
+  f64(plan.tableRect + 8, 60);
+  f64(plan.tableRect + 16, 300);
+  f64(plan.tableRect + 24, 120);
+  f64(plan.tableRowHeight, 30);
   f64(plan.cornerRadius, 12);
   f64(plan.imageRect, 250);
   f64(plan.imageRect + 8, 140);

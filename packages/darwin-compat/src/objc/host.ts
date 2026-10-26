@@ -87,6 +87,10 @@ const SCROLL_CONTENT_WIDTH = 80;
 const SCROLL_CONTENT_HEIGHT = 88;
 const SCROLL_INSTANCE_SIZE = 96;
 
+const TABLE_SELECTED = 96;
+const TABLE_ROW_HEIGHT = 104;
+const TABLE_INSTANCE_SIZE = 112;
+
 const LABEL_TEXT = 64;
 const LABEL_COLOR = 72;
 const LABEL_SCALE = 80;
@@ -349,6 +353,7 @@ export class ObjcHost {
   private readonly superviews = new Map<bigint, bigint>();
   private readonly gestures = new Map<bigint, bigint[]>();
   private readonly segments = new Map<bigint, string[]>();
+  private readonly tableRows = new Map<bigint, string[]>();
   private readonly viewLayers = new Map<bigint, bigint>();
   private readonly navigationStacks = new Map<bigint, bigint[]>();
   private readonly navigationContent = new Map<bigint, bigint>();
@@ -1413,8 +1418,9 @@ export class ObjcHost {
             const titles = this.segments.get(receiver) ?? [];
             if (point === null || titles.length === 0) return { value: 0n };
             const rect = this.readStoredRect(receiver);
+            const origin = this.absoluteOrigin(receiver);
             const ratio =
-              rect.width <= 0 ? 0 : Math.min(0.999, Math.max(0, (point.x - rect.x) / rect.width));
+              rect.width <= 0 ? 0 : Math.min(0.999, Math.max(0, (point.x - origin.x) / rect.width));
             const index = Math.floor(ratio * titles.length);
             this.memory.write(receiver + BigInt(SEGMENT_SELECTED), 8, BigInt(index));
             return this.sendControlActions(cpu, receiver, CONTROL_EVENT_VALUE_CHANGED);
@@ -2154,6 +2160,101 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(scroll);
+
+    const table = this.defineClass({
+      name: "UITableView",
+      superclass: "UIScrollView",
+      instanceSize: TABLE_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "addTarget:action:forControlEvents:",
+          types: "v40@0:8@16:24Q32",
+          run: (cpu, receiver) => {
+            const list = this.controlActions.get(receiver) ?? [];
+            list.push({
+              target: cpu.readRegister(2),
+              action: cpu.readRegister(3),
+              events: cpu.readRegister(4),
+            });
+            this.controlActions.set(receiver, list);
+          },
+        },
+        {
+          selector: "setRows:",
+          types: "v24@0:8@16",
+          run: (cpu, receiver) => {
+            const rows = cpu.readRegister(2);
+            const titles =
+              rows === 0n ? [] : this.arrayOf(rows).map((row) => this.stringValue(row));
+            this.tableRows.set(receiver, titles);
+            const rowHeight = this.readDouble(receiver, TABLE_ROW_HEIGHT) || 30;
+            this.writeDouble(receiver, SCROLL_CONTENT_WIDTH, this.readStoredRect(receiver).width);
+            this.writeDouble(receiver, SCROLL_CONTENT_HEIGHT, titles.length * rowHeight);
+            this.memory.write(
+              receiver + BigInt(TABLE_SELECTED),
+              8,
+              BigInt(titles.length > 0 ? 0 : -1),
+            );
+          },
+        },
+        {
+          selector: "numberOfRows",
+          types: "Q16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, BigInt((this.tableRows.get(receiver) ?? []).length)),
+        },
+        {
+          selector: "rowHeight",
+          types: "d16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeVectorDouble(0, this.readDouble(receiver, TABLE_ROW_HEIGHT) || 30),
+        },
+        {
+          selector: "setRowHeight:",
+          types: "v24@0:8d16",
+          run: (cpu, receiver) => {
+            const height = Math.max(2, cpu.readVectorDouble(0));
+            this.writeDouble(receiver, TABLE_ROW_HEIGHT, height);
+            const count = (this.tableRows.get(receiver) ?? []).length;
+            this.writeDouble(receiver, SCROLL_CONTENT_HEIGHT, count * height);
+          },
+        },
+        {
+          selector: "selectedRow",
+          types: "q16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(TABLE_SELECTED), 8)),
+        },
+        {
+          selector: "setSelectedRow:",
+          types: "v24@0:8q16",
+          run: (cpu, receiver) => {
+            const count = (this.tableRows.get(receiver) ?? []).length;
+            const requested = Number(BigInt.asIntN(64, cpu.readRegister(2)));
+            const index = requested >= count ? -1 : Math.max(-1, requested);
+            this.memory.write(receiver + BigInt(TABLE_SELECTED), 8, BigInt(index));
+          },
+        },
+        {
+          selector: "touchesEnded:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => {
+            const point = this.touchPoint(cpu);
+            const rows = this.tableRows.get(receiver) ?? [];
+            if (point === null || rows.length === 0) return { value: 0n };
+            const origin = this.absoluteOrigin(receiver);
+            const rowHeight = this.readDouble(receiver, TABLE_ROW_HEIGHT) || 30;
+            const offsetY = this.readDouble(receiver, SCROLL_OFFSET_Y);
+            const index = Math.floor((point.y - origin.y + offsetY) / rowHeight);
+            if (index < 0 || index >= rows.length) return { value: 0n };
+            this.memory.write(receiver + BigInt(TABLE_SELECTED), 8, BigInt(index));
+            return this.sendControlActions(cpu, receiver, CONTROL_EVENT_VALUE_CHANGED);
+          },
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(table);
 
     const blockClass = this.defineClass({
       name: "__NSConcreteStackBlock",
@@ -4513,6 +4614,8 @@ export class ObjcHost {
       this.paintSwitch(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UISlider") {
       this.paintSlider(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
+    } else if (klass?.name === "UITableView") {
+      this.paintTable(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UISegmentedControl") {
       this.paintSegmentedControl(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UIImageView") {
@@ -4730,6 +4833,20 @@ export class ObjcHost {
     this.detachView(this.memory.read(controller + BigInt(CONTROLLER_VIEW), 8));
   }
 
+  /** Accumulate parent-relative frames into screen coordinates. */
+  private absoluteOrigin(view: bigint): { x: number; y: number } {
+    let x = 0;
+    let y = 0;
+    let current: bigint | undefined = view;
+    for (let hops = 0; current !== undefined && hops < 64; hops += 1) {
+      const frame = this.readStoredRect(current);
+      x += frame.x;
+      y += frame.y;
+      current = this.superviews.get(current);
+    }
+    return { x, y };
+  }
+
   private detachView(view: bigint): void {
     if (view === 0n) return;
     const parent = this.superviews.get(view);
@@ -4750,6 +4867,78 @@ export class ObjcHost {
     this.writeDouble(instance, COLOR_BLUE, b);
     this.writeDouble(instance, COLOR_ALPHA, a);
     return instance;
+  }
+
+  /** Draw table rows (offset by the scroll position), selection, and separators. */
+  private paintTable(
+    view: bigint,
+    framebuffer: Framebuffer,
+    x: number,
+    y: number,
+    rect: { width: number; height: number },
+    clip: { x: number; y: number; width: number; height: number },
+    alpha: number,
+  ): void {
+    const rows = this.tableRows.get(view) ?? [];
+    const rowHeight = this.readDouble(view, TABLE_ROW_HEIGHT) || 30;
+    const offsetY = this.readDouble(view, SCROLL_OFFSET_Y);
+    const selected = Number(BigInt.asIntN(64, this.memory.read(view + BigInt(TABLE_SELECTED), 8)));
+    const tableClip = intersectClip(clip, {
+      x,
+      y,
+      width: rect.width,
+      height: rect.height,
+    });
+    framebuffer.fillRect(
+      x,
+      y,
+      rect.width,
+      rect.height,
+      {
+        r: 255,
+        g: 255,
+        b: 255,
+        a: 255 * alpha,
+      },
+      tableClip,
+    );
+    rows.forEach((row, index) => {
+      const rowY = y + index * rowHeight - offsetY;
+      if (rowY + rowHeight <= y || rowY >= y + rect.height) return;
+      if (index === selected) {
+        framebuffer.fillRect(
+          x,
+          rowY,
+          rect.width,
+          rowHeight - 1,
+          {
+            r: 214,
+            g: 228,
+            b: 250,
+            a: 255 * alpha,
+          },
+          tableClip,
+        );
+      }
+      const scale = 2;
+      drawText(framebuffer, x + 10, rowY + Math.max(2, (rowHeight - 5 * scale) / 2), row, {
+        scale,
+        color: BLACK,
+      });
+      framebuffer.fillRect(
+        x,
+        rowY + rowHeight - 1,
+        rect.width,
+        1,
+        {
+          r: 224,
+          g: 224,
+          b: 228,
+          a: 255 * alpha,
+        },
+        tableClip,
+      );
+    });
   }
 
   /** Draw the segmented track, dividers, selected fill, and segment titles. */

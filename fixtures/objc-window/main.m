@@ -35,6 +35,8 @@ static int gGesture;
 static int gSegment = -1;
 static UIWindow *gWindow;
 static UINavigationController *gNav;
+static UITableView *gTable;
+static int gTableRow = -1;
 static UILabel *gLabel;
 
 @interface UIViewController (Lifecycle)
@@ -145,6 +147,7 @@ static unsigned gTick;
 - (void)gestureTapped:(id)recognizer;
 - (void)segmentChanged:(id)sender;
 - (void)openScreen:(id)sender;
+- (void)rowSelected:(id)sender;
 @end
 
 @implementation AppDelegate
@@ -277,6 +280,18 @@ static unsigned gTick;
   UIViewController *detail = [[UIViewController alloc] init];
   [detail setTitle:"DETAIL"];
   detail.view.backgroundColor = [UIColor purpleColor];
+  NSMutableArray *rows = [NSMutableArray array];
+  [rows addObject:[NSString stringWithUTF8String:"ALPHA"]];
+  [rows addObject:[NSString stringWithUTF8String:"BETA"]];
+  [rows addObject:[NSString stringWithUTF8String:"GAMMA"]];
+  [rows addObject:[NSString stringWithUTF8String:"DELTA"]];
+  gTable = [[UITableView alloc] initWithFrame:CGRectMake(20, 60, 300, 120)];
+  [gTable setRowHeight:30];
+  [gTable setRows:rows];
+  [gTable addTarget:self
+             action:@selector(rowSelected:)
+   forControlEvents:UIControlEventValueChanged];
+  [detail.view addSubview:gTable];
   gNav = [[UINavigationController alloc] initWithRootViewController:root];
   [gNav pushViewController:detail animated:NO];
   UIButton *open = [[UIButton alloc] initWithFrame:CGRectMake(20, 586, 140, 28)];
@@ -332,6 +347,10 @@ static unsigned gTick;
 - (void)switchChanged:(id)sender {
   (void)sender;
   gSwitchChanges++;
+}
+
+- (void)rowSelected:(id)sender {
+  gTableRow = (int)[sender selectedRow];
 }
 
 - (void)openScreen:(id)sender {
