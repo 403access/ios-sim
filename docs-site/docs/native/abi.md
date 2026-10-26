@@ -71,7 +71,7 @@ Darwin's ABI. Mach traps return a `kern_return_t` in `x0` without touching carry
 |    189 | `fstat`        | ✓      | Darwin stat64 layout; stdio = character device   |
 |    197 | `mmap`         | ✓      | anonymous and file-backed; `MAP_FIXED` with hint |
 |    199 | `lseek`        | ✓      | per-descriptor position                          |
-|    202 | `sysctl`       | ✗      | `ENOSYS`                                         |
+|    202 | `sysctl`       | ✓      | kern.osrelease, hw.ncpu, hw.memsize, hw.machine  |
 |    362 | `kqueue`       | ✓      | semantic queue descriptor                        |
 |    363 | `kevent`       | ✓      | read/write/timer filters; nonblocking timeout    |
 |    327 | `issetugid`    | ✓      | returns 0                                        |

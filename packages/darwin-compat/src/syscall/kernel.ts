@@ -28,6 +28,7 @@ import type { BlockingMachBridge } from "../runtime/blocking.js";
 import type { GuestThread } from "../runtime/scheduler.js";
 import { MallocHeap } from "../libc/memory.js";
 import { Kqueue, KqueueError } from "./kqueue.js";
+import { sysctlValue } from "./sysctl.js";
 import {
   KERN_INVALID_ARGUMENT,
   KERN_MESSAGE_TOO_LARGE,
@@ -91,6 +92,7 @@ import {
   SYS_OPEN,
   SYS_READ,
   SYS_READV,
+  SYS_SYSCTL,
   SYS_TASK_SELF_TRAP,
   SYS_THREAD_SELF_TRAP,
   SYS_UNLINK,
@@ -282,6 +284,8 @@ export class DarwinSyscallKernel {
         return this.seek(Number(args[0]!), BigInt.asIntN(64, args[1]!), Number(args[2]!));
       case SYS_FSTAT:
         return this.fstat(Number(args[0]!), args[1]!);
+      case SYS_SYSCTL:
+        return this.sysctl(args[0]!, Number(args[1]!), args[2]!, args[3]!);
       case SYS_MMAP:
         return this.mmap(
           args[0]!,
@@ -607,6 +611,33 @@ export class DarwinSyscallKernel {
     } catch (error) {
       return this.errno(errnoFor(error));
     }
+  }
+
+  private sysctl(
+    namePointer: bigint,
+    nameLength: number,
+    oldPointer: bigint,
+    oldLengthPointer: bigint,
+  ): SyscallResult {
+    if (nameLength <= 0 || nameLength > 16 || namePointer === 0n) {
+      return this.errno(ERRNO_MAP.EINVAL!);
+    }
+    const names: number[] = [];
+    for (let index = 0; index < nameLength; index += 1) {
+      names.push(Number(this.memory.read(namePointer + BigInt(index * 4), 4)) | 0);
+    }
+    const value = sysctlValue(names);
+    if (!value) return this.errno(ERRNO_MAP.ENOENT!);
+    if (oldPointer !== 0n && oldLengthPointer !== 0n) {
+      const capacity = Number(this.memory.read(oldLengthPointer, 8));
+      if (capacity < value.length) {
+        this.memory.write(oldLengthPointer, 8, BigInt(value.length));
+        return this.errno(ERRNO_MAP.ENOMEM!);
+      }
+      this.memory.writeBytes(oldPointer, value);
+    }
+    if (oldLengthPointer !== 0n) this.memory.write(oldLengthPointer, 8, BigInt(value.length));
+    return this.ok(0);
   }
 
   private fstat(fd: number, address: bigint): SyscallResult {
