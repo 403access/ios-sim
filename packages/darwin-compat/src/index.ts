@@ -24,6 +24,8 @@ export * from "./dyld/index.js";
 export * from "./syscall/index.js";
 export * from "./plist/index.js";
 export * from "./launchd/index.js";
+export * from "./objc/index.js";
+export * from "./ui/index.js";
 export * from "./runtime/index.js";
 export * from "./inspect.js";
 export * from "./demo.js";

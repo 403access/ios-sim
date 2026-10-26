@@ -82,11 +82,22 @@ export interface BuildDependency {
   readonly weak?: boolean;
 }
 
+/** A named section carved out of the single `data` blob. */
+export interface BuildDataSection {
+  readonly name: string;
+  /** Byte offset from the start of `data`. */
+  readonly offset: number;
+  readonly size: number;
+  readonly alignment?: number;
+  readonly flags?: number;
+}
+
 export interface BuildMachOOptions {
   readonly fileType?: BuildFileType;
   readonly text: Uint8Array;
   readonly cstring?: string;
   readonly data?: Uint8Array;
+  readonly dataSections?: readonly BuildDataSection[];
   readonly symbols?: readonly BuildSymbol[];
   readonly exports?: readonly BuildExport[];
   readonly fixups?: readonly BuildFixup[];
@@ -143,6 +154,18 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   const cstringFileOffset = align(textFileOffset + options.text.length, 16);
   const textEnd = align(cstringFileOffset + cstring.length, pageSize);
   const data = options.data ?? new Uint8Array(8);
+  const dataSections = options.dataSections ?? [];
+  for (const section of dataSections) {
+    if (section.offset < 0 || section.size < 0 || section.offset + section.size > data.length) {
+      throw new MachOError(
+        "bad_section",
+        `data section ${section.name} [${section.offset}, ${section.offset + section.size}) is outside __DATA (${data.length} bytes)`,
+      );
+    }
+    if (section.name.length === 0 || section.name.length > 16) {
+      throw new MachOError("name_too_long", `section name ${section.name} is not representable`);
+    }
+  }
   const dataFileOffset = textEnd;
   const dataEnd = align(dataFileOffset + Math.max(data.length, 8), pageSize);
   const dataVm = PREFERRED_BASE + dataFileOffset;
@@ -261,17 +284,28 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
       fileSize: dataEnd - dataFileOffset,
       maxProtection: VM_PROT_READ | VM_PROT_WRITE,
       initialProtection: VM_PROT_READ | VM_PROT_WRITE,
-      sections: [
-        {
-          name: "__data",
-          segmentName: "__DATA",
-          address: dataVm,
-          size: data.length,
-          fileOffset: dataFileOffset,
-          alignment: 3,
-          flags: S_REGULAR,
-        },
-      ],
+      sections:
+        dataSections.length > 0
+          ? dataSections.map((section) => ({
+              name: section.name,
+              segmentName: "__DATA",
+              address: dataVm + section.offset,
+              size: section.size,
+              fileOffset: dataFileOffset + section.offset,
+              alignment: section.alignment ?? 3,
+              flags: section.flags ?? S_REGULAR,
+            }))
+          : [
+              {
+                name: "__data",
+                segmentName: "__DATA",
+                address: dataVm,
+                size: data.length,
+                fileOffset: dataFileOffset,
+                alignment: 3,
+                flags: S_REGULAR,
+              },
+            ],
     }),
   );
 
@@ -666,7 +700,7 @@ export function buildChainedFixups(
       throw new MachOError("fixup_stride", "fixup chain stride exceeds 12 bits");
     if (fixup.kind === "bind") {
       const key = `${fixup.ordinal ?? 1}:${fixup.symbol}:${fixup.weak ? 1 : 0}`;
-      const ordinal = (importIndex.get(key) ?? 0) + 1;
+      const ordinal = importIndex.get(key) ?? 0;
       const addend = BigInt.asUintN(8, BigInt(fixup.addend ?? 0));
       chainValues.set(
         fixup.offset,

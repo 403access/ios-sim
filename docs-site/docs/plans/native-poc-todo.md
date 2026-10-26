@@ -1,0 +1,75 @@
+---
+title: Native PoC working checklist
+sidebar_position: 3
+description: Live checklist and decision log for the UIKit proof of concept. Update it with evidence, not optimism.
+---
+
+# Native PoC working checklist
+
+Status legend: `[x]` implemented and tested, `[~]` implemented with a documented gap, `[ ]` not
+started.
+
+## P0 — execution fidelity
+
+- [x] Vector register file (32 × 128-bit) and lane accessors
+- [x] `fmov` register/immediate, `fadd`, `fsub`, `fmul`, `fdiv`, `fneg`, `fabs`, `fsqrt`
+- [x] `fcmp` (register and zero), `fcsel`
+- [x] `scvtf`, `ucvtf`, `fcvtzs`, `fcvtzu`, `fcvt`
+- [x] Scalar FP loads/stores: unsigned, unscaled, pre/post, literal, pair (S/D/Q)
+- [x] Exclusive load/store, LSE atomics (`ldadd`, `swp`, `cas`), `tpidr_el0`
+- [~] FP register-offset addressing (not emitted by the fixtures; throws visibly)
+- [ ] SIMD lane arithmetic beyond scalar (not needed for the PoC)
+
+## P1 — Objective-C ABI
+
+- [x] Parse `__objc_classlist`, `class_t`, `class_ro_t`
+- [x] Absolute and relative method lists
+- [x] Selector resolution through `__objc_selrefs`
+- [x] `objc_msgSend`, `objc_msgSendSuper2`
+- [x] `+alloc`, `-init`, `-class`, `-isKindOfClass:`, `-respondsToSelector:`
+- [x] Runtime entry points: retain/release/autorelease, storeStrong, opt_self, sel_registerName
+- [x] Guest IMP tail call preserves arguments and return address
+- [~] `+initialize` (documented; classes are realised eagerly)
+- [~] Categories, `+load`, protocols, weak references (absent, documented)
+
+## P2 — framework shim and frame
+
+- [x] Host classes: `NSObject`, `UIView`, `UIWindow`, `UIViewController`, `UIColor`, `UIApplication`
+- [x] `UIApplicationMain` → `application:didFinishLaunching:`
+- [x] Solid-colour view tree → RGBA framebuffer
+- [x] Deterministic PNG and PPM encoders
+- [x] Bounded frame capture
+- [~] Run loop, input, text, CoreAnimation, a live host window (headless one-shot frame only)
+
+## P3 — real compiler
+
+- [x] Fixture headers and source that do not use the Apple SDK
+- [x] Gated clang test with a printed skip reason
+- [x] Script that builds the fixture into `fixtures/objc-window/build/`
+
+## Evidence
+
+- `bun apps/native/src/bin.ts uikit-demo --out frame.png` →
+  `frame 375x667 sha256=b6a758771b0dcea2eb58105e257eb28125c8ed2b39f76aac8d9adfe1098d0f72`
+- `bunx vitest run tests/native/objc-clang.test.ts` → clang app digest equals the generated
+  digest (macOS + Xcode only; prints its skip reason elsewhere).
+- `bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --out clang.png` →
+  same digest, exit 0.
+
+## Documentation
+
+- [x] `native/poc.md` plan and gates
+- [x] ADR 0007
+- [x] Update `native/overview.md`, `limitations.md`, `roadmap.md`, `abi.md`
+- [x] Update `doctor` and README
+- [x] Update the test strategy page
+
+## Decision log
+
+| Date       | Decision                                                                | Why                                                                                                 |
+| ---------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 2026-10-26 | Host-side ObjC semantics, not real `libobjc2`                           | libobjc2 needs threads/TLS/atomics before the first message send; the ABI is the thing being proved |
+| 2026-10-26 | Host shim classes are real metadata with trampoline IMPs                | Keeps `_OBJC_CLASS_$_UIView` a genuine class object and lets `inspect` see it                       |
+| 2026-10-26 | Absolute method lists in generated fixtures, relative in clang fixtures | Both are Apple ABI; the pair exercises both parsers                                                 |
+| 2026-10-26 | Headless PNG before a window                                            | Roadmap A4 says headless first; avoids a native SDL dependency and its ADR                          |
+| 2026-10-26 | One-shot `UIApplicationMain`                                            | No run loop yet; returning after one frame keeps the gate honest and testable                       |

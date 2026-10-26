@@ -27,13 +27,19 @@ const sidebars: SidebarsConfig = {
         "native/abi",
         "native/limitations",
         "native/roadmap",
+        "native/poc",
       ],
     },
     {
       type: "category",
       label: "Plans",
       collapsed: false,
-      items: ["plans/execution-plan", "plans/testing-strategy", "plans/roadmap"],
+      items: [
+        "plans/execution-plan",
+        "plans/testing-strategy",
+        "plans/roadmap",
+        "plans/native-poc-todo",
+      ],
     },
     {
       type: "category",
@@ -68,6 +74,7 @@ const sidebars: SidebarsConfig = {
         "adr/jpeg-websocket-stream",
         "adr/token-auth",
         "adr/native-research-track",
+        "adr/host-objc-runtime",
       ],
     },
   ],

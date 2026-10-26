@@ -56,6 +56,14 @@ export class RuntimeError extends CompatError {
   override name = "RuntimeError";
 }
 
+export class ObjcError extends CompatError {
+  override name = "ObjcError";
+}
+
+export class UiError extends CompatError {
+  override name = "UiError";
+}
+
 /** Narrow an unknown thrown value into a printable message. */
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

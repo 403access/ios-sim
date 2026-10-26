@@ -53,12 +53,17 @@ class TestMemory implements Arm64Memory {
 
 function run(
   code: readonly number[],
-  options: { max?: number; syscall?: (number: number, cpu: Arm64Cpu) => SyscallResult } = {},
+  options: {
+    max?: number;
+    syscall?: (number: number, cpu: Arm64Cpu) => SyscallResult;
+    prepare?: (memory: TestMemory, cpu: Arm64Cpu) => void;
+  } = {},
 ) {
   const memory = new TestMemory();
   memory.load(code);
   const cpu = new Arm64Cpu();
   cpu.reset(0n, 0x8000n);
+  options.prepare?.(memory, cpu);
   let steps = 0;
   while (!cpu.halted && steps < (options.max ?? 1000)) {
     if (Number(cpu.pc) >= code.length * 4) break;
@@ -216,5 +221,119 @@ describe("A64 interpreter", () => {
     ]);
     expect(cpu.readRegister(1)).toBe(0n);
     expect(cpu.readRegister(2)).toBe(2n);
+  });
+});
+
+/**
+ * Encodings below are the words Apple clang 21 emits for the same mnemonics.
+ * Keeping them literal makes a decoder regression show up as a failing word,
+ * not as a subtle change in a helper.
+ */
+describe("A64 scalar floating point", () => {
+  it("moves bits between the general and vector register files", () => {
+    const { cpu } = run([0x1e604020, 0x9e660002], {
+      prepare: (_memory, machine) => machine.writeVectorDouble(1, 20.5),
+    });
+    expect(cpu.readRegister(2)).toBe(cpu.readVectorBits(1, 64));
+    expect(Number(cpu.readVectorDouble(0))).toBe(20.5);
+  });
+
+  it("adds and multiplies doubles", () => {
+    const { cpu } = run([0x1e622820, 0x1e620820], {
+      prepare: (_memory, machine) => {
+        machine.writeVectorDouble(1, 1.5);
+        machine.writeVectorDouble(2, 2.25);
+      },
+    });
+    expect(cpu.readVectorDouble(0)).toBe(3.375);
+    expect(cpu.readVectorDouble(2)).toBe(2.25);
+  });
+
+  it("decodes the fmov immediate form", () => {
+    expect(run([0x1e669000]).cpu.readVectorDouble(0)).toBe(20);
+    expect(run([0x1e209000]).cpu.readVectorSingle(0)).toBe(2.5);
+    expect(run([0x1e2c1000]).cpu.readVectorSingle(0)).toBe(0.5);
+  });
+
+  it("compares and selects on floating-point flags", () => {
+    const { cpu } = run([0x1e622020, 0x1e62bc20], {
+      prepare: (_memory, machine) => {
+        machine.writeVectorDouble(1, 1);
+        machine.writeVectorDouble(2, 2);
+      },
+    });
+    expect(cpu.readVectorDouble(0)).toBe(1);
+    expect(cpu.nzcv & 8).toBe(8);
+  });
+
+  it("converts integers and doubles in both directions", () => {
+    const { cpu } = run([movz(0, 7), 0x9e620000, 0x9e780002, 0x1e220003]);
+    expect(cpu.readVectorDouble(0)).toBe(7);
+    expect(cpu.readRegister(2)).toBe(7n);
+    expect(cpu.readVectorSingle(3)).toBe(7);
+  });
+
+  it("loads and stores scalar doubles and quads", () => {
+    const { cpu, memory } = run([0xfd400420, 0xfd000820, 0xad410420, 0xad020420], {
+      prepare: (store, machine) => {
+        const view = new DataView(store.bytes.buffer);
+        view.setFloat64(0x108, 6.25, true);
+        for (let index = 0; index < 32; index += 1) store.bytes[0x120 + index] = index + 1;
+        machine.writeRegister(1, 0x100n);
+      },
+    });
+    expect(memory.read(0x110n, 8)).toBe(0x4019_0000_0000_0000n);
+    const bytes = cpu.readVector128(0);
+    expect([...bytes].slice(0, 4)).toEqual([1, 2, 3, 4]);
+    expect([...cpu.readVector128(1)].slice(0, 4)).toEqual([17, 18, 19, 20]);
+    expect(memory.read(0x140n, 8)).toBe(0x0807_0605_0403_0201n);
+  });
+
+  it("implements the thread pointer system registers", () => {
+    const { cpu } = run([movz(0, 0x1234), 0xd51bd040, 0xd53bd041]);
+    expect(cpu.readRegister(1)).toBe(0x1234n);
+    expect(cpu.tpidr).toBe(0x1234n);
+  });
+});
+
+describe("A64 atomics", () => {
+  it("adds atomically and returns the old value", () => {
+    const { cpu, memory } = run([movz(0, 5), movz(1, 7), movz(2, 0x300), 0xf8200041], {
+      prepare: (store) => store.write(0x300n, 8, 10n),
+    });
+    expect(cpu.readRegister(1)).toBe(10n);
+    expect(memory.read(0x300n, 8)).toBe(15n);
+  });
+
+  it("swaps atomically", () => {
+    const { cpu, memory } = run([movz(0, 1), movz(1, 9), movz(2, 0x300), 0xf8208041], {
+      prepare: (store) => store.write(0x300n, 8, 10n),
+    });
+    expect(cpu.readRegister(1)).toBe(10n);
+    expect(cpu.readRegister(0)).toBe(1n);
+    expect(memory.read(0x300n, 8)).toBe(1n);
+  });
+
+  it("compares and swaps only on equality", () => {
+    const matched = run([movz(0, 10), movz(1, 9), movz(2, 0x300), 0xc8a07c41], {
+      prepare: (store) => store.write(0x300n, 8, 10n),
+    });
+    expect(matched.memory.read(0x300n, 8)).toBe(9n);
+    expect(matched.cpu.readRegister(0)).toBe(10n);
+
+    const missed = run([movz(0, 1), movz(1, 9), movz(2, 0x300), 0xc8a07c41], {
+      prepare: (store) => store.write(0x300n, 8, 10n),
+    });
+    expect(missed.memory.read(0x300n, 8)).toBe(10n);
+    expect(missed.cpu.readRegister(0)).toBe(10n);
+  });
+
+  it("retries exclusives in a single-threaded process", () => {
+    const { cpu, memory } = run([movz(1, 0x300), 0xc85f7c20, addImm(0, 0, 1), 0xc8027c20], {
+      prepare: (store) => store.write(0x300n, 8, 4n),
+    });
+    expect(cpu.readRegister(2)).toBe(0n);
+    expect(cpu.readRegister(0)).toBe(5n);
+    expect(memory.read(0x300n, 8)).toBe(5n);
   });
 });

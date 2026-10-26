@@ -23,7 +23,8 @@ This repository is a research-backed reference implementation. Keep it honest an
 ## Layout
 
 - `packages/protocol` — Zod schemas, typed client, shared constants.
-- `packages/darwin-compat` — Option A research substrate: Mach-O/dyld, arm64, Mach, XPC, syscalls, launchd.
+- `packages/darwin-compat` — Option A research substrate: Mach-O/dyld, arm64, Mach, XPC, syscalls,
+  launchd, Objective-C dispatch (`src/objc`), and the headless framebuffer (`src/ui`).
 - `apps/host` — macOS daemon; `simctl`/`idb` adapters; embedded viewer.
 - `apps/cli` — `ios-sim` commands, coordinate conversion, output.
 - `apps/native` — `ios-sim-native` CLI for the Option A research track.
@@ -45,6 +46,10 @@ bun run test:macos
 bun run test:native
 bun run docs:build
 bun run verify
+
+# native proof of concept
+bun apps/native/src/bin.ts uikit-demo --out frame.png
+./scripts/build-objc-fixture.sh   # macOS + Xcode; real clang ObjC app
 ```
 
 Bun 1.4.4 is the tested version. `bun install --frozen-lockfile` is the supported install.

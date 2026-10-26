@@ -9,11 +9,14 @@ Linux without reimplementing a large part of Darwin. This repository documents t
 ships the practical alternative: a macOS host daemon that exposes CoreSimulator over HTTP and
 WebSocket, a Linux-friendly CLI, and a browser viewer.
 
-> **This branch (`option-a-native-darwin`) implements Option A.** It contains a real, tested
-> user-space Darwin substrate: Mach-O loader, chained fixups, AArch64 interpreter, Mach ports,
-> XPC-style RPC, jailed syscalls, and launchd-style jobs. It executes generated arm64 Mach-O
-> programs and a real `clang`-built fixture. It does **not** run the iOS Simulator, CoreSimulator,
-> UIKit, or Metal. See the [native track overview](docs-site/docs/native/overview.md) and
+> **This branch (`option-a-uikit-poc`, based on `option-a-native-darwin`) implements Option A.**
+> It contains a real, tested user-space Darwin substrate: Mach-O loader, chained fixups, AArch64
+> interpreter, Mach ports, XPC-style RPC, jailed syscalls, and launchd-style jobs. It also parses
+> Objective-C metadata, dispatches `objc_msgSend`, and renders a deterministic frame through a
+> clean-room UIKit shim. It executes generated and real `clang`-built arm64 Mach-O programs. It
+> does **not** run the iOS Simulator, CoreSimulator, Apple UIKit, Foundation, or Metal. See the
+> [native track overview](docs-site/docs/native/overview.md),
+> [proof of concept](docs-site/docs/native/poc.md), and
 > [limitations](docs-site/docs/native/limitations.md). The remote bridge remains the shipping
 > workflow on `main`.
 
@@ -78,19 +81,26 @@ bun apps/native/src/bin.ts demo                 # generated arm64 Mach-O, exit 4
 bun apps/native/src/bin.ts inspect <macho>      # segments, imports, fixups, exports
 bun apps/native/src/bin.ts run <macho>          # jailed, budgeted execution
 bun apps/native/src/bin.ts launchd <plist>      # launchd-style jobs
+bun apps/native/src/bin.ts uikit-demo --out frame.png
+                                                # generated ObjC app -> rendered frame
 
 # optional: build a real Mach-O from our assembly with Xcode clang
 ./scripts/build-native-fixtures.sh
+# optional: build the real ObjC app with clang (macOS + Xcode)
+./scripts/build-objc-fixture.sh
+bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --out clang.png
 ```
 
 Implemented: Mach-O parsing and chained fixups, user-space dyld with slides and dependency
-linking, an AArch64 integer interpreter, Mach rights/messages/reply ports/bootstrap services,
-MIG-lite, an XPC-style codec, a Darwin syscall subset, and launchd-style plists.
+linking, an AArch64 integer and scalar floating-point interpreter, Mach rights/messages/reply
+ports/bootstrap services, MIG-lite, an XPC-style codec, a Darwin syscall subset, launchd-style
+plists, an Objective-C 2 metadata/dispatch subset, a clean-room UIKit shim, and deterministic
+PNG frame capture. The generated ObjC app and a clang-built ObjC app render the same frame digest.
 
-Not implemented: threads/blocking Mach receive, legacy dyld bindings, the shared cache,
-Objective-C/Swift/Foundation, Metal/IOSurface/QuartzCore, UIKit/AppKit, code signing, TCC,
-`launchd_sim`, CoreSimulator, SpringBoard, and APFS images. It cannot run the simulator or an
-Apple app. The [roadmap](docs-site/docs/native/roadmap.md) sequences the remaining multi-year
+Not implemented: threads/blocking Mach receive, legacy dyld bindings, the shared cache, real
+Apple Objective-C/Swift runtimes, Foundation, Apple UIKit/AppKit, Metal/IOSurface/QuartzCore,
+code signing, TCC, `launchd_sim`, CoreSimulator, SpringBoard, and APFS images. It cannot run the
+simulator or an unmodified Apple app. The [roadmap](docs-site/docs/native/roadmap.md) sequences the remaining multi-year
 work with kill criteria.
 
 ## Why not native as the shipping product?
@@ -112,6 +122,8 @@ is in the [findings](docs-site/docs/research/findings.md).
 apps/host          macOS daemon (Fastify, simctl, idb)
 apps/cli           ios-sim CLI
 apps/native        ios-sim-native CLI for the Option A research track
+packages/darwin-compat/src/objc  ObjC ABI, dispatch, UIKit shim, generated app
+packages/darwin-compat/src/ui    framebuffer and PNG/PPM encoders
 packages/protocol  Zod schemas + typed client
 packages/darwin-compat  Mach-O, dyld, arm64, Mach, XPC, syscalls, launchd
 docs-site          Docusaurus research, plans, guides, ADRs

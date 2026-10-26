@@ -12,7 +12,8 @@ narrow. Anything not listed is unsupported and should fail with a named error ra
 
 ## Machine model
 
-- AArch64 user mode, little-endian, integer registers only.
+- AArch64 user mode, little-endian. Integer registers, scalar floating point (`s`/`d`), and a
+  128-bit vector register file used for `movi`/`mov`/`ldp`/`stp` aggregate traffic.
 - 64-bit virtual addresses; 16 KiB pages; a 512 MiB per-process mapping budget by default.
 - No threads. A process is one CPU and one Mach task.
 - The host CPU never runs guest code; all instructions are interpreted.
@@ -35,6 +36,10 @@ After loading `LC_MAIN` (or an arm64 `LC_UNIXTHREAD`), the runtime starts with:
 The initial stack contains NUL-terminated strings, then `argc`, `argv` pointers, a null
 terminator, `envp` pointers, and a null terminator. A real dyld would call a libSystem `start`
 routine; this layer documents its own entry contract instead of pretending libSystem exists.
+
+`x30` is zero at entry. A `ret` that targets zero halts the process and uses `x0 & 0xff` as the
+exit status, mirroring `exit(main(...))` for compiler-produced entry points. Programs may also
+call `exit` explicitly.
 
 ## Syscalls
 
@@ -120,6 +125,84 @@ Supported load command: `LC_DYLD_CHAINED_FIXUPS` with header version 0, imports 
 The loader applies each operation to the mapped image at `slide + segment offset`. Multi-start
 chains and unsupported pointer formats are hard errors. Legacy `LC_DYLD_INFO` bind opcodes are
 not implemented; an image that needs them fails with `legacy_bindings_unimplemented`.
+
+## Objective-C 2 subset
+
+The runtime reads Apple-ABI metadata and implements message send. It does not run a real
+`libobjc` and does not provide Foundation.
+
+### Metadata
+
+| Structure          | Fields used                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| `__objc_classlist` | 8-byte class pointers, any segment                                                          |
+| `class_t`          | `isa`, `superclass`, `data` (low flag bits masked)                                          |
+| `class_ro_t`       | `flags`, `instanceStart`, `instanceSize`, `name`, `baseMethods`                             |
+| method list        | absolute (`entsize` 24) or relative (`entsize` with bit 31 set)                             |
+| `method_t`         | name, types, IMP; relative offsets are from each field                                      |
+| selector           | direct C string; a relative name offset points at a selref slot, which is dereferenced once |
+
+Classes are realised eagerly when their image loads. `+initialize`, categories, `+load`,
+protocols, associated objects, exceptions, and weak references are not implemented. A duplicate
+class name is a `duplicate_class` error.
+
+### Message send
+
+`objc_msgSend` and `objc_msgSendSuper2` are bound to generated trampolines:
+
+```text
+movz x16, #0x90NN
+svc  #0x80
+ret
+```
+
+The trap resolves the selector against the class hierarchy. A host IMP (framework method) is
+called in TypeScript and returns through the trampoline. A guest IMP is entered by setting `pc`
+and leaving `x0..x7`, `v0..v7`, `sp`, and `x30` untouched, so it is a true tail call and the
+callee returns directly to the original caller.
+
+Recognised runtime entry points: `objc_retain`, `objc_release`, `objc_autorelease`,
+`objc_autoreleasePoolPush/Pop`, `objc_storeStrong`, `objc_storeWeak`, `objc_loadWeakRetained`,
+`objc_retainAutoreleasedReturnValue`, `objc_autoreleaseReturnValue`, `objc_opt_self`,
+`objc_opt_class`, `objc_opt_isKindOfClass`, `objc_alloc`, `sel_registerName`, `objc_getClass`,
+`objc_sync_enter/exit`. Retain/release are no-ops; the PoC process is short-lived.
+
+### Shim classes
+
+These are original metadata with host IMP trampolines, not Apple classes:
+
+| Class              | Methods (instance unless marked +)                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NSObject`         | `-init`, `-dealloc`, `-class`, `-self`, `-isKindOfClass:`, `-respondsToSelector:`, `-retain`, `-release`, `-autorelease`, `-retainCount`, `+alloc`, `+new`    |
+| `UIView`           | `-init`, `-initWithFrame:`, `-setFrame:`, `-frame`, `-setBackgroundColor:`, `-backgroundColor`, `-addSubview:`, `-setHidden:`, `-isHidden`, `-layoutSubviews` |
+| `UIWindow`         | `-initWithFrame:`, `-makeKeyAndVisible`, `-setRootViewController:`, `-rootViewController`                                                                     |
+| `UIViewController` | `-init`, `-view`, `-setView:`, `-loadView`                                                                                                                    |
+| `UIColor`          | `+redColor`, `+whiteColor`, `+blackColor`, `+clearColor`, `+colorWithRed:green:blue:alpha:`                                                                   |
+| `UIApplication`    | `+sharedApplication`, `-setDelegate:`, `-delegate`                                                                                                            |
+
+`UIView` ivars are fixed by this shim: frame doubles at 8/16/24/32, background object at 40,
+hidden byte at 48, instance size 56. `UIColor` stores four doubles at 8/16/24/32. Application
+classes get an `isa` and their declared `instanceSize`; the shim does not lay out arbitrary ivars.
+
+### UIApplicationMain
+
+`int UIApplicationMain(int argc, char **argv, id principal, const char *delegateClassName)`.
+The fourth argument is a C string, a documented deviation from Apple's `NSString *`. The host:
+
+1. allocates the `UIApplication` and delegate instances;
+2. resolves `application:didFinishLaunchingWithOptions:` on the delegate class;
+3. generates a guest stub that calls the delegate IMP, zeroes `x0`, then calls the presenter;
+4. jumps to the stub with `x0 = delegate`, `x1 = selector`, `x2 = application`, `x3 = 0`.
+
+The stub saves `x29/x30` and `x19/x20`, calls the delegate with a normal `blr`, then renders.
+There is no run loop: the call returns after one pass.
+
+### Frames
+
+The presenter composites visible `UIView` instances (window children, in insertion order) into an
+RGBA8 framebuffer at 375×667. Colours are normalised doubles multiplied by 255 and rounded once.
+Identical frames are de-duplicated; at most eight frames are retained. The CLI encodes the last
+frame as PNG (filter 0, zlib level 9) or PPM (P6). The digest is SHA-256 over the RGBA bytes.
 
 ## MIG-lite
 

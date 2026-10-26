@@ -66,6 +66,49 @@ export function blr(reg: number): number {
   return 0xd63f0000 | (reg << 5);
 }
 
+/** `ldr dN, [Xn, #offset]` (scalar double, unsigned immediate). */
+export function ldrDouble(rt: number, rn: number, offset: number): number {
+  if (offset % 8 !== 0 || offset < 0 || offset > 0x7f8)
+    throw new Error(`unaligned or out-of-range double offset ${offset}`);
+  return 0xfd400000 | ((offset / 8) << 10) | (rn << 5) | rt;
+}
+
+/** `str dN, [Xn, #offset]` (scalar double, unsigned immediate). */
+export function strDouble(rt: number, rn: number, offset: number): number {
+  if (offset % 8 !== 0 || offset < 0 || offset > 0x7f8)
+    throw new Error(`unaligned or out-of-range double offset ${offset}`);
+  return 0xfd000000 | ((offset / 8) << 10) | (rn << 5) | rt;
+}
+
+/** `ldp dN, dM, [Xn, #offset]`. */
+export function ldpDouble(rt: number, rt2: number, rn: number, offset: number): number {
+  if (offset % 8 !== 0 || offset < 0 || offset > 0x1f8)
+    throw new Error(`unaligned or out-of-range double pair offset ${offset}`);
+  return 0x6d400000 | ((offset / 8) << 15) | (rt2 << 10) | (rn << 5) | rt;
+}
+
+/** `stp dN, dM, [Xn, #offset]`. */
+export function stpDouble(rt: number, rt2: number, rn: number, offset: number): number {
+  if (offset % 8 !== 0 || offset < 0 || offset > 0x1f8)
+    throw new Error(`unaligned or out-of-range double pair offset ${offset}`);
+  return 0x6d000000 | ((offset / 8) << 15) | (rt2 << 10) | (rn << 5) | rt;
+}
+
+/** `fmov dN, #imm` for representable immediates. */
+export function fmovDoubleImmediate(rd: number, imm8: number): number {
+  return 0x1e601000 | ((imm8 & 0xff) << 13) | rd;
+}
+
+/** `fadd dN, dM, dK`. */
+export function faddDouble(rd: number, rn: number, rm: number): number {
+  return 0x1e602800 | (rm << 16) | (rn << 5) | rd;
+}
+
+/** `fcmp dN, dM`. */
+export function fcmpDouble(rn: number, rm: number): number {
+  return 0x1e602000 | (rm << 16) | (rn << 5);
+}
+
 /** `offset` is in bytes relative to the current instruction. */
 export function b(offset: number): number {
   return 0x14000000 | ((offset >> 2) & 0x03ffffff);

@@ -13,6 +13,7 @@ import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { ImageLoader, type FileProvider, type LoadedProgram } from "../dyld/loader.js";
 import { MachKernel, type MachTask } from "../mach/kernel.js";
+import { ObjcHost, type CapturedFrame } from "../objc/host.js";
 import {
   CaptureSink,
   DarwinSyscallKernel,
@@ -33,6 +34,9 @@ export interface ProcessOptions {
   readonly traceInstructions?: (pc: bigint, instruction: number, cpu: Arm64Cpu) => void;
   readonly searchPaths?: readonly string[];
   readonly extraRpaths?: readonly string[];
+  /** Install the Objective-C framework shim (default: true). */
+  readonly objc?: boolean;
+  readonly screen?: { readonly width: number; readonly height: number };
 }
 
 export interface RuntimeOptions {
@@ -57,6 +61,8 @@ export interface ProcessResult {
   readonly unsupportedSyscalls: ReadonlyMap<number, number>;
   readonly outputSink: ByteSink;
   readonly errorSink: ByteSink;
+  readonly frames: readonly CapturedFrame[];
+  readonly objcClasses: readonly string[];
 }
 
 export interface CreateProcessOptions extends ProcessOptions {
@@ -92,13 +98,23 @@ export class DarwinRuntime {
     const pid = this.nextPid++;
     const task = this.mach.createTask(pid);
     const memory = new VirtualMemory();
+    const objc =
+      options.objc === false
+        ? null
+        : new ObjcHost({
+            memory,
+            width: options.screen?.width,
+            height: options.screen?.height,
+          });
     const loader = new ImageLoader({
       provider: this.provider,
       memory,
       searchPaths: options.searchPaths ?? [],
       extraRpaths: options.extraRpaths ?? [],
+      externalSymbols: objc?.symbols,
     });
     const program = loader.load(options.program);
+    objc?.attach(program);
     const stackSize = Math.max(0x4000, Math.min(program.stackSize, 64 * 1024 * 1024));
     const stackBase = memory.allocate(stackSize, { tag: "stack", protection: 3 });
     const layout = writeStack(memory, stackBase, stackSize, options.argv ?? [], options.env ?? {});
@@ -135,6 +151,7 @@ export class DarwinRuntime {
       memory,
       program,
       syscalls,
+      objc,
       outputSink,
       errorSink,
       maxInstructions: options.maxInstructions ?? this.maxInstructions,
@@ -154,6 +171,7 @@ interface ProcessInternals {
   memory: VirtualMemory;
   program: LoadedProgram;
   syscalls: DarwinSyscallKernel;
+  objc: ObjcHost | null;
   outputSink: ByteSink;
   errorSink: ByteSink;
   maxInstructions: number;
@@ -167,6 +185,7 @@ export class DarwinProcess {
   readonly task: MachTask;
   private readonly cpu: Arm64Cpu;
   private readonly syscalls: DarwinSyscallKernel;
+  private readonly objc: ObjcHost | null;
   private readonly outputSink: ByteSink;
   private readonly errorSink: ByteSink;
   private readonly maxInstructions: number;
@@ -180,6 +199,7 @@ export class DarwinProcess {
     this.memory = internals.memory;
     this.program = internals.program;
     this.syscalls = internals.syscalls;
+    this.objc = internals.objc;
     this.outputSink = internals.outputSink;
     this.errorSink = internals.errorSink;
     this.maxInstructions = internals.maxInstructions;
@@ -207,7 +227,10 @@ export class DarwinProcess {
             { pid: this.pid, pc: this.cpu.pc.toString(16) },
           );
         }
-        this.cpu.step(this.memory, (number, cpu) => this.syscalls.handle(number, cpu));
+        this.cpu.step(this.memory, (number, cpu) => {
+          const trapped = this.objc?.handle(number, cpu);
+          return trapped ?? this.syscalls.handle(number, cpu);
+        });
       }
     } finally {
       this.syscalls.mach.destroyTask(this.task);
@@ -225,6 +248,8 @@ export class DarwinProcess {
       unsupportedSyscalls: new Map(this.syscalls.unsupported),
       outputSink: this.outputSink,
       errorSink: this.errorSink,
+      frames: this.objc?.frames ?? [],
+      objcClasses: this.objc ? [...this.objc.classes.keys()] : [],
     };
   }
 }

@@ -37,12 +37,12 @@ function fixupsForWord(word: bigint, pointerFormat: number) {
 
 describe("chained fixup pointer formats", () => {
   it("decodes a PTR_64 bind", () => {
-    const fixups = fixupsForWord((1n << 63n) | 1n, 2);
+    const fixups = fixupsForWord((1n << 63n) | 0n, 2);
     expect(fixups.pointerFormats).toEqual([2]);
     expect(fixups.fixups[0]).toMatchObject({
       kind: "bind",
       symbol: "_symbol",
-      ordinal: 1,
+      ordinal: 0,
       authenticated: false,
     });
   });
@@ -53,7 +53,7 @@ describe("chained fixup pointer formats", () => {
   });
 
   it("decodes an arm64e bind using bit 62, not bit 63", () => {
-    const fixups = fixupsForWord((1n << 62n) | 1n, 1);
+    const fixups = fixupsForWord((1n << 62n) | 0n, 1);
     expect(fixups.fixups[0]).toMatchObject({
       kind: "bind",
       symbol: "_symbol",
@@ -62,7 +62,7 @@ describe("chained fixup pointer formats", () => {
   });
 
   it("decodes an arm64e authenticated bind and rebase", () => {
-    const bind = fixupsForWord((1n << 63n) | (1n << 62n) | 1n, 1);
+    const bind = fixupsForWord((1n << 63n) | (1n << 62n) | 0n, 1);
     expect(bind.fixups[0]).toMatchObject({ kind: "bind", symbol: "_symbol", authenticated: true });
     const rebase = fixupsForWord((1n << 63n) | 0x1234n, 1);
     expect(rebase.fixups[0]).toMatchObject({

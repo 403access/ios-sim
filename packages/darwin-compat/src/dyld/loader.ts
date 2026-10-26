@@ -374,7 +374,7 @@ function bindValue(
   loaded: LoadedImage,
   context: LoadContext,
 ): bigint {
-  const imported = loaded.image.chainedFixups?.imports[fixup.ordinal - 1];
+  const imported = loaded.image.chainedFixups?.imports[fixup.ordinal];
   if (!imported)
     throw new LoaderError("fixup_import_missing", `bind ${fixup.symbol} has no import entry`);
   const ordinal = imported.ordinal;

@@ -25,9 +25,11 @@ This repository does three things instead of pretending otherwise:
    and a browser viewer. The simulator still runs on a Mac; the Linux machine gets the pixels,
    input, apps, and logs.
 4. **Implements the foundation of Option A on this branch**: Mach-O/dyld, an AArch64
-   interpreter, Mach ports, XPC-style RPC, jailed syscalls, and launchd-style jobs. It runs
-   generated and real-clang Mach-O programs, but it still cannot run the simulator. The
-   [native track](./native/overview.md) documents exactly where that line is.
+   interpreter, Mach ports, XPC-style RPC, jailed syscalls, launchd-style jobs, an Objective-C
+   dispatch subset, and a clean-room UIKit shim that renders a deterministic frame. It runs
+   generated and real-clang ObjC programs, but it still cannot run the simulator or an
+   unmodified Apple app. The [native track](./native/overview.md) documents exactly where that
+   line is.
 
 :::tip The one-sentence architecture
 Keep the iOS Simulator on macOS where Apple supports it; move the developer's _interaction_ to

@@ -6,7 +6,7 @@
  * tooling and never claims to boot the iOS Simulator.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { Command, CommanderError } from "commander";
 import {
@@ -15,6 +15,10 @@ import {
   Launchd,
   MapFileProvider,
   buildDemoProgram,
+  buildUIKitDemo,
+  describeUIKitDemo,
+  encodePng,
+  encodePpm,
   formatInspectReport,
   inspectMachO,
   parseLaunchdManifest,
@@ -72,6 +76,8 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .option("--no-strict-syscalls", "return ENOSYS instead of failing on unimplemented syscalls")
     .option("--trace", "trace instructions to stderr")
     .option("--trace-syscalls", "trace syscalls to stderr")
+    .option("--no-objc", "disable the Objective-C framework shim")
+    .option("--out <file>", "write the last captured frame (.png or .ppm)")
     .option("--json", "print JSON result")
     .action((file: string, options: RunOptions) => {
       const absolute = resolve(file);
@@ -91,6 +97,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
         stdin: options.stdin ? new TextEncoder().encode(options.stdin) : undefined,
         stdout,
         stderr,
+        objc: options.objc,
         traceInstructions: options.trace
           ? (pc, instruction, cpu) =>
               io.stderr(
@@ -104,11 +111,13 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
               )
           : undefined,
       });
+      if (options.out) writeFrame(result.frames.at(-1), options.out);
       if (options.json) {
         io.stdout(`${JSON.stringify(runJson(result), null, 2)}\n`);
       } else {
         io.stdout(new TextDecoder().decode(result.stdout));
         io.stderr(new TextDecoder().decode(result.stderr));
+        if (result.frames.length > 0) io.stdout(`${frameSummary(result.frames.at(-1)!)}\n`);
       }
       requestedExit = result.exitStatus;
     });
@@ -128,6 +137,34 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
       else {
         io.stdout(new TextDecoder().decode(result.stdout));
         io.stderr(new TextDecoder().decode(result.stderr));
+      }
+      requestedExit = result.exitStatus;
+    });
+
+  program
+    .command("uikit-demo")
+    .description("run the generated ObjC/UIKit proof-of-concept app and capture a frame")
+    .option("--out <file>", "write the frame (.png or .ppm)")
+    .option("--json", "print JSON")
+    .action((options: { out?: string; json?: boolean }) => {
+      const demo = buildUIKitDemo();
+      const runtime = new DarwinRuntime({
+        provider: new MapFileProvider(new Map([["/UIKitDemo", demo.built.bytes]])),
+        rootDir: process.cwd(),
+      });
+      const result = runtime.run("/UIKitDemo");
+      const frame = result.frames.at(-1);
+      if (!frame) {
+        throw new Error("the demo app did not present a frame");
+      }
+      if (options.out) writeFrame(frame, options.out);
+      if (options.json) {
+        io.stdout(
+          `${JSON.stringify({ ...runJson(result), image: describeUIKitDemo(demo) }, null, 2)}\n`,
+        );
+      } else {
+        io.stdout(`${frameSummary(frame)}\n`);
+        io.stdout(`classes: ${result.objcClasses.join(", ")}\n`);
       }
       requestedExit = result.exitStatus;
     });
@@ -230,6 +267,8 @@ interface RunOptions {
   maxInstructions: number;
   timeout: number;
   strictSyscalls: boolean;
+  objc: boolean;
+  out?: string;
   trace?: boolean;
   traceSyscalls?: boolean;
   json?: boolean;
@@ -266,7 +305,29 @@ function runJson(result: ProcessResult) {
     })),
     fixups: result.program.stats,
     unsupportedSyscalls: Object.fromEntries(result.unsupportedSyscalls),
+    objcClasses: result.objcClasses,
+    frames: result.frames.map((frame) => ({
+      width: frame.width,
+      height: frame.height,
+      digest: frame.digest,
+    })),
   };
+}
+
+function writeFrame(
+  frame: { width: number; height: number; pixels: Uint8Array } | undefined,
+  file: string,
+): void {
+  if (!frame) throw new Error("no frame was captured; nothing to write");
+  const target = resolve(file);
+  const bytes = target.toLowerCase().endsWith(".ppm")
+    ? encodePpm(frame.width, frame.height, frame.pixels)
+    : encodePng(frame.width, frame.height, frame.pixels);
+  writeFileSync(target, bytes);
+}
+
+function frameSummary(frame: { width: number; height: number; digest: string }): string {
+  return `frame ${frame.width}x${frame.height} sha256=${frame.digest}`;
 }
 
 function doctorReport() {
@@ -280,17 +341,19 @@ function doctorReport() {
     implemented: [
       "Mach-O 64-bit parsing, fat slices, exports trie, chained fixups (64/arm64e)",
       "user-space dyld loading with dependency lookup, slides, and binds/rebases",
-      "AArch64 integer interpreter (no SIMD/FP) with syscall traps",
+      "AArch64 integer and scalar floating-point interpreter with syscall traps",
       "Mach port rights, messages, reply ports, bootstrap service registry, MIG-lite",
       "XPC-style typed codec and request/reply over Mach",
       "Darwin syscall subset with a jailed file layer and anonymous mmap",
       "launchd-style plist jobs, MachServices, RunAtLoad, bounded KeepAlive",
+      "Objective-C 2 metadata, objc_msgSend dispatch, and a host UIKit shim",
+      "deterministic PNG/PPM frame capture from a rendered view tree",
       "generated arm64 fixture program executed end-to-end on Linux/macOS",
     ],
     notImplemented: [
       "dyld shared cache, legacy bind opcodes, lazy binding, initializers, dlopen",
       "code signing, entitlements, TCC/privacy database, keychain, device identity",
-      "Metal, IOSurface, CoreAnimation, UIKit, AppKit, accessibility",
+      "Apple UIKit/AppKit, Metal, IOSurface, CoreAnimation, accessibility",
       "CoreSimulator XPC services, launchd_sim, SpringBoard, jetsam, APFS disk images",
       "Apple framework replacements (Foundation is not provided)",
       "running any Apple binary or the iOS Simulator itself",

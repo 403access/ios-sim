@@ -37,6 +37,27 @@ are planning aids, not commitments.
 
 **Status:** complete on this branch.
 
+## A0.5 — UIKit proof of concept (implemented on this branch)
+
+**Deliverables**
+
+- Apple-ABI ObjC 2 metadata parser (absolute and relative method lists).
+- `objc_msgSend`/`objc_msgSendSuper2` with guest-IMP tail calls and host-IMP traps.
+- Instance allocation, `+alloc`, `-init`, `respondsToSelector:`, `isKindOfClass:`.
+- Clean-room shim classes: `NSObject`, `UIView`, `UIWindow`, `UIViewController`, `UIColor`,
+  `UIApplication`, and `UIApplicationMain`.
+- Deterministic RGBA/PNG/PPM frame capture from the view tree.
+- A generated ObjC app and a gated real-clang app that render the same digest.
+
+**Acceptance**
+
+- `bun apps/native/src/bin.ts uikit-demo --out frame.png` renders the documented frame.
+- The clang fixture links with chained fixups and relative method lists, runs through the same
+  runtime, and produces the same digest (macOS-gated).
+
+**Status:** complete on this branch. It is a proof of the ABI and the pipeline, not of UIKit
+fidelity.
+
 ## A1 — Kernel boundary and threads (2–4 months)
 
 **Why:** every interesting simulator process is multi-threaded and blocks in Mach calls.
@@ -62,7 +83,8 @@ code, or performance is worse than a VM alternative.
 - Code-signature parsing and an ad-hoc validation policy; entitlement evaluation hooks.
 - A minimal Objective-C runtime compatible with Apple's ABI (classes, selectors, message send,
   associated objects, exceptions), then Foundation/CoreFoundation replacements with a conformance
-  suite.
+  suite. **Partially delivered in A0.5:** the metadata and message-send subset exists; ARC,
+  `+initialize`, categories, protocols, exceptions, and Foundation do not.
 - Swift runtime linkage and metadata discovery.
 
 **Acceptance:** a nontrivial Objective-C and Swift CLI program (no UI) runs with a documented
@@ -95,11 +117,16 @@ and enumerate a device, with a complete missing-symbol report.
 **Acceptance:** a trivial UIKit app renders a stable frame offscreen for 10,000 frames, with
 correct colour and no leaks. Then a window shows it at interactive latency.
 
+**Progress in A0.5:** one offscreen frame from solid-colour views is captured deterministically
+(no CoreAnimation, Metal, IOSurface, text, or 10,000-frame soak). The window, GPU path, and frame
+loop remain open.
+
 **Kill:** no stable frame after the bounded spike, or GPU fidelity is too low for UIKit.
 
 ## A5 — UIKit and host UI (6–12 months)
 
-- Build or obtain a UIKit-compatible layer for the simulator runtime.
+- Build or obtain a UIKit-compatible layer for the simulator runtime. **A0.5 delivered a
+  clean-room shim for six classes and one lifecycle callback**, not a UIKit implementation.
 - AppKit replacement for host windows, menus, and pasteboard.
 - Accessibility translation and a test harness.
 - Text, fonts, locale, and input-method plumbing.

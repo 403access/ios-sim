@@ -421,13 +421,13 @@ function walkChain(input: {
 
     const decoded = decodePointer(raw, pointerFormat, segmentIndex, page, location);
     if (decoded.kind === "bind") {
-      if (decoded.ordinal > imports.length) {
+      if (decoded.ordinal >= imports.length) {
         throw new MachOError(
           "fixup_import_missing",
           `segment ${segmentIndex}: bind at 0x${location.toString(16)} references import ${decoded.ordinal}, only ${imports.length} declared`,
         );
       }
-      const imported = imports[decoded.ordinal - 1];
+      const imported = imports[decoded.ordinal];
       if (!imported) {
         throw new MachOError(
           "fixup_import_missing",

@@ -6,16 +6,19 @@ description: What Option A actually implements on this branch, how to run it, an
 
 # Option A, implemented as a substrate
 
-This branch (`option-a-native-darwin`) chooses **Option A** and implements the foundational
-user-space layers of a Darwin compatibility layer. It is a real, tested codebase, not a sketch.
-It is also **not an iOS Simulator**: no SpringBoard, UIKit, Metal, CoreSimulator, `launchd_sim`,
-or Apple framework replacement exists here. The [limitations](./limitations.md) page is part of
-the deliverable, not a disclaimer bolted on afterwards.
+This branch (`option-a-uikit-poc`, based on `option-a-native-darwin`) chooses **Option A** and
+implements the foundational user-space layers of a Darwin compatibility layer. It is a real,
+tested codebase, not a sketch. It is also **not an iOS Simulator**: there is no SpringBoard, no
+Apple UIKit, no Metal, no CoreSimulator, and no `launchd_sim`. The UIKit on this branch is a
+clean-room shim whose methods are documented in the [ABI page](./abi.md); the
+[limitations](./limitations.md) page is part of the deliverable, not a disclaimer bolted on
+afterwards.
 
 :::caution What "runs natively" means here
-`ios-sim-native run` can execute a self-contained arm64 Mach-O that uses the implemented syscall
-subset. It cannot run an Apple simulator runtime, `simctl`, or an iOS app. The shipping workflow
-remains the remote Mac bridge on `main`.
+`ios-sim-native run` executes self-contained arm64 Mach-O images that use the implemented syscall,
+Mach, and Objective-C subset. It can render a frame from an Objective-C application built against
+the repository's clean-room UIKit shim. It cannot run an Apple simulator runtime, `simctl`, or an
+unmodified Apple app. The shipping workflow remains the remote Mac bridge on `main`.
 :::
 
 ## Proof, not a promise
@@ -55,15 +58,21 @@ The real fixture is built at test time and is not committed. Its source is
 | MIG-lite               | typed calls with status words, tested client/server                         |
 | XPC-style RPC          | typed object codec and request/reply over Mach                              |
 | launchd-style jobs     | XML plists, MachServices, RunAtLoad, bounded KeepAlive                      |
-| Deterministic fixtures | generated Mach-O and hand-encoded A64; no Apple binaries in the repository  |
+| Objective-C 2          | class lists, absolute + relative method lists, selectors, instances         |
+| Message send           | `objc_msgSend`/`Super2`, guest IMP tail calls, framework IMP traps          |
+| UIKit shim             | `UIApplicationMain`, `UIWindow`, `UIView`, `UIViewController`, `UIColor`    |
+| Frame capture          | deterministic 375×667 RGBA frame, PNG/PPM encoding, stable SHA-256          |
+| Deterministic fixtures | generated Mach-O, hand-encoded A64, and a generated ObjC app                |
 
 ## What is deliberately absent
 
 The parts that make the simulator a simulator are missing: the dynamic shared cache, legacy dyld
-bindings, Objective-C/Swift runtimes, Foundation, UIKit/AppKit, Metal/IOSurface/QuartzCore,
-code signing and entitlements, TCC, keychain, `launchd_sim`, CoreSimulator XPC services,
-SpringBoard, jetsam, and APFS disk images. See [Limitations](./limitations.md) for the full
-matrix and the [roadmap](./roadmap.md) for the order in which they would be attacked.
+bindings, real Apple Objective-C/Swift runtimes, Foundation, Apple UIKit/AppKit,
+Metal/IOSurface/QuartzCore, code signing and entitlements, TCC, keychain, `launchd_sim`,
+CoreSimulator XPC services, SpringBoard, jetsam, and APFS disk images. The UIKit on this branch is
+a clean-room shim, not Apple's framework. See [Limitations](./limitations.md) for the full matrix,
+the [proof of concept](./poc.md) for what the shim does, and the [roadmap](./roadmap.md) for the
+order in which the remaining layers would be attacked.
 
 ## Repository map
 
@@ -76,6 +85,8 @@ packages/darwin-compat/src/
   dyld/      sparse VM, image loading, fixups, export resolution
   syscall/   BSD syscalls + Mach traps, jailed file layer
   launchd/   plist jobs, services, RunAtLoad, KeepAlive
+  objc/      ObjC metadata, dispatch, UIKit shim, generated ObjC app
+  ui/        RGBA framebuffer and deterministic PNG/PPM encoding
   runtime/   process orchestrator (Mach task + loader + CPU + syscalls)
   inspect.ts structured inspection for the CLI
 apps/native/ CLI: inspect, run, demo, launchd, doctor
@@ -94,6 +105,8 @@ bun apps/native/src/bin.ts inspect <macho>    # segments, imports, fixups, expor
 bun apps/native/src/bin.ts run <macho>        # execute with a jailed filesystem
 bun apps/native/src/bin.ts launchd <plist>    # boot launchd-style jobs
 bun apps/native/src/bin.ts demo               # generated end-to-end fixture
+bun apps/native/src/bin.ts uikit-demo --out frame.png
+                                              # generated ObjC app -> rendered frame
 ```
 
 `run` accepts `--arg`, `--env KEY=VALUE`, `--stdin`, `--root`, `--max-instructions`,
@@ -104,6 +117,8 @@ instead of silently returning `ENOSYS`).
 ## Safety and legal boundaries
 
 - The CLI never loads an Apple binary, SDK, runtime, or shared cache by itself.
+- The Objective-C shim is original code; the framework classes are generated metadata with host
+  IMP trampolines, not Apple headers or binaries.
 - File syscalls are confined to `--root` (or the binary's directory); traversal is rejected.
 - Execution has instruction and wall-clock budgets.
 - No network syscalls, no host process spawning, no PTYs, no dynamic code loading.

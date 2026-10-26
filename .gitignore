@@ -29,3 +29,6 @@ bun.lockb
 
 # Native fixture build output
 fixtures/darwin-hello/build/
+
+# Objective-C fixture build output
+fixtures/objc-window/build/

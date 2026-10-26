@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -60,6 +60,23 @@ describe("ios-sim-native CLI", () => {
     expect(await main(["run", file, "--json"], runIo)).toBe(42);
     const run = JSON.parse(runIo.out.join(""));
     expect(run.stdout).toBe("hello from darwin\n");
+  });
+
+  it("runs the generated ObjC UIKit demo and writes a frame", async () => {
+    const io = capture();
+    const code = await main(["uikit-demo", "--json"], io);
+    expect(code).toBe(0);
+    const result = JSON.parse(io.out.join(""));
+    expect(result.frames).toHaveLength(1);
+    expect(result.frames[0].width).toBe(375);
+    expect(result.frames[0].height).toBe(667);
+    expect(result.frames[0].digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.objcClasses).toContain("AppDelegate");
+
+    const file = join(temp(), "frame.png");
+    expect(await main(["uikit-demo", "--out", file], capture())).toBe(0);
+    const bytes = readFileSync(file);
+    expect([...bytes.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   });
 
   it("returns a failure for a missing file", async () => {
