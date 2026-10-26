@@ -128,6 +128,13 @@ host.close();
 The module is Bun-only because of `bun:ffi`; constants/types can be imported without loading the
 library.
 
+## Thread lifecycle
+
+`THR-001` adds thread objects and thread ports to the native boundary. They are lifecycle
+primitives: create, inspect, terminate, and join. Guest instruction execution and the scheduler
+are **not** in the C host yet; THR-002/003 wire the guest CPU to these objects. A thread object
+therefore proves the kernel-side identity/port/teardown contract, not real guest concurrency.
+
 ## Not implemented in v1
 
 - port sets/notifications (KRN-006)

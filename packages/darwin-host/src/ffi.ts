@@ -24,6 +24,11 @@ export const DH_RIGHT_SEND = 1;
 export const DH_RIGHT_RECEIVE = 2;
 export const DH_RIGHT_SEND_ONCE = 4;
 
+export const DH_THREAD_RUNNABLE = 1;
+export const DH_THREAD_RUNNING = 2;
+export const DH_THREAD_BLOCKED = 3;
+export const DH_THREAD_TERMINATED = 4;
+
 export enum DHStatus {
   OK = 0,
   InvalidArgument = 1,
@@ -103,6 +108,10 @@ const SYMBOLS = {
   dh_task_create: { args: ["u32", "ptr"], returns: "i32" },
   dh_task_destroy: { args: ["u32"], returns: "i32" },
   dh_task_interrupt: { args: ["u32"], returns: "i32" },
+  dh_thread_create: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+  dh_thread_terminate: { args: ["u32", "u32"], returns: "i32" },
+  dh_thread_join: { args: ["u32", "u32", "u32"], returns: "i32" },
+  dh_thread_state: { args: ["u32", "u32", "ptr"], returns: "i32" },
   dh_port_create_receive: { args: ["u32", "cstring", "ptr"], returns: "i32" },
   dh_reply_port: { args: ["u32", "ptr"], returns: "i32" },
   dh_port_make_send: { args: ["u32", "u32", "ptr"], returns: "i32" },
@@ -118,6 +127,7 @@ const SYMBOLS = {
   dh_kernel_stats: { args: ["ptr", "ptr", "ptr"], returns: "i32" },
   dh_selftest_blocking: { args: [], returns: "i32" },
   dh_selftest_interrupt: { args: [], returns: "i32" },
+  dh_selftest_threads: { args: [], returns: "i32" },
 } as const;
 
 type NativeLibrary = ReturnType<typeof dlopen>;
@@ -166,6 +176,27 @@ export class NativeHost {
 
   interruptTask(task: number): void {
     this.check("task_interrupt", this.symbols.dh_task_interrupt!(task));
+  }
+
+  createThread(task: number): { thread: number; portName: number } {
+    const thread = new Uint32Array(1);
+    const portName = new Uint32Array(1);
+    this.check("thread_create", this.symbols.dh_thread_create!(task, ptr(thread), ptr(portName)));
+    return { thread: thread[0]!, portName: portName[0]! };
+  }
+
+  terminateThread(task: number, thread: number): void {
+    this.check("thread_terminate", this.symbols.dh_thread_terminate!(task, thread));
+  }
+
+  joinThread(task: number, thread: number, timeoutMs = DH_TIMEOUT_FOREVER): number {
+    return this.symbols.dh_thread_join!(task, thread, timeoutMs);
+  }
+
+  threadState(task: number, thread: number): number {
+    const state = new Uint32Array(1);
+    this.check("thread_state", this.symbols.dh_thread_state!(task, thread, ptr(state)));
+    return state[0]!;
   }
 
   createReceivePort(task: number, label: string): number {
@@ -268,6 +299,10 @@ export class NativeHost {
 
   selftestInterrupt(): void {
     this.check("selftest_interrupt", this.symbols.dh_selftest_interrupt!());
+  }
+
+  selftestThreads(): void {
+    this.check("selftest_threads", this.symbols.dh_selftest_threads!());
   }
 
   private check(operation: string, status: number): void {

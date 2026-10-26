@@ -185,6 +185,9 @@ signals, spawn/exec, timers, and teardown.
 
 **Depends on:** KRN-G1. THR-001/002 can start once KRN-003 exists.
 
+**Status:** THR-001 is implemented in `packages/darwin-host` (thread lifecycle objects and thread
+ports, C + FFI tests). THR-002+ remain; guest CPU scheduling is not wired yet.
+
 | ID      | Task                               | Size | Depends          | Deliverable                                      | Acceptance                                                                     |
 | ------- | ---------------------------------- | ---- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
 | THR-001 | Thread objects and thread ports    | M    | KRN-003          | Guest thread table, thread ports, thread groups  | Create/join/terminate; port identity stable; teardown frees names              |

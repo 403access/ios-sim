@@ -67,6 +67,7 @@ int main(void) {
 
   CHECK(dh_selftest_blocking() == 0, "blocking self-test");
   CHECK(dh_selftest_interrupt() == 0, "interrupt self-test");
+  CHECK(dh_selftest_threads() == 0, "thread self-test");
 
   CHECK(dh_task_create(101, &task) == DH_OK, "second task");
   uint32_t tasks = 0;

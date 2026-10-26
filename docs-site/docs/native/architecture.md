@@ -187,7 +187,8 @@ budget, on-demand start, duplicates, and captured output.
 ## Native kernel boundary (`packages/darwin-host`)
 
 KRN-001..005 move tasks, names, rights, queues, blocking receive, timeouts, interruption, and
-bootstrap services into a C11 library loaded through Bun FFI. There is no second protocol: the
+bootstrap services into a C11 library loaded through Bun FFI. THR-001 adds thread lifecycle
+objects and native thread ports; guest CPU scheduling is still above this boundary. There is no second protocol: the
 TypeScript binding calls the C host directly. The ABI is versioned and bounded. It is not a Mach
 kernel yet; port sets, descriptors, memory objects, MIG vectors, traps, and the scheduler remain
 open. See the [host ABI](./host-abi.md) and

@@ -42,6 +42,14 @@ typedef struct {
 
 typedef struct {
   uint32_t used;
+  uint32_t id;
+  uint32_t task_id;
+  uint32_t port_id;
+  uint32_t state;
+} DHThread;
+
+typedef struct {
+  uint32_t used;
   char name[DH_SERVICE_MAX];
   uint32_t port_id;
 } DHService;
@@ -51,13 +59,25 @@ static pthread_cond_t g_cond = PTHREAD_COND_INITIALIZER;
 static DHTask g_tasks[DH_MAX_TASKS];
 static DHMessagePort g_ports[DH_MAX_PORTS];
 static DHService g_services[DH_MAX_SERVICES];
+static DHThread g_threads[DH_MAX_THREADS];
 static uint32_t g_next_task_id = 1;
+static uint32_t g_next_thread_id = 1;
 static uint32_t g_boot_port_id = 0;
 static uint32_t g_message_count = 0;
 
 static DHTask *task_locked(uint32_t task_id) {
   for (size_t index = 0; index < DH_MAX_TASKS; ++index) {
     if (g_tasks[index].used && g_tasks[index].id == task_id) return &g_tasks[index];
+  }
+  return NULL;
+}
+
+static DHThread *thread_locked(uint32_t task_id, uint32_t thread_id) {
+  for (size_t index = 0; index < DH_MAX_THREADS; ++index) {
+    if (g_threads[index].used && g_threads[index].task_id == task_id &&
+        g_threads[index].id == thread_id) {
+      return &g_threads[index];
+    }
   }
   return NULL;
 }
@@ -151,7 +171,9 @@ static void kernel_reset_locked(void) {
   memset(g_tasks, 0, sizeof(g_tasks));
   memset(g_ports, 0, sizeof(g_ports));
   memset(g_services, 0, sizeof(g_services));
+  memset(g_threads, 0, sizeof(g_threads));
   g_next_task_id = 1;
+  g_next_thread_id = 1;
   g_message_count = 0;
   DHMessagePort *boot = alloc_port_locked("bootstrap", 0);
   g_boot_port_id = boot == NULL ? 0 : boot->id;
@@ -224,6 +246,14 @@ int dh_task_destroy(uint32_t task_id) {
       if (port != NULL && port->receive_owner == task->id) destroy_port_locked(port);
     }
     remove_name_locked(task, name);
+  }
+  for (size_t index = 0; index < DH_MAX_THREADS; ++index) {
+    if (g_threads[index].used && g_threads[index].task_id == task->id) {
+      g_threads[index].state = DH_THREAD_TERMINATED;
+      DHMessagePort *thread_port = port_locked(g_threads[index].port_id);
+      if (thread_port != NULL) destroy_port_locked(thread_port);
+      memset(&g_threads[index], 0, sizeof(g_threads[index]));
+    }
   }
   task->used = 0;
   task->interrupted = 0;
@@ -336,6 +366,114 @@ int dh_name_deallocate(uint32_t task_id, uint32_t name) {
   }
   remove_name_locked(task, name);
   pthread_cond_broadcast(&g_cond);
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_thread_create(uint32_t task_id, uint32_t *out_thread, uint32_t *out_port_name) {
+  if (out_thread == NULL || out_port_name == NULL) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHTask *task = task_locked(task_id);
+  if (task == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_TASK;
+  }
+  DHThread *thread = NULL;
+  for (size_t index = 0; index < DH_MAX_THREADS; ++index) {
+    if (!g_threads[index].used) {
+      thread = &g_threads[index];
+      break;
+    }
+  }
+  if (thread == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_NO_SPACE;
+  }
+  DHMessagePort *port = alloc_port_locked("thread", task->id);
+  if (port == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_NO_SPACE;
+  }
+  uint32_t name = 0;
+  int status = alloc_name_locked(task, port->id, DH_RIGHT_RECEIVE | DH_RIGHT_SEND, &name);
+  if (status != DH_OK) {
+    destroy_port_locked(port);
+    pthread_mutex_unlock(&g_lock);
+    return status;
+  }
+  memset(thread, 0, sizeof(*thread));
+  thread->used = 1;
+  thread->id = g_next_thread_id++;
+  thread->task_id = task_id;
+  thread->port_id = port->id;
+  thread->state = DH_THREAD_RUNNABLE;
+  *out_thread = thread->id;
+  *out_port_name = name;
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_thread_terminate(uint32_t task_id, uint32_t thread_id) {
+  pthread_mutex_lock(&g_lock);
+  DHThread *thread = thread_locked(task_id, thread_id);
+  if (thread == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  thread->state = DH_THREAD_TERMINATED;
+  pthread_cond_broadcast(&g_cond);
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_thread_join(uint32_t task_id, uint32_t thread_id, uint32_t timeout_ms) {
+  pthread_mutex_lock(&g_lock);
+  DHThread *thread = thread_locked(task_id, thread_id);
+  if (thread == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  struct timespec deadline;
+  if (timeout_ms != DH_TIMEOUT_NONE && timeout_ms != DH_TIMEOUT_FOREVER) {
+    clock_gettime(CLOCK_REALTIME, &deadline);
+    deadline.tv_sec += (time_t)(timeout_ms / 1000u);
+    deadline.tv_nsec += (long)(timeout_ms % 1000u) * 1000000L;
+    if (deadline.tv_nsec >= 1000000000L) {
+      deadline.tv_sec += 1;
+      deadline.tv_nsec -= 1000000000L;
+    }
+  }
+  while (thread->state != DH_THREAD_TERMINATED) {
+    if (timeout_ms == DH_TIMEOUT_NONE) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_TIMEOUT;
+    }
+    int wait_status = timeout_ms == DH_TIMEOUT_FOREVER
+                          ? pthread_cond_wait(&g_cond, &g_lock)
+                          : pthread_cond_timedwait(&g_cond, &g_lock, &deadline);
+    thread = thread_locked(task_id, thread_id);
+    if (thread == NULL) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_INVALID_NAME;
+    }
+    if (wait_status == ETIMEDOUT && thread->state != DH_THREAD_TERMINATED) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_TIMEOUT;
+    }
+  }
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_thread_state(uint32_t task_id, uint32_t thread_id, uint32_t *out_state) {
+  if (out_state == NULL) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHThread *thread = thread_locked(task_id, thread_id);
+  if (thread == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  *out_state = thread->state;
   pthread_mutex_unlock(&g_lock);
   return DH_OK;
 }
@@ -645,3 +783,25 @@ static int run_selftest(int interrupt_only) {
 
 int dh_selftest_blocking(void) { return run_selftest(0); }
 int dh_selftest_interrupt(void) { return run_selftest(1); }
+
+int dh_selftest_threads(void) {
+  uint32_t task = 0;
+  if (dh_task_create(43, &task) != DH_OK) return 1;
+  uint32_t threads[8] = {0};
+  uint32_t ports[8] = {0};
+  for (int index = 0; index < 8; ++index) {
+    if (dh_thread_create(task, &threads[index], &ports[index]) != DH_OK) return 2;
+    if (ports[index] == 0) return 3;
+  }
+  for (int index = 0; index < 4; ++index) {
+    if (dh_thread_terminate(task, threads[index]) != DH_OK) return 4;
+    if (dh_thread_join(task, threads[index], DH_TIMEOUT_NONE) != DH_OK) return 5;
+  }
+  for (int index = 4; index < 8; ++index) {
+    uint32_t state = 0;
+    if (dh_thread_state(task, threads[index], &state) != DH_OK) return 6;
+    if (state != DH_THREAD_RUNNABLE) return 7;
+  }
+  dh_task_destroy(task);
+  return 0;
+}

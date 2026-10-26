@@ -18,12 +18,12 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..005 done (`packages/darwin-host`); THR-001 is next.                               |
+| A1 kernel/threads | **In progress.** KRN-001..005 + THR-001 done; THR-002 is next.                                              |
 | A2 loader/runtime | **Partially startable.** Legacy bindings, fuzzing, diagnostics, and signing parse can proceed in parallel.  |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals (scheduled work):** 25 done · 1 next · 27 ready · remaining blocked/proposed.
+**Totals (scheduled work):** 26 done · 1 next · 27 ready · remaining blocked/proposed.
 
 ## 2. Ready queue
 
@@ -32,7 +32,7 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                     |
 | ----: | --------- | ------------- | ---- | ------- | ---------------------------------------------------------------------------- |
-|     1 | `THR-001` | Threads       | M    | KRN-003 | Thread objects/ports; create/join/terminate; stable identity                 |
+|     1 | `THR-002` | Threads       | L    | THR-001 | Scheduler/run queue; N threads progress; no starvation; trace switches       |
 |     2 | `KRN-006` | Kernel        | M    | KRN-005 | Port sets and notifications; 100-port select; exactly-once notification      |
 |     3 | `KRN-007` | Kernel        | M    | KRN-004 | Port/memory descriptors in transit; COPY_SEND/MAKE_SEND_ONCE tests           |
 |     4 | `KRN-009` | Kernel        | L    | KRN-003 | Memory objects/shared memory; COW, unmap, two-task sharing                   |
@@ -50,7 +50,7 @@ started by a human with host access, not by a Linux-only agent.
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
 `CS-001`, `INP-001`) are ready but require a licensed-Mac window.
-`THR-001` is the critical-path task. `KRN-006` and the remaining KRN tasks are the parallel
+`THR-002` is the critical-path task. `KRN-006` and the remaining KRN tasks are the parallel
 lane. Do not start two critical-path tasks at once.
 
 ### First twelve sessions
@@ -59,22 +59,23 @@ This is the intended cadence for one engineer/agent. A session ends at a green t
 a backlog update, not at an arbitrary clock time. The parallel task is optional but keeps
 non-critical progress moving.
 
-|                                                                                     Session | Critical path | Parallel (independent) | Expected outcome                        |
-| ------------------------------------------------------------------------------------------: | ------------- | ---------------------- | --------------------------------------- |
-|                                                                                           1 | `THR-001`     | `KRN-006`              | Thread objects/ports; port sets select  |
-|                                                                                           2 | `THR-002`     | `KRN-007`              | Scheduler/run queue; descriptor rights  |
-|                                                                                           3 | `THR-003`     | `KRN-009`              | Blocking syscall bridge; memory objects |
-|                                                                                           4 | `THR-004`     | `KRN-010`              | pthread shim; trap parity table         |
-|                                                                                           5 | `THR-005`     | `KRN-011`              | Signals; quotas                         |
-|                                                                                           6 | `THR-006`     | `KRN-012`              | Spawn/exec/waitpid; native stress       |
-|                                                                                           7 | `THR-007`     | `OBS-001`              | posix_spawn attrs; event schema         |
-|                                                                                           8 | `THR-008`     | `QA-001`               | kqueue/timers; fuzz harness             |
-|                                                                                           9 | `THR-012`     | `QA-003`               | Concurrency stress; generated corpus    |
-|                                                                                          10 | `LDR-001`     | `REL-001`              | Legacy dyld opcodes; native CI          |
-|                                                                                          11 | `LDR-002`     | `QA-004`               | Lazy/weak binding; performance baseline |
-|                                                                                          12 | `LDR-003`     | `LDR-010`              | Initializers; signature parser          |
-| After session 12, re-read the gate tables. Do not start A2 runtime (`RT-*`) until `LDR-004` |
-|      exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evidence. |
+| Session | Critical path | Parallel (independent) | Expected outcome                      |
+| ------: | ------------- | ---------------------- | ------------------------------------- |
+|       1 | `THR-002`     | `KRN-006`              | Scheduler/run queue; port sets select |
+|       2 | `THR-003`     | `KRN-007`              | Blocking syscall bridge; descriptors  |
+|       3 | `THR-004`     | `KRN-009`              | pthread shim; memory objects          |
+|       4 | `THR-005`     | `KRN-010`              | Signals; trap parity table            |
+|       5 | `THR-006`     | `KRN-011`              | Spawn/exec/waitpid; quotas            |
+|       6 | `THR-007`     | `KRN-012`              | posix_spawn attrs; native stress      |
+|       7 | `THR-008`     | `OBS-001`              | kqueue/timers; event schema           |
+|       8 | `THR-012`     | `QA-001`               | Concurrency stress; fuzz harness      |
+|       9 | `LDR-001`     | `QA-003`               | Legacy dyld opcodes; generated corpus |
+|      10 | `LDR-002`     | `REL-001`              | Lazy/weak binding; native CI          |
+|      11 | `LDR-003`     | `QA-004`               | Initializers; performance baseline    |
+|      12 | `LDR-010`     | `LDR-013`              | Signature parser; loader diagnostics  |
+
+After session 12, re-read the gate tables. Do not start A2 runtime (`RT-*`) until `LDR-004`
+exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evidence.
 
 ## 3. Scheduled tasks
 
@@ -123,6 +124,15 @@ window/software renderer boundary while KRN/LDR/RT gates remain open.
 
 Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 
+### Threads — THR-001 (done)
+
+| ID        | Task                                             | Evidence                                                                          |
+| --------- | ------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `THR-001` | Thread lifecycle objects and native thread ports | `dh_thread_create/terminate/join/state`; C + Bun FFI tests; `dh_selftest_threads` |
+
+Thread objects are lifecycle primitives. Guest CPU scheduling and blocking syscall integration
+remain THR-002/003.
+
 ### A1 — kernel, threads, observability, quality foundation
 
 | ID        | Task                           | Priority | Size | Status    | Depends          | Acceptance / evidence                                  |
@@ -139,7 +149,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `KRN-010` | Mach trap parity table         | P1       | M    | **ready** | KRN-005          | Success/error vectors; fuzz                            |
 | `KRN-011` | Quotas/resource accounting     | P2       | S    | **ready** | KRN-005          | Quota teardown; no cross-task impact                   |
 | `KRN-012` | Native stress/soak             | P1       | M    | **ready** | KRN-005          | 16 threads/1M messages, leak-free                      |
-| `THR-001` | Threads/thread ports           | P0       | M    | **next**  | KRN-003          | Create/join/terminate; stable identity                 |
+| `THR-001` | Threads/thread ports           | P0       | M    | **done**  | KRN-003          | Thread lifecycle objects/ports; C + FFI tests          |
 | `THR-002` | Scheduler/run queue            | P0       | L    | blocked   | THR-001          | No starvation; trace switches                          |
 | `THR-003` | Blocking syscall bridge        | P0       | M    | blocked   | KRN-005, THR-002 | Block/wake/timeout                                     |
 | `THR-004` | pthread/libSystem shim         | P1       | L    | blocked   | THR-001/2        | 8-worker fixture                                       |

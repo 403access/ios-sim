@@ -89,7 +89,7 @@ bun apps/native/src/bin.ts window                # native X11 blank window (clea
 Implemented: Mach-O parsing and chained fixups, user-space dyld with slides and dependency
 linking, an AArch64 integer interpreter, Mach rights/messages/reply ports/bootstrap services,
 MIG-lite, an XPC-style codec, a Darwin syscall subset, launchd-style plists, a native C11/Bun-FFI
-kernel boundary (tasks/ports/queues/blocking), and a clean-room UIKit-compatible native X11 blank
+kernel boundary (tasks/ports/queues/blocking/thread objects), and a clean-room UIKit-compatible native X11 blank
 window (software renderer, no web view).
 
 Not implemented: threads/blocking Mach receive, legacy dyld bindings, the shared cache,

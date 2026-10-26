@@ -77,10 +77,10 @@ defines what can run beside what.
 
 **Gate:** KRN-G1 and THR-G1. **Tasks:** `KRN-001..012`, `THR-001..012`.
 
-**Status:** KRN-001..005 are implemented in `packages/darwin-host`: C11 tasks/ports/rights,
-bounded queues, blocking receive, timeouts, interruption, and bootstrap services, loaded through
-Bun FFI. KRN-006..012 and THR remain. See the [host ABI](./host-abi.md) and
-[ADR 0007](../adr/native-kernel-boundary.md).
+**Status:** KRN-001..005 and THR-001 are implemented in `packages/darwin-host`: C11
+tasks/ports/rights, bounded queues, blocking receive, timeouts, interruption, bootstrap services,
+and thread lifecycle objects with thread ports, loaded through Bun FFI. KRN-006..012 and THR-002+
+remain. See the [host ABI](./host-abi.md) and [ADR 0007](../adr/native-kernel-boundary.md).
 
 **Why:** every interesting simulator process is multi-threaded and blocks in Mach calls.
 

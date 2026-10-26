@@ -27,6 +27,7 @@ extern "C" {
 #define DH_MAX_PORTS 1024u
 #define DH_MAX_NAMES_PER_TASK 256u
 #define DH_MAX_SERVICES 256u
+#define DH_MAX_THREADS 1024u
 #define DH_LABEL_MAX 64u
 #define DH_SERVICE_MAX 256u
 
@@ -34,6 +35,12 @@ extern "C" {
 #define DH_RIGHT_SEND 1u
 #define DH_RIGHT_RECEIVE 2u
 #define DH_RIGHT_SEND_ONCE 4u
+
+/* Thread states. */
+#define DH_THREAD_RUNNABLE 1u
+#define DH_THREAD_RUNNING 2u
+#define DH_THREAD_BLOCKED 3u
+#define DH_THREAD_TERMINATED 4u
 
 /* Machine-readable status; stable within DH_ABI_VERSION. */
 typedef enum {
@@ -60,6 +67,12 @@ int dh_kernel_reset(void);
 int dh_task_create(uint32_t pid, uint32_t *out_task);
 int dh_task_destroy(uint32_t task);
 int dh_task_interrupt(uint32_t task);
+
+/* Thread lifecycle objects. Execution/scheduling is layered above this ABI. */
+int dh_thread_create(uint32_t task, uint32_t *out_thread, uint32_t *out_port_name);
+int dh_thread_terminate(uint32_t task, uint32_t thread);
+int dh_thread_join(uint32_t task, uint32_t thread, uint32_t timeout_ms);
+int dh_thread_state(uint32_t task, uint32_t thread, uint32_t *out_state);
 
 /* Create a receive right with a label. */
 int dh_port_create_receive(uint32_t task, const char *label, uint32_t *out_name);
@@ -98,6 +111,7 @@ int dh_kernel_stats(uint32_t *out_tasks, uint32_t *out_ports, uint32_t *out_mess
 /* Self-tests used by the C test and the Bun FFI smoke test. */
 int dh_selftest_blocking(void);
 int dh_selftest_interrupt(void);
+int dh_selftest_threads(void);
 
 #ifdef __cplusplus
 }

@@ -7,7 +7,13 @@
  */
 
 import assert from "node:assert/strict";
-import { DH_MAX_QUEUE_DEPTH, DH_TIMEOUT_FOREVER, DHStatus, NativeHost } from "../src/index.js";
+import {
+  DH_MAX_QUEUE_DEPTH,
+  DH_THREAD_RUNNABLE,
+  DH_TIMEOUT_FOREVER,
+  DHStatus,
+  NativeHost,
+} from "../src/index.js";
 
 const host = new NativeHost();
 try {
@@ -49,6 +55,16 @@ try {
 
   host.selftestBlocking();
   host.selftestInterrupt();
+  host.selftestThreads();
+
+  const threadOne = host.createThread(task);
+  const threadTwo = host.createThread(task);
+  assert.notEqual(threadOne.thread, threadTwo.thread);
+  assert.notEqual(threadOne.portName, threadTwo.portName);
+  assert.equal(host.threadState(task, threadOne.thread), DH_THREAD_RUNNABLE);
+  host.terminateThread(task, threadOne.thread);
+  assert.equal(host.joinThread(task, threadOne.thread, 0), 0);
+  assert.equal(host.joinThread(task, threadTwo.thread, 0), 7);
 
   const stats = host.stats();
   assert.ok(stats.tasks >= 1 && stats.ports >= 1 && stats.messages === 0);
