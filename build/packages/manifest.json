@@ -1,0 +1,19 @@
+{
+  "generatedAt": "2026-10-26T16:48:44.396Z",
+  "artifacts": [
+    {
+      "name": "@ios-sim/darwin-compat",
+      "version": "0.1.0",
+      "file": "ios-sim-darwin-compat-0.1.0.tgz",
+      "bytes": 197584,
+      "sha256": "b4bd5be3e71301f549acbbf535709873cbd043290fe78df9efda0caf5a7e4136"
+    },
+    {
+      "name": "@ios-sim/native",
+      "version": "0.1.0",
+      "file": "ios-sim-native-0.1.0.tgz",
+      "bytes": 16845,
+      "sha256": "3ba5f1ca418dc3f6fde85d1eeb756d59827878243a5b99c1e0856282fd55f4f4"
+    }
+  ]
+}

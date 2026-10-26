@@ -482,7 +482,9 @@ hashes; all 23 fixtures are byte-identical and CI runs the check. OBS-003 adds `
 bootstrap services with next actions; `ios-sim-native boot` prints it. THR-010 adds a jetsam
 policy layer: warning notifies, critical kills background/daemon/foreground in that order by
 largest footprint. REL-005 adds a relative-link checker and makes Docusaurus fail on broken links
-and broken Markdown links; CI and `verify` run it. REL-003 (packaging) is next.
+and broken Markdown links; CI and `verify` run it. REL-003 builds both packages and emits
+`build/packages/*.tgz` plus a SHA-256 manifest; no Apple files are included. OBS-004 (trace export)
+is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
