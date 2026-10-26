@@ -92,6 +92,7 @@ static unsigned gTick;
 @interface AppDelegate : NSObject
 - (BOOL)application:(id)application didFinishLaunchingWithOptions:(id)options;
 - (void)tick:(id)ignored;
+- (void)buttonTapped:(id)sender;
 @end
 
 @implementation AppDelegate
@@ -103,8 +104,18 @@ static unsigned gTick;
   gView = view;
   view.backgroundColor = [UIColor redColor];
   [window addSubview:view];
+  UIButton *button = [[UIButton alloc] initWithFrame:CGRectMake(20, 300, 200, 60)];
+  [button addTarget:self
+             action:@selector(buttonTapped:)
+   forControlEvents:UIControlEventTouchUpInside];
+  [window addSubview:button];
   [window makeKeyAndVisible];
   return YES;
+}
+
+- (void)buttonTapped:(id)sender {
+  (void)sender;
+  gView.backgroundColor = [UIColor orangeColor];
 }
 
 - (void)tick:(id)ignored {

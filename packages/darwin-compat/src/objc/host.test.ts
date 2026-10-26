@@ -108,6 +108,18 @@ describe("ObjC UIKit demo", () => {
     ]);
   });
 
+  it("dispatches a UIButton target/action", () => {
+    const result = runDemo([{ x: 30, y: 320 }]);
+    expect(result.frames).toHaveLength(2);
+    const at = (frameIndex: number, x: number, y: number): number[] => {
+      const frame = result.frames[frameIndex]!;
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 4)];
+    };
+    expect(at(0, 30, 30)).toEqual([255, 0, 0, 255]);
+    expect(at(1, 30, 30)).toEqual([255, 128, 0, 255]);
+  });
+
   it("moves the view on ticks", () => {
     const result = runDemo([
       { kind: "tick" },

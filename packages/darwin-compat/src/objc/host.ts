@@ -197,6 +197,7 @@ export class ObjcHost {
   private readonly weakOwners = new Map<bigint, bigint>();
   private readonly deadObjects = new Set<bigint>();
   private readonly poolOwners = new Map<bigint, boolean>();
+  private readonly buttonActions = new Map<bigint, { target: bigint; action: bigint }>();
   private readonly deallocPage: bigint;
   private deallocCursor: bigint;
   private readonly autoreleasePools: bigint[][] = [];
@@ -782,6 +783,41 @@ export class ObjcHost {
     });
     this.registerClass(window);
 
+    const button = this.defineClass({
+      name: "UIButton",
+      superclass: "UIView",
+      instanceSize: VIEW_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "addTarget:action:forControlEvents:",
+          types: "v40@0:8@16:24Q32",
+          run: (cpu, receiver) => {
+            this.buttonActions.set(receiver, {
+              target: cpu.readRegister(2),
+              action: cpu.readRegister(3),
+            });
+          },
+        },
+        {
+          selector: "sendActionsForControlEvents:",
+          types: "v24@0:8Q16",
+          run: (cpu, receiver) => this.sendButtonAction(cpu, receiver, 0n),
+        },
+        {
+          selector: "touchesEnded:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.sendButtonAction(cpu, receiver, cpu.readRegister(3)),
+        },
+        {
+          selector: "init",
+          types: "@16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, receiver),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(button);
+
     const controller = this.defineClass({
       name: "UIViewController",
       superclass: "NSObject",
@@ -869,6 +905,7 @@ export class ObjcHost {
         this.constantColor("blueColor", { r: 0, g: 0, b: 1, a: 1 }),
         this.constantColor("purpleColor", { r: 0.5, g: 0, b: 0.5, a: 1 }),
         this.constantColor("yellowColor", { r: 1, g: 1, b: 0, a: 1 }),
+        this.constantColor("orangeColor", { r: 1, g: 0.5, b: 0, a: 1 }),
         this.constantColor("greenColor", { r: 0, g: 1, b: 0, a: 1 }),
         this.constantColor("whiteColor", { r: 1, g: 1, b: 1, a: 1 }),
         this.constantColor("blackColor", { r: 0, g: 0, b: 0, a: 1 }),
@@ -1329,6 +1366,24 @@ export class ObjcHost {
     for (let index = 0; index < extraArgs; index += 1) {
       cpu.writeRegister(2 + index, args[index]!);
     }
+    return this.invoke(method, cpu);
+  }
+
+  private sendButtonAction(cpu: Arm64Cpu, button: bigint, event: bigint): SyscallResult {
+    const entry = this.buttonActions.get(button);
+    if (!entry) return { value: 0n };
+    const selector = this.readCString(entry.action);
+    const method = this.resolve(entry.target, selector);
+    if (!method) {
+      throw new ObjcError(
+        "unrecognized_selector",
+        `button target ${this.describe(entry.target)} does not respond to ${selector}`,
+      );
+    }
+    cpu.writeRegister(0, entry.target);
+    cpu.writeRegister(1, entry.action);
+    cpu.writeRegister(2, button);
+    cpu.writeRegister(3, event);
     return this.invoke(method, cpu);
   }
 

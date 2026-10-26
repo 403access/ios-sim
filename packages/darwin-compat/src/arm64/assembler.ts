@@ -82,14 +82,14 @@ export function ldpQuadPost(rt: number, rt2: number, rn: number, offset: number)
 
 /** `ldr dN, [Xn, #offset]` (scalar double, unsigned immediate). */
 export function ldrDouble(rt: number, rn: number, offset: number): number {
-  if (offset % 8 !== 0 || offset < 0 || offset > 0x7f8)
+  if (offset % 8 !== 0 || offset < 0 || offset > 0x7ff8)
     throw new Error(`unaligned or out-of-range double offset ${offset}`);
   return 0xfd400000 | ((offset / 8) << 10) | (rn << 5) | rt;
 }
 
 /** `str dN, [Xn, #offset]` (scalar double, unsigned immediate). */
 export function strDouble(rt: number, rn: number, offset: number): number {
-  if (offset % 8 !== 0 || offset < 0 || offset > 0x7f8)
+  if (offset % 8 !== 0 || offset < 0 || offset > 0x7ff8)
     throw new Error(`unaligned or out-of-range double offset ${offset}`);
   return 0xfd000000 | ((offset / 8) << 10) | (rn << 5) | rt;
 }

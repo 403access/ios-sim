@@ -13,6 +13,9 @@
 #define UIKIT_SHIM_H
 
 typedef struct objc_selector *SEL;
+typedef unsigned long NSUInteger;
+
+enum { UIControlEventTouchUpInside = 1 << 6 };
 typedef signed char BOOL;
 #define YES ((BOOL)1)
 #define NO ((BOOL)0)
@@ -66,6 +69,7 @@ __attribute__((objc_root_class))
 + (UIColor *)greenColor;
 + (UIColor *)purpleColor;
 + (UIColor *)yellowColor;
++ (UIColor *)orangeColor;
 + (UIColor *)whiteColor;
 + (UIColor *)colorWithRed:(CGFloat)red
                     green:(CGFloat)green
@@ -82,6 +86,10 @@ __attribute__((objc_root_class))
 - (void)touchesBegan:(id)touches withEvent:(id)event;
 - (void)touchesMoved:(id)touches withEvent:(id)event;
 - (void)touchesEnded:(id)touches withEvent:(id)event;
+@end
+
+@interface UIButton : UIView
+- (void)addTarget:(id)target action:(SEL)action forControlEvents:(NSUInteger)events;
 @end
 
 @interface UIWindow : UIView

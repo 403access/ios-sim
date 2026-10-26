@@ -79,6 +79,9 @@ const SELECTORS = {
   drain: "drain",
   performSelector: "performSelector:",
   probeColor: "probeColor",
+  orangeColor: "orangeColor",
+  buttonTapped: "buttonTapped:",
+  addTarget: "addTarget:action:forControlEvents:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -106,7 +109,9 @@ type SlotName =
   | "tapInitMarker"
   | "initOrder"
   | "deallocMarker"
-  | "classPool";
+  | "classPool"
+  | "classButton"
+  | "delegateSelf";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -141,6 +146,7 @@ interface Plan {
   readonly windowRect: number;
   readonly viewRect: number;
   readonly rectTable: number;
+  readonly buttonRect: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
 }
@@ -227,6 +233,8 @@ function planData(): Plan {
     "initOrder",
     "deallocMarker",
     "classPool",
+    "classButton",
+    "delegateSelf",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -271,7 +279,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 2 * 24;
+  cursor += 8 + 3 * 24;
   const appCategory = cursor;
   cursor += 48;
 
@@ -333,6 +341,8 @@ function planData(): Plan {
   cursor += 32;
   const rectTable = cursor;
   cursor += 4 * 32;
+  const buttonRect = cursor;
+  cursor += 32;
 
   const sections: BuildDataSection[] = [
     {
@@ -387,7 +397,7 @@ function planData(): Plan {
     {
       name: "__const",
       offset: windowRect,
-      size: 64 + 4 * 32,
+      size: 64 + 4 * 32 + 32,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -426,6 +436,7 @@ function planData(): Plan {
     windowRect,
     viewRect,
     rectTable,
+    buttonRect,
     size: cursor,
     sections,
   };
@@ -528,6 +539,24 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitMarker(slot("deallocMarker"), 1);
   emitWord(ret());
 
+  label("tapButton");
+  emitWord(stpPre(29, 30, 31, -16));
+  emitWord(stpPre(19, 20, 31, -16));
+  emitPointer(0, slot("currentView"));
+  emitWord(movReg(19, 0));
+  emitPointer(0, slot("classColor"));
+  emitAddress(1, selector(SELECTORS.orangeColor));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(movReg(2, 0));
+  emitWord(movReg(0, 19));
+  emitAddress(1, selector(SELECTORS.setBackgroundColor));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(ldpPost(19, 20, 31, 16));
+  emitWord(ldpPost(29, 30, 31, 16));
+  emitWord(ret());
+
   label("tapProbeColor");
   emitWord(stpPre(29, 30, 31, -16));
   emitPointer(0, slot("classColor"));
@@ -553,6 +582,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("tapEnded") ?? 0),
     bases.textBase + (code.labels.get("tapDealloc") ?? 0),
     bases.textBase + (code.labels.get("tapProbeColor") ?? 0),
+    bases.textBase + (code.labels.get("tapButton") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -642,6 +672,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     // -[AppDelegate(Window) application:didFinishLaunchingWithOptions:] -> BOOL
     emitWord(stpPre(29, 30, 31, -16));
     emitWord(stpPre(19, 20, 31, -16));
+    emitStore(0, slot("delegateSelf"));
 
     // UIWindow *window = [[UIWindow alloc] initWithFrame:...];
     emitPointer(0, slot("classWindow"));
@@ -691,6 +722,33 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.addSubview));
     emitWord(movReg(2, 20));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // UIButton *button = [UIButton alloc];
+    emitPointer(0, slot("classButton"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.buttonRect));
+    emitDouble(1, dataAddress(plan.buttonRect + 8));
+    emitDouble(2, dataAddress(plan.buttonRect + 16));
+    emitDouble(3, dataAddress(plan.buttonRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.addTarget));
+    emitPointer(2, slot("delegateSelf"));
+    emitAddress(3, selector(SELECTORS.buttonTapped));
+    emitWord(movz(4, 64));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
@@ -847,6 +905,7 @@ function emitData(
   tapEndedImp: number,
   tapDeallocImp: number,
   tapProbeColorImp: number,
+  tapButtonImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -891,7 +950,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 2);
+  u32(plan.appCategoryMethods + 4, 3);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -911,6 +970,10 @@ function emitData(
   rebase(tickEntry, selector(SELECTORS.tick));
   rebase(tickEntry + 8, selector(TYPES));
   rebase(tickEntry + 16, tickImp);
+  const buttonEntry = plan.appCategoryMethods + 56;
+  rebase(buttonEntry, selector(SELECTORS.buttonTapped));
+  rebase(buttonEntry + 8, selector(TYPES));
+  rebase(buttonEntry + 16, tapButtonImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }
@@ -1044,6 +1107,7 @@ function emitData(
   bind(plan.slotOffsets.weakLoad, "_objc_loadWeakRetained");
   bind(plan.slotOffsets.msgSendSuper, "_objc_msgSendSuper2");
   bind(plan.slotOffsets.classPool, "_OBJC_CLASS_$_NSAutoreleasePool");
+  bind(plan.slotOffsets.classButton, "_OBJC_CLASS_$_UIButton");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
@@ -1058,6 +1122,10 @@ function emitData(
   f64(plan.viewRect + 8, DEMO_VIEW_RECT.y);
   f64(plan.viewRect + 16, DEMO_VIEW_RECT.width);
   f64(plan.viewRect + 24, DEMO_VIEW_RECT.height);
+  f64(plan.buttonRect, 20);
+  f64(plan.buttonRect + 8, 300);
+  f64(plan.buttonRect + 16, 200);
+  f64(plan.buttonRect + 24, 60);
   for (let index = 0; index < 4; index += 1) {
     const rect = plan.rectTable + index * 32;
     f64(rect, DEMO_VIEW_RECT.x + index * 40);

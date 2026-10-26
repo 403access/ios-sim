@@ -203,7 +203,8 @@ These are original metadata with host IMP trampolines, not Apple classes:
 | `UIColor`          | `+redColor`, `+whiteColor`, `+blackColor`, `+clearColor`, `+colorWithRed:green:blue:alpha:`                                                                   |
 | `UIApplication`    | `+sharedApplication`, `-setDelegate:`, `-delegate`                                                                                                            |
 
-`UIView` ivars are fixed by this shim: frame doubles at 8/16/24/32, background object at 40,
+`UIButton` stores one target/action pair; only touch-up dispatch is performed. Action methods receive
+the button as the sender. `UIView` ivars are fixed by this shim: frame doubles at 8/16/24/32, background object at 40,
 hidden byte at 48, instance size 56. `UIColor` stores four doubles at 8/16/24/32. Application
 classes get an `isa` and their declared `instanceSize`; the shim does not lay out arbitrary ivars.
 

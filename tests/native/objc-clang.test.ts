@@ -40,6 +40,11 @@ describe.skipIf(!available)("real clang ObjC app", () => {
         frameCount: 4,
       },
       {
+        label: "button",
+        events: [{ x: 30, y: 320 }],
+        frameCount: 2,
+      },
+      {
         label: "ticks",
         events: [{ kind: "tick" }, { kind: "tick" }, { kind: "tick" }, { kind: "tick" }],
         frameCount: 5,
@@ -66,7 +71,7 @@ describe.skipIf(!available)("real clang ObjC app", () => {
         );
         expect(result.objcProtocols, label).toContain("TapView:Tappable");
         expect(result.objcStats.allocations, label).toBeGreaterThan(0);
-        if (scenario.label !== "ticks") {
+        if (scenario.label === "tap" || scenario.label === "drag") {
           expect(result.objcStats.associations, label).toBeGreaterThan(0);
           expect(result.objcStats.weakZeroings, label).toBeGreaterThan(0);
           expect(result.objcStats.weakLoads, label).toBeGreaterThan(0);
