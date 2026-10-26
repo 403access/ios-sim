@@ -59,6 +59,8 @@ single commit.
 - The Option A **A0 substrate** is implemented: Mach-O/dyld, arm64 interpreter, Mach ports,
   XPC-style RPC, jailed syscalls, launchd-style jobs, CLI, generated fixtures, and a real-clang
   smoke test.
+- A C11/Bun-FFI **native kernel boundary** now implements tasks, port rights, bounded queues,
+  blocking receive, timeouts, interruption, and bootstrap services (`KRN-001..005`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,

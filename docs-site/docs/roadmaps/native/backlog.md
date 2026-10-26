@@ -18,44 +18,40 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **Not started.** `KRN-001` is next.                                                                         |
+| A1 kernel/threads | **In progress.** KRN-001..005 done (`packages/darwin-host`); THR-001 is next.                               |
 | A2 loader/runtime | **Partially startable.** Legacy bindings, fuzzing, diagnostics, and signing parse can proceed in parallel.  |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals (scheduled work):** 20 done · 1 next · 21 ready · remaining blocked/proposed.
+**Totals (scheduled work):** 25 done · 1 next · 27 ready · remaining blocked/proposed.
 
 ## 2. Ready queue
 
 Pick from the top. A task marked with `*` needs a licensed-Mac observation window; it can be
 started by a human with host access, not by a Linux-only agent.
 
-| Order | ID         | Workstream    | Size | Depends    | Deliverable / acceptance                                                                      |
-| ----: | ---------- | ------------- | ---- | ---------- | --------------------------------------------------------------------------------------------- |
-|     1 | `KRN-001`  | Kernel        | S    | A0         | ADR + spike comparing C11/FFI, Rust/cdylib, separate host; blocking call works on Linux/macOS |
-|     2 | `LDR-001`  | Loader        | M    | A0         | Legacy `LC_DYLD_INFO` rebase/bind decoder; opcode fixtures resolve correctly                  |
-|     3 | `QA-001`   | Quality       | M    | A0         | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash                   |
-|     4 | `OBS-001`  | Observability | S    | A0         | Versioned event schema with JSON output tests                                                 |
-|     5 | `LEG-001`  | Legal         | S    | A0         | Provenance ledger for every runtime claim/artifact                                            |
-|     6 | `REL-001`  | Release       | S    | A0         | Native CI job on Linux (and macOS evidence job); skip reasons visible                         |
-|     7 | `QA-003`   | Quality       | M    | A0         | Generated Mach-O corpus covering load commands/fixup formats                                  |
-|     8 | `QA-004`   | Quality       | M    | A0         | Performance baseline suite with machine metadata and budgets                                  |
-|     9 | `DX-003`   | DX            | S    | A0         | Capability `doctor` JSON schema and tests                                                     |
-|    10 | `LDR-010`  | Loader        | M    | A0         | Code-signature parser for ad-hoc/signed fixtures (no verification yet)                        |
-|    11 | `LDR-013`  | Loader        | S    | A0         | Missing image/symbol report surfaced by CLI                                                   |
-|    12 | `STO-001`  | Storage       | L    | A0         | APFS read-only parser against a generated fixture image                                       |
-|    13 | `DX-001`   | DX            | M    | A0         | `inspect --disasm` with addresses for arm64 fixtures                                          |
-|    14 | `DX-005`   | DX            | S    | A0         | Native quickstart: demo then real clang fixture                                               |
-|    15 | `OBS-002`  | Observability | S    | A0         | Runtime counters for syscalls/Mach/faults/memory                                              |
-|    16 | `REL-005`  | Release       | S    | A0         | Docs build/link check in CI                                                                   |
-|    17 | `LEG-004`  | Legal         | S    | A0         | Claims audit; no "runs the simulator" language                                                |
-|    18 | `GFX-001`* | Graphics      | M    | Mac access | Metal API usage inventory from a licensed runtime                                             |
-|    19 | `CS-001`*  | CoreSimulator | M    | Mac access | XPC service/routine inventory with evidence                                                   |
-|    20 | `INP-001`* | Input         | M    | Mac access | HID/Indigo/CGEvent inventory                                                                  |
-|    21 | `LDR-006`* | Loader        | L    | Mac access | Shared-cache format parser against a local licensed cache                                     |
+| Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                     |
+| ----: | --------- | ------------- | ---- | ------- | ---------------------------------------------------------------------------- |
+|     1 | `THR-001` | Threads       | M    | KRN-003 | Thread objects/ports; create/join/terminate; stable identity                 |
+|     2 | `KRN-006` | Kernel        | M    | KRN-005 | Port sets and notifications; 100-port select; exactly-once notification      |
+|     3 | `KRN-007` | Kernel        | M    | KRN-004 | Port/memory descriptors in transit; COPY_SEND/MAKE_SEND_ONCE tests           |
+|     4 | `KRN-009` | Kernel        | L    | KRN-003 | Memory objects/shared memory; COW, unmap, two-task sharing                   |
+|     5 | `KRN-010` | Kernel        | M    | KRN-005 | Mach trap parity table; success/error vectors; fuzz                          |
+|     6 | `KRN-011` | Kernel        | S    | KRN-005 | Per-task port/message/memory quotas; teardown test                           |
+|     7 | `KRN-012` | Kernel        | M    | KRN-005 | 16-thread/1M-message stress; leak check                                      |
+|     8 | `LDR-001` | Loader        | M    | A0      | Legacy `LC_DYLD_INFO` rebase/bind decoder; opcode fixtures resolve correctly |
+|     9 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash  |
+|    10 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                                |
+|    11 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                           |
+|    12 | `REL-001` | Release       | S    | A0      | Native CI job on Linux (and macOS evidence job); skip reasons visible        |
+|    13 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                 |
+|    14 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                 |
+|    15 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)       |
 
-After `KRN-001` closes, `KRN-002` becomes the critical-path `next` task. After `LDR-001` closes,
-`LDR-002` becomes ready. Do not start two critical-path tasks at once.
+The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window.
+`THR-001` is the critical-path task. `KRN-006` and the remaining KRN tasks are the parallel
+lane. Do not start two critical-path tasks at once.
 
 ### First twelve sessions
 
@@ -63,23 +59,22 @@ This is the intended cadence for one engineer/agent. A session ends at a green t
 a backlog update, not at an arbitrary clock time. The parallel task is optional but keeps
 non-critical progress moving.
 
-| Session | Critical path | Parallel (independent) | Expected outcome                              |
-| ------: | ------------- | ---------------------- | --------------------------------------------- |
-|       1 | `KRN-001`     | `LEG-001`              | Boundary ADR/spike; provenance ledger seeded  |
-|       2 | `KRN-002`     | `QA-001`               | Host ABI vectors; fuzz harness skeleton       |
-|       3 | `KRN-003`     | `OBS-001`              | Native task/port/right objects; event schema  |
-|       4 | `KRN-004`     | `DX-003`               | Message queue/copy; capability doctor         |
-|       5 | `KRN-005`     | `QA-003`               | Blocking/timeouts; generated Mach-O corpus    |
-|       6 | `THR-001`     | `REL-001`              | Thread/thread-port objects; native CI job     |
-|       7 | `THR-002`     | `OBS-002`              | Scheduler/run queue; runtime counters         |
-|       8 | `THR-003`     | `QA-004`               | Blocking syscall bridge; performance baseline |
-|       9 | `LDR-001`     | `LDR-010`              | Legacy dyld opcodes; signature parser         |
-|      10 | `LDR-002`     | `LDR-013`              | Lazy/weak binding; loader diagnostics         |
-|      11 | `LDR-003`     | `DX-001`               | Initializers/terminators; disassembler        |
-|      12 | `KRN-012`     | `QA-005`               | Native stress/soak; concurrency suite start   |
-
-After session 12, re-read the gate tables. Do not start A2 runtime (`RT-*`) until `LDR-004`
-exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evidence.
+|                                                                                     Session | Critical path | Parallel (independent) | Expected outcome                        |
+| ------------------------------------------------------------------------------------------: | ------------- | ---------------------- | --------------------------------------- |
+|                                                                                           1 | `THR-001`     | `KRN-006`              | Thread objects/ports; port sets select  |
+|                                                                                           2 | `THR-002`     | `KRN-007`              | Scheduler/run queue; descriptor rights  |
+|                                                                                           3 | `THR-003`     | `KRN-009`              | Blocking syscall bridge; memory objects |
+|                                                                                           4 | `THR-004`     | `KRN-010`              | pthread shim; trap parity table         |
+|                                                                                           5 | `THR-005`     | `KRN-011`              | Signals; quotas                         |
+|                                                                                           6 | `THR-006`     | `KRN-012`              | Spawn/exec/waitpid; native stress       |
+|                                                                                           7 | `THR-007`     | `OBS-001`              | posix_spawn attrs; event schema         |
+|                                                                                           8 | `THR-008`     | `QA-001`               | kqueue/timers; fuzz harness             |
+|                                                                                           9 | `THR-012`     | `QA-003`               | Concurrency stress; generated corpus    |
+|                                                                                          10 | `LDR-001`     | `REL-001`              | Legacy dyld opcodes; native CI          |
+|                                                                                          11 | `LDR-002`     | `QA-004`               | Lazy/weak binding; performance baseline |
+|                                                                                          12 | `LDR-003`     | `LDR-010`              | Initializers; signature parser          |
+| After session 12, re-read the gate tables. Do not start A2 runtime (`RT-*`) until `LDR-004` |
+|      exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evidence. |
 
 ## 3. Scheduled tasks
 
@@ -116,67 +111,79 @@ exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evi
 This spike does not satisfy UI-G1 or change the critical path. It exists to de-risk the host
 window/software renderer boundary while KRN/LDR/RT gates remain open.
 
+### Kernel boundary — KRN-001..005 (done)
+
+| ID        | Task                           | Evidence                                                                |
+| --------- | ------------------------------ | ----------------------------------------------------------------------- |
+| `KRN-001` | Native boundary decision       | ADR 0007; C11/Bun-FFI spike                                             |
+| `KRN-002` | Host ABI v1                    | `packages/darwin-host/include/darwin_host.h`, TS binding, version check |
+| `KRN-003` | Task/port/right objects        | C/FFI tests for names, rights, teardown                                 |
+| `KRN-004` | Bounded messages/copy          | C/FFI tests for body, queue full, too-large retention                   |
+| `KRN-005` | Blocking/timeouts/interruption | `dh_selftest_blocking`, `dh_selftest_interrupt`; Linux pass             |
+
+Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
+
 ### A1 — kernel, threads, observability, quality foundation
 
-| ID        | Task                           | Priority | Size | Status    | Depends          | Acceptance / evidence                             |
-| --------- | ------------------------------ | -------- | ---- | --------- | ---------------- | ------------------------------------------------- |
-| `KRN-001` | Native boundary decision       | P0       | S    | **next**  | A0               | ADR + spike; blocking call from TS; build via Bun |
-| `KRN-002` | Host ABI v1                    | P0       | M    | blocked   | KRN-001          | Golden vectors; version mismatch fails            |
-| `KRN-003` | Native task/port/right objects | P0       | L    | blocked   | KRN-002          | TS oracle parity; 100k create/send/teardown       |
-| `KRN-004` | Message queues/copy            | P0       | L    | blocked   | KRN-003          | Fuzz lengths; overflow error                      |
-| `KRN-005` | Blocking send/receive/timeouts | P0       | M    | blocked   | KRN-004          | 2 threads; ±5 ms timeout; interrupt               |
-| `KRN-006` | Port sets/notifications        | P1       | M    | blocked   | KRN-005          | 100-port select; one notification                 |
-| `KRN-007` | Descriptors in transit         | P1       | M    | blocked   | KRN-004          | COPY_SEND/MAKE_SEND_ONCE tests                    |
-| `KRN-008` | MIG wire compatibility         | P1       | L    | blocked   | KRN-007          | Reference vectors; unknown routine report         |
-| `KRN-009` | Memory objects/shared memory   | P1       | L    | blocked   | KRN-003          | Shared/COW/unmap tests                            |
-| `KRN-010` | Mach trap parity table         | P1       | M    | blocked   | KRN-005          | Success/error vectors; fuzz                       |
-| `KRN-011` | Quotas/resource accounting     | P2       | S    | blocked   | KRN-005          | Quota teardown; no cross-task impact              |
-| `KRN-012` | Native stress/soak             | P1       | M    | blocked   | KRN-005          | 16 threads/1M messages, leak-free                 |
-| `THR-001` | Threads/thread ports           | P0       | M    | blocked   | KRN-003          | Create/join/terminate; stable identity            |
-| `THR-002` | Scheduler/run queue            | P0       | L    | blocked   | THR-001          | No starvation; trace switches                     |
-| `THR-003` | Blocking syscall bridge        | P0       | M    | blocked   | KRN-005, THR-002 | Block/wake/timeout                                |
-| `THR-004` | pthread/libSystem shim         | P1       | L    | blocked   | THR-001/2        | 8-worker fixture                                  |
-| `THR-005` | Signals                        | P1       | L    | blocked   | THR-001          | Handler/mask/queue cases                          |
-| `THR-006` | fork/exec/waitpid/groups       | P1       | L    | blocked   | THR-001          | Parent/child status, groups                       |
-| `THR-007` | posix_spawn attributes         | P2       | M    | blocked   | THR-006          | Redirected fds/argv/env                           |
-| `THR-008` | kqueue/timers                  | P2       | L    | blocked   | THR-003          | Precision/wakeup, no busy wait                    |
-| `THR-009` | Clock/timebase                 | P2       | S    | blocked   | THR-003          | Timebase/sleep accuracy                           |
-| `THR-010` | Jetsam/memory pressure         | P2       | M    | blocked   | KRN-009          | Pressure/kill policy                              |
-| `THR-011` | Roles/sessions/contracts       | P2       | M    | blocked   | THR-006          | Job identity/ports/teardown                       |
-| `THR-012` | Concurrency stress             | P1       | M    | blocked   | THR-004          | 64 threads/processes, no leak                     |
-| `OBS-001` | Event schema                   | P1       | S    | **ready** | A0               | Schema + JSON tests                               |
-| `OBS-002` | Runtime statistics             | P1       | S    | **ready** | A0               | Counters in doctor/stats                          |
-| `OBS-003` | Missing symbol/MIG report      | P1       | M    | blocked   | OBS-001          | Actionable boot failure                           |
-| `OBS-004` | Trace export                   | P2       | M    | blocked   | OBS-001          | Chrome/JSON trace                                 |
-| `OBS-005` | `trace/stats/why` CLI          | P2       | M    | blocked   | OBS-004          | Commands + redaction                              |
-| `OBS-006` | Fault diagnostics              | P1       | M    | blocked   | OBS-001          | PC/encoding/maps on fault                         |
-| `OBS-007` | Metrics endpoint (optional)    | P3       | S    | proposed  | OBS-002          | Loopback-only                                     |
-| `QA-001`  | Fuzz harness                   | P0       | M    | **ready** | A0               | 1M mutations, no host crash                       |
-| `QA-002`  | Differential harness           | P0       | L    | blocked   | QA-001, Mac      | ≥100 cases match                                  |
-| `QA-003`  | Generated Mach-O corpus        | P1       | M    | **ready** | A0               | Covers commands/fixups                            |
-| `QA-004`  | Performance benchmarks         | P1       | M    | **ready** | A0               | Machine metadata + budgets                        |
-| `QA-005`  | Concurrency/stress suite       | P1       | M    | blocked   | THR-012          | No deadlock/leak                                  |
-| `QA-006`  | Leak/resource checks           | P1       | M    | blocked   | QA-004           | 24h soak flat                                     |
-| `QA-007`  | Coverage targets               | P2       | S    | blocked   | REL-001          | ≥90% parsers                                      |
-| `QA-008`  | Compatibility matrix           | P2       | M    | blocked   | QA-002           | Per-cell pass/skip/fail                           |
-| `REL-001` | Native CI job                  | P0       | S    | **ready** | A0               | PR job, visible skips                             |
-| `REL-002` | Reproducible fixtures          | P1       | S    | blocked   | QA-003           | Byte-identical builds                             |
-| `REL-003` | Packaging                      | P2       | M    | blocked   | REL-001          | Install artifact                                  |
-| `REL-004` | Versioning policy              | P2       | S    | blocked   | REL-003          | Mismatch fails                                    |
-| `REL-005` | Docs gates                     | P1       | S    | **ready** | A0               | Broken links fail                                 |
-| `REL-006` | Supply-chain checks            | P2       | S    | blocked   | REL-001          | Audit/lockfile                                    |
-| `REL-007` | Maintenance calendar           | P2       | S    | blocked   | SB-008           | Quarterly runbook                                 |
-| `LEG-001` | Provenance ledger              | P0       | S    | **ready** | A0               | Every claim sourced                               |
-| `LEG-002` | Runtime legal review           | P0       | M    | blocked   | LEG-001          | Written gate                                      |
-| `LEG-003` | Hosting/deployment model       | P1       | M    | blocked   | LEG-002          | Allowed patterns                                  |
-| `LEG-004` | Claims audit                   | P1       | S    | **ready** | A0               | No false simulator claims                         |
-| `LEG-005` | Kill/continue log              | P1       | S    | blocked   | gates            | Written outcomes                                  |
-| `DX-001`  | Disassembler                   | P1       | M    | **ready** | A0               | `inspect --disasm`                                |
-| `DX-002`  | Trace UX                       | P2       | S    | blocked   | OBS-005          | Filtered trace                                    |
-| `DX-003`  | Capability doctor              | P2       | S    | **ready** | A0               | JSON schema/tests                                 |
-| `DX-004`  | Repro bundle                   | P2       | M    | blocked   | OBS-004          | Reproduce on another host                         |
-| `DX-005`  | Native quickstart              | P1       | S    | **ready** | A0               | Demo + clang fixture                              |
-| `DX-006`  | Roadmap validator              | P2       | S    | proposed  | backlog          | CI catches stale IDs/status                       |
+| ID        | Task                           | Priority | Size | Status    | Depends          | Acceptance / evidence                                  |
+| --------- | ------------------------------ | -------- | ---- | --------- | ---------------- | ------------------------------------------------------ |
+| `KRN-001` | Native boundary decision       | P0       | S    | **done**  | A0               | ADR 0007 + C11/Bun-FFI spike; `bun run test:kernel`    |
+| `KRN-002` | Host ABI v1                    | P0       | M    | **done**  | KRN-001          | ABI v1 header + TS binding; version check; FFI vectors |
+| `KRN-003` | Native task/port/right objects | P0       | L    | blocked   | KRN-002          | TS oracle parity; 100k create/send/teardown            |
+| `KRN-004` | Message queues/copy            | P0       | L    | **done**  | KRN-003          | Bounded queues, body copy, too-large retention         |
+| `KRN-005` | Blocking send/receive/timeouts | P0       | M    | **done**  | KRN-004          | Native thread wake, timeout, interrupt; selftests      |
+| `KRN-006` | Port sets/notifications        | P1       | M    | **ready** | KRN-005          | 100-port select; one notification                      |
+| `KRN-007` | Descriptors in transit         | P1       | M    | **ready** | KRN-004          | COPY_SEND/MAKE_SEND_ONCE tests                         |
+| `KRN-008` | MIG wire compatibility         | P1       | L    | blocked   | KRN-007          | Reference vectors; unknown routine report              |
+| `KRN-009` | Memory objects/shared memory   | P1       | L    | **ready** | KRN-003          | Shared/COW/unmap tests                                 |
+| `KRN-010` | Mach trap parity table         | P1       | M    | **ready** | KRN-005          | Success/error vectors; fuzz                            |
+| `KRN-011` | Quotas/resource accounting     | P2       | S    | **ready** | KRN-005          | Quota teardown; no cross-task impact                   |
+| `KRN-012` | Native stress/soak             | P1       | M    | **ready** | KRN-005          | 16 threads/1M messages, leak-free                      |
+| `THR-001` | Threads/thread ports           | P0       | M    | **next**  | KRN-003          | Create/join/terminate; stable identity                 |
+| `THR-002` | Scheduler/run queue            | P0       | L    | blocked   | THR-001          | No starvation; trace switches                          |
+| `THR-003` | Blocking syscall bridge        | P0       | M    | blocked   | KRN-005, THR-002 | Block/wake/timeout                                     |
+| `THR-004` | pthread/libSystem shim         | P1       | L    | blocked   | THR-001/2        | 8-worker fixture                                       |
+| `THR-005` | Signals                        | P1       | L    | blocked   | THR-001          | Handler/mask/queue cases                               |
+| `THR-006` | fork/exec/waitpid/groups       | P1       | L    | blocked   | THR-001          | Parent/child status, groups                            |
+| `THR-007` | posix_spawn attributes         | P2       | M    | blocked   | THR-006          | Redirected fds/argv/env                                |
+| `THR-008` | kqueue/timers                  | P2       | L    | blocked   | THR-003          | Precision/wakeup, no busy wait                         |
+| `THR-009` | Clock/timebase                 | P2       | S    | blocked   | THR-003          | Timebase/sleep accuracy                                |
+| `THR-010` | Jetsam/memory pressure         | P2       | M    | blocked   | KRN-009          | Pressure/kill policy                                   |
+| `THR-011` | Roles/sessions/contracts       | P2       | M    | blocked   | THR-006          | Job identity/ports/teardown                            |
+| `THR-012` | Concurrency stress             | P1       | M    | blocked   | THR-004          | 64 threads/processes, no leak                          |
+| `OBS-001` | Event schema                   | P1       | S    | **ready** | A0               | Schema + JSON tests                                    |
+| `OBS-002` | Runtime statistics             | P1       | S    | **ready** | A0               | Counters in doctor/stats                               |
+| `OBS-003` | Missing symbol/MIG report      | P1       | M    | blocked   | OBS-001          | Actionable boot failure                                |
+| `OBS-004` | Trace export                   | P2       | M    | blocked   | OBS-001          | Chrome/JSON trace                                      |
+| `OBS-005` | `trace/stats/why` CLI          | P2       | M    | blocked   | OBS-004          | Commands + redaction                                   |
+| `OBS-006` | Fault diagnostics              | P1       | M    | blocked   | OBS-001          | PC/encoding/maps on fault                              |
+| `OBS-007` | Metrics endpoint (optional)    | P3       | S    | proposed  | OBS-002          | Loopback-only                                          |
+| `QA-001`  | Fuzz harness                   | P0       | M    | **ready** | A0               | 1M mutations, no host crash                            |
+| `QA-002`  | Differential harness           | P0       | L    | blocked   | QA-001, Mac      | ≥100 cases match                                       |
+| `QA-003`  | Generated Mach-O corpus        | P1       | M    | **ready** | A0               | Covers commands/fixups                                 |
+| `QA-004`  | Performance benchmarks         | P1       | M    | **ready** | A0               | Machine metadata + budgets                             |
+| `QA-005`  | Concurrency/stress suite       | P1       | M    | blocked   | THR-012          | No deadlock/leak                                       |
+| `QA-006`  | Leak/resource checks           | P1       | M    | blocked   | QA-004           | 24h soak flat                                          |
+| `QA-007`  | Coverage targets               | P2       | S    | blocked   | REL-001          | ≥90% parsers                                           |
+| `QA-008`  | Compatibility matrix           | P2       | M    | blocked   | QA-002           | Per-cell pass/skip/fail                                |
+| `REL-001` | Native CI job                  | P0       | S    | **ready** | A0               | PR job, visible skips                                  |
+| `REL-002` | Reproducible fixtures          | P1       | S    | blocked   | QA-003           | Byte-identical builds                                  |
+| `REL-003` | Packaging                      | P2       | M    | blocked   | REL-001          | Install artifact                                       |
+| `REL-004` | Versioning policy              | P2       | S    | blocked   | REL-003          | Mismatch fails                                         |
+| `REL-005` | Docs gates                     | P1       | S    | **ready** | A0               | Broken links fail                                      |
+| `REL-006` | Supply-chain checks            | P2       | S    | blocked   | REL-001          | Audit/lockfile                                         |
+| `REL-007` | Maintenance calendar           | P2       | S    | blocked   | SB-008           | Quarterly runbook                                      |
+| `LEG-001` | Provenance ledger              | P0       | S    | **ready** | A0               | Every claim sourced                                    |
+| `LEG-002` | Runtime legal review           | P0       | M    | blocked   | LEG-001          | Written gate                                           |
+| `LEG-003` | Hosting/deployment model       | P1       | M    | blocked   | LEG-002          | Allowed patterns                                       |
+| `LEG-004` | Claims audit                   | P1       | S    | **ready** | A0               | No false simulator claims                              |
+| `LEG-005` | Kill/continue log              | P1       | S    | blocked   | gates            | Written outcomes                                       |
+| `DX-001`  | Disassembler                   | P1       | M    | **ready** | A0               | `inspect --disasm`                                     |
+| `DX-002`  | Trace UX                       | P2       | S    | blocked   | OBS-005          | Filtered trace                                         |
+| `DX-003`  | Capability doctor              | P2       | S    | **ready** | A0               | JSON schema/tests                                      |
+| `DX-004`  | Repro bundle                   | P2       | M    | blocked   | OBS-004          | Reproduce on another host                              |
+| `DX-005`  | Native quickstart              | P1       | S    | **ready** | A0               | Demo + clang fixture                                   |
+| `DX-006`  | Roadmap validator              | P2       | S    | proposed  | backlog          | CI catches stale IDs/status                            |
 
 ### A2 — loader and runtime
 

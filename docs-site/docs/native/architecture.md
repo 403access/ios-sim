@@ -184,6 +184,15 @@ budget, on-demand start, duplicates, and captured output.
 6. Return stdout/stderr, exit status, instruction count, load statistics, and unsupported
    syscall counts.
 
+## Native kernel boundary (`packages/darwin-host`)
+
+KRN-001..005 move tasks, names, rights, queues, blocking receive, timeouts, interruption, and
+bootstrap services into a C11 library loaded through Bun FFI. There is no second protocol: the
+TypeScript binding calls the C host directly. The ABI is versioned and bounded. It is not a Mach
+kernel yet; port sets, descriptors, memory objects, MIG vectors, traps, and the scheduler remain
+open. See the [host ABI](./host-abi.md) and
+[ADR 0007](../adr/native-kernel-boundary.md).
+
 ## UI spike (`packages/uikit-native`)
 
 `UI-000` is deliberately outside the layer stack above. It is a C11 host-side spike that proves a

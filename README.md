@@ -88,8 +88,9 @@ bun apps/native/src/bin.ts window                # native X11 blank window (clea
 
 Implemented: Mach-O parsing and chained fixups, user-space dyld with slides and dependency
 linking, an AArch64 integer interpreter, Mach rights/messages/reply ports/bootstrap services,
-MIG-lite, an XPC-style codec, a Darwin syscall subset, launchd-style plists, and a clean-room
-UIKit-compatible native X11 blank window (software renderer, no web view).
+MIG-lite, an XPC-style codec, a Darwin syscall subset, launchd-style plists, a native C11/Bun-FFI
+kernel boundary (tasks/ports/queues/blocking), and a clean-room UIKit-compatible native X11 blank
+window (software renderer, no web view).
 
 Not implemented: threads/blocking Mach receive, legacy dyld bindings, the shared cache,
 Objective-C/Swift/Foundation, Metal/IOSurface/QuartzCore, Apple UIKit/AppKit, code signing, TCC,
@@ -160,6 +161,8 @@ bun run test:macos      # real simulator (macOS, gated)
 bun run test:native     # native substrate tests only
 bun run build:uikit     # build the native X11 UIKitLite window
 bun run test:uikit      # Linux X11 CLI/window integration (Docker)
+bun run test:kernel     # native C11 kernel boundary + Bun FFI smoke
+bun run test:kernel:linux
 bun run native          # build and run the native CLI
 bun run docs:build
 bun run verify          # local full check
@@ -184,6 +187,7 @@ pipx install fb-idb
 - [Native ABI](docs-site/docs/native/abi.md)
 - [Native limitations](docs-site/docs/native/limitations.md)
 - [Native UIKit window spike](docs-site/docs/native/uikit-window.md)
+- [Native host ABI](docs-site/docs/native/host-abi.md)
 - [Roadmap system](docs-site/docs/roadmaps/index.md)
 - [Native technical roadmap](docs-site/docs/roadmaps/native/technical.md)
 - [Native backlog](docs-site/docs/roadmaps/native/backlog.md)

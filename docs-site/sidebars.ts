@@ -77,6 +77,7 @@ const sidebars: SidebarsConfig = {
         "adr/jpeg-websocket-stream",
         "adr/token-auth",
         "adr/native-research-track",
+        "adr/native-kernel-boundary",
       ],
     },
   ],

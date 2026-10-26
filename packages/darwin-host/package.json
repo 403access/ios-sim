@@ -1,0 +1,22 @@
+{
+  "name": "@ios-sim/darwin-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native C11 kernel boundary for the Option A Darwin compatibility layer, loaded through Bun FFI.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist"
+  }
+}

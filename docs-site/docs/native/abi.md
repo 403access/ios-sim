@@ -10,6 +10,8 @@ This page is the contract between the compatibility layer and a program. It is i
 narrow. Anything not listed is unsupported and should fail with a named error rather than
 "sort of" working.
 
+The native kernel boundary has its own C11/Bun-FFI ABI: see [Native host ABI](./host-abi.md).
+
 ## Machine model
 
 - AArch64 user mode, little-endian, integer registers only.

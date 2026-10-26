@@ -77,6 +77,10 @@
       "name": "@ios-sim/darwin-compat",
       "version": "0.1.0",
     },
+    "packages/darwin-host": {
+      "name": "@ios-sim/darwin-host",
+      "version": "0.1.0",
+    },
     "packages/protocol": {
       "name": "@ios-sim/protocol",
       "version": "0.1.0",
@@ -534,6 +538,8 @@
     "@ios-sim/cli": ["@ios-sim/cli@workspace:apps/cli"],
 
     "@ios-sim/darwin-compat": ["@ios-sim/darwin-compat@workspace:packages/darwin-compat"],
+
+    "@ios-sim/darwin-host": ["@ios-sim/darwin-host@workspace:packages/darwin-host"],
 
     "@ios-sim/host": ["@ios-sim/host@workspace:apps/host"],
 

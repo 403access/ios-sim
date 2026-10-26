@@ -145,6 +145,10 @@ test oracle.
 **Scope:** host ABI, tasks, ports, rights, message queues, blocking send/receive, port sets,
 notifications, descriptors, memory objects, quotas.
 
+**Status:** KRN-001..005 are implemented in `packages/darwin-host` (C11 + Bun FFI). KRN-006 and
+later remain. See [ADR 0007](../../adr/native-kernel-boundary.md) and the
+[host ABI](../../native/host-abi.md).
+
 **Non-goals:** scheduler policy research, distributed IPC, kernel modules, GPU, filesystem.
 
 **Key design question:** C11 + Bun FFI versus a Rust `cdylib` versus a separate host process with
