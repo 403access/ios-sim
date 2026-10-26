@@ -256,3 +256,8 @@ pid/thread, and JSON-safe data. Bigints become hex strings, byte arrays become b
 matching token/secret/password/credential/entitlement are redacted. `EventRecorder.toNDJSON()`
 and `parseEventStream()` round-trip; a version or level mismatch is an `ObservabilityError`.
 `DarwinRuntime` accepts an optional recorder and emits `process.start`/`process.exit`.
+
+`RuntimeStats` (`src/observability/stats.ts`) keeps monotonic counters for processes started/exited,
+images, instructions, syscalls, unsupported syscalls, loader errors, fixup binds/rebases, and
+stdout/stderr bytes. `DarwinRuntime.stats.snapshot()` is printed by `ios-sim-native stats <file>`
+(text or `--json`).

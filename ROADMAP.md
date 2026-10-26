@@ -14,7 +14,7 @@ It is layered so the same document is not asked to answer every planning questio
 | L3       | [Bridge backlog](docs-site/docs/roadmaps/bridge/backlog.md)                   | Live shipping queue and next bridge task        |
 | L3       | [Native backlog](docs-site/docs/roadmaps/native/backlog.md)                   | Live status, ready queue, pick-next protocol    |
 
-**Current next tasks:** `OBS-002` (runtime statistics) and `REL-001` (native CI).
+**Current next tasks:** `REL-001` (native CI) and `QA-005` (concurrency suite).
 Use separate worktrees per track.
 
 **Recently completed:** `KRN-001..005` (C11/Bun-FFI kernel boundary), `THR-001..004` (thread

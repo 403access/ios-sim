@@ -10,6 +10,7 @@
 
 import { RuntimeError } from "../errors.js";
 import { EventRecorder, EVENT_TYPES } from "../observability/events.js";
+import { RuntimeStats } from "../observability/stats.js";
 import { writeInitialStack } from "./stack.js";
 import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
@@ -71,6 +72,7 @@ const DEFAULT_DEADLINE_MS = 15_000;
 
 export class DarwinRuntime {
   readonly mach: MachKernel;
+  readonly stats = new RuntimeStats();
   readonly rootDir: string;
   private readonly provider: FileProvider | undefined;
   private readonly defaultStdout: ByteSink;
@@ -101,7 +103,17 @@ export class DarwinRuntime {
       searchPaths: options.searchPaths ?? [],
       extraRpaths: options.extraRpaths ?? [],
     });
-    const program = loader.load(options.program);
+    let program: LoadedProgram;
+    try {
+      program = loader.load(options.program);
+    } catch (error) {
+      this.stats.increment("loaderErrors");
+      throw error;
+    }
+    this.stats.increment("processesStarted");
+    this.stats.increment("imagesLoaded", program.images.length);
+    this.stats.increment("fixupBinds", program.stats.binds);
+    this.stats.increment("fixupRebases", program.stats.rebases);
     const stackSize = Math.max(0x4000, Math.min(program.stackSize, 64 * 1024 * 1024));
     const stackBase = memory.allocate(stackSize, { tag: "stack", protection: 3 });
     const layout = writeInitialStack(
@@ -134,7 +146,10 @@ export class DarwinRuntime {
       stderr: errorSink,
       stdin: options.stdin,
       strict: options.strictSyscalls ?? this.strictSyscalls,
-      trace: options.traceSyscalls,
+      trace: (event) => {
+        this.stats.increment("syscalls");
+        options.traceSyscalls?.(event);
+      },
     });
 
     return new DarwinProcess({
@@ -154,6 +169,7 @@ export class DarwinRuntime {
       maxInstructions: options.maxInstructions ?? this.maxInstructions,
       deadlineMs: options.deadlineMs ?? this.deadlineMs,
       events: options.events,
+      stats: this.stats,
     });
   }
 
@@ -179,6 +195,7 @@ interface ProcessInternals {
   maxInstructions: number;
   deadlineMs: number;
   events?: EventRecorder;
+  stats: RuntimeStats;
 }
 
 export class DarwinProcess {
@@ -198,6 +215,7 @@ export class DarwinProcess {
   private readonly maxInstructions: number;
   private readonly deadlineMs: number;
   private readonly events: EventRecorder | undefined;
+  private readonly stats: RuntimeStats;
   private consumed = false;
   private executed = 0;
 
@@ -218,6 +236,7 @@ export class DarwinProcess {
     this.maxInstructions = internals.maxInstructions;
     this.deadlineMs = internals.deadlineMs;
     this.events = internals.events;
+    this.stats = internals.stats;
   }
 
   run(): ProcessResult {
@@ -256,6 +275,14 @@ export class DarwinProcess {
     }
 
     const exitStatus = mainExit ?? this.syscalls.exitStatus ?? 0;
+    this.stats.increment("processesExited");
+    this.stats.increment("instructions", this.executed);
+    this.stats.increment(
+      "unsupportedSyscalls",
+      [...this.syscalls.unsupported.values()].reduce((sum, count) => sum + count, 0),
+    );
+    this.stats.increment("bytesStdout", sinkBytes(this.outputSink).length);
+    this.stats.increment("bytesStderr", sinkBytes(this.errorSink).length);
     this.events?.emit(
       EVENT_TYPES.processExit,
       { status: exitStatus, instructions: this.executed, elapsedMs: Date.now() - started },

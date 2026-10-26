@@ -118,6 +118,33 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     });
 
   program
+    .command("stats")
+    .description("run a Mach-O and print runtime counters")
+    .argument("<file>", "Mach-O executable")
+    .option("--json", "print JSON")
+    .action((file: string, options: { json?: boolean }) => {
+      const absolute = resolve(file);
+      const runtime = new DarwinRuntime({ rootDir: dirname(absolute) });
+      const out = new CaptureSink();
+      const err = new CaptureSink();
+      const result = runtime.run(absolute, { argv: [absolute], stdout: out, stderr: err });
+      const stats = {
+        ...runtime.stats.snapshot(),
+        pid: result.pid,
+        exitStatus: result.exitStatus,
+        elapsedMs: result.elapsedMs,
+      };
+      if (options.json) io.stdout(`${JSON.stringify(stats, null, 2)}\n`);
+      else {
+        io.stdout(`pid ${stats.pid}, exit ${stats.exitStatus}, ${stats.elapsedMs} ms\n`);
+        for (const [name, value] of Object.entries(stats)) {
+          if (name === "pid" || name === "exitStatus" || name === "elapsedMs") continue;
+          io.stdout(`  ${name}: ${value}\n`);
+        }
+      }
+    });
+
+  program
     .command("demo")
     .description("run the built-in generated hello-world Mach-O")
     .option("--json", "print JSON result")
@@ -328,7 +355,9 @@ function doctorReport() {
     simulator: false,
     implemented: [
       "Mach-O 64-bit parsing, fat slices, exports trie, chained fixups (64/arm64e)",
-      "user-space dyld loading with dependency lookup, slides, and binds/rebases",
+      "user-space dyld loading: legacy rebase/bind, lazy/weak streams, init/term, dlopen handles",
+      "embedded signature parsing (not verification), fileset/bundle/dSYM metadata",
+      "deterministic fuzzing, generated corpus, benchmarks, and runtime event/stat counters",
       "AArch64 integer interpreter (no SIMD/FP) with syscall traps",
       "Mach port rights, messages, reply ports, bootstrap service registry, MIG-lite",
       "XPC-style typed codec and request/reply over Mach",
@@ -338,8 +367,9 @@ function doctorReport() {
       "clean-room UIKit-compatible blank window in a native X11 window (software renderer)",
     ],
     notImplemented: [
-      "dyld shared cache, legacy bind opcodes, lazy binding, initializers, dlopen",
-      "code signing, entitlements, TCC/privacy database, keychain, device identity",
+      "dyld shared cache, executable lazy-stub trampolines, general weak coalescing",
+      "guest dlopen syscalls, signature verification, entitlements policy",
+      "TCC/privacy database, keychain, device identity",
       "Metal, IOSurface, CoreAnimation, UIKit, AppKit, accessibility",
       "CoreSimulator XPC services, launchd_sim, SpringBoard, jetsam, APFS disk images",
       "Apple framework replacements (Foundation is not provided)",

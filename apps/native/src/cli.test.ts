@@ -60,6 +60,13 @@ describe("ios-sim-native CLI", () => {
     expect(await main(["run", file, "--json"], runIo)).toBe(42);
     const run = JSON.parse(runIo.out.join(""));
     expect(run.stdout).toBe("hello from darwin\n");
+
+    const statsIo = capture();
+    expect(await main(["stats", file, "--json"], statsIo)).toBe(0);
+    const stats = JSON.parse(statsIo.out.join(""));
+    expect(stats.processesStarted).toBe(1);
+    expect(stats.processesExited).toBe(1);
+    expect(stats.instructions).toBeGreaterThan(5);
   });
 
   it("returns a failure for a missing file", async () => {
