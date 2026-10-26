@@ -479,8 +479,9 @@ Mach leak where receive ports survived `destroyTask`, now fixed. A 24-hour run u
 command (`bun run soak --hours 24`). REL-002 builds the corpus twice and compares SHA-256
 hashes; all 23 fixtures are byte-identical and CI runs the check. OBS-003 adds `missingSymbols:
 "zero"` loading plus `bootReport`, which lists unresolved symbols by image/ordinal and missing
-bootstrap services with next actions; `ios-sim-native boot` prints it. THR-010 (memory pressure)
-is next.
+bootstrap services with next actions; `ios-sim-native boot` prints it. THR-010 adds a jetsam
+policy layer: warning notifies, critical kills background/daemon/foreground in that order by
+largest footprint. REL-005 (docs gates) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

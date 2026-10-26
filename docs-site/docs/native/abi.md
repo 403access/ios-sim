@@ -270,3 +270,10 @@ concrete suggestion, plus any required bootstrap service absent from `availableS
 `ios-sim-native boot <file> [--service name]` prints the same report and exits non-zero when
 blocked. The normal loader mode still throws `symbol_not_found`, so this is an explicit
 diagnostic path, not silent success.
+
+## Memory pressure
+
+`Jetsam` (`src/runtime/jetsam.ts`) tracks per-pid footprint and priority
+(`background`/`daemon`/`foreground`). Warning pressure notifies every task. Critical pressure kills
+background first, then daemons, then foreground, largest footprint first, until the total fits the
+limit. Killing is a callback, so the policy is independent of the process table or native host.

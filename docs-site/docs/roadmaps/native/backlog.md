@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 62 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 63 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -45,14 +45,14 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `THR-010` is the next task;
-`REL-005` remains in the release lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `REL-005` is the next task;
+`REL-003` remains in the release lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-31 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
+Sessions 1-32 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
 THR-012 stress, fuzzing, corpus, benchmarks, events, statistics, native CI, QA-005, soak,
-reproducible fixtures, and boot reports). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+reproducible fixtures, boot reports, and jetsam). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -171,7 +171,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-007`  | posix_spawn attributes         | P2       | M    | **done**  | THR-006a         | argv/env stack, stdout/stderr redirection, spawn API       |
 | `THR-008`  | kqueue/timers                  | P2       | L    | **done**  | THR-003          | Timer/source event loop, park/wake, tick tests             |
 | `THR-009`  | Clock/timebase                 | P2       | S    | **done**  | THR-003          | Realtime/monotonic, timebase conversion, timer sleep       |
-| `THR-010`  | Jetsam/memory pressure         | P2       | M    | **next**  | KRN-009          | Pressure/kill policy                                       |
+| `THR-010`  | Jetsam/memory pressure         | P2       | M    | **done**  | KRN-009          | Priority-ordered kill policy                               |
 | `THR-011`  | Roles/sessions/contracts       | P2       | M    | **ready** | THR-006          | Job identity/ports/teardown                                |
 | `THR-012`  | Concurrency stress             | P1       | M    | **done**  | THR-004          | 64 threads/processes, no leak                              |
 | `OBS-001`  | Event schema                   | P1       | S    | **done**  | A0               | Schema, redaction, NDJSON, process events                  |
@@ -193,7 +193,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `REL-002`  | Reproducible fixtures          | P1       | S    | **done**  | QA-003           | 23 SHA-256 fixtures identical                              |
 | `REL-003`  | Packaging                      | P2       | M    | blocked   | REL-001          | Install artifact                                           |
 | `REL-004`  | Versioning policy              | P2       | S    | blocked   | REL-003          | Mismatch fails                                             |
-| `REL-005`  | Docs gates                     | P1       | S    | **ready** | A0               | Broken links fail                                          |
+| `REL-005`  | Docs gates                     | P1       | S    | **next**  | A0               | Broken links fail                                          |
 | `REL-006`  | Supply-chain checks            | P2       | S    | blocked   | REL-001          | Audit/lockfile                                             |
 | `REL-007`  | Maintenance calendar           | P2       | S    | blocked   | SB-008           | Quarterly runbook                                          |
 | `LEG-001`  | Provenance ledger              | P0       | S    | **ready** | A0               | Every claim sourced                                        |

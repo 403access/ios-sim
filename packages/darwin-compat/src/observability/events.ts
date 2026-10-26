@@ -36,6 +36,7 @@ export const EVENT_TYPES = {
   syscallUnsupported: "syscall.unsupported",
   machMessage: "mach.message",
   symbolMissing: "symbol.missing",
+  memoryPressure: "memory.pressure",
 } as const;
 
 const LEVELS: ReadonlySet<string> = new Set(["debug", "info", "warn", "error"]);

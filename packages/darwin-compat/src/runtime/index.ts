@@ -7,3 +7,4 @@ export * from "./process-table.js";
 export * from "./process-runtime.js";
 export * from "./event-loop.js";
 export * from "./clock.js";
+export * from "./jetsam.js";
