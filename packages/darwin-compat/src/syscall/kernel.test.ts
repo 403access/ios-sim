@@ -13,6 +13,7 @@ import {
   DARWIN_O_RDONLY,
   SYS_CLOSE,
   SYS_EXIT,
+  SYS_FSTAT,
   SYS_GETPID,
   SYS_GETTIMEOFDAY,
   SYS_LSEEK,
@@ -139,8 +140,8 @@ describe("Darwin syscall kernel", () => {
     expect(call(SYS_WRITE, 99, buffer, 1)).toMatchObject({ value: 9, error: true });
   });
 
-  it("treats fstat as an unsupported syscall", () => {
-    const { kernel, cpu } = fixture();
-    expect(() => kernel.handle(189, cpu)).toThrow(/unsupported Darwin syscall 189/);
+  it("returns EBADF for fstat on an unknown descriptor", () => {
+    const { buffer, call } = fixture();
+    expect(call(SYS_FSTAT, 99, buffer)).toMatchObject({ value: 9, error: true });
   });
 });
