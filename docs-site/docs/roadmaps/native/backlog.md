@@ -18,39 +18,39 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..005 + THR-001/002/003/003a done; THR-004 is next.                                 |
+| A1 kernel/threads | **In progress.** KRN-001..005 + THR-001..004 done; THR-005 is next.                                         |
 | A2 loader/runtime | **Partially startable.** Legacy bindings, fuzzing, diagnostics, and signing parse can proceed in parallel.  |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals (scheduled work):** 29 done · 1 next · 27 ready · remaining blocked/proposed.
+**Totals:** 30 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
 Pick from the top. A task marked with `*` needs a licensed-Mac observation window; it can be
 started by a human with host access, not by a Linux-only agent.
 
-| Order | ID        | Workstream    | Size | Depends  | Deliverable / acceptance                                                     |
-| ----: | --------- | ------------- | ---- | -------- | ---------------------------------------------------------------------------- |
-|     1 | `THR-004` | Threads       | L    | THR-003a | pthread/libSystem shim; 8-worker fixture                                     |
-|     2 | `KRN-006` | Kernel        | M    | KRN-005  | Port sets and notifications; 100-port select; exactly-once notification      |
-|     3 | `KRN-007` | Kernel        | M    | KRN-004  | Port/memory descriptors in transit; COPY_SEND/MAKE_SEND_ONCE tests           |
-|     4 | `KRN-009` | Kernel        | L    | KRN-003  | Memory objects/shared memory; COW, unmap, two-task sharing                   |
-|     5 | `KRN-010` | Kernel        | M    | KRN-005  | Mach trap parity table; success/error vectors; fuzz                          |
-|     6 | `KRN-011` | Kernel        | S    | KRN-005  | Per-task port/message/memory quotas; teardown test                           |
-|     7 | `KRN-012` | Kernel        | M    | KRN-005  | 16-thread/1M-message stress; leak check                                      |
-|     8 | `LDR-001` | Loader        | M    | A0       | Legacy `LC_DYLD_INFO` rebase/bind decoder; opcode fixtures resolve correctly |
-|     9 | `QA-001`  | Quality       | M    | A0       | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash  |
-|    10 | `OBS-001` | Observability | S    | A0       | Versioned event schema with JSON output tests                                |
-|    11 | `LEG-001` | Legal         | S    | A0       | Provenance ledger for every runtime claim/artifact                           |
-|    12 | `REL-001` | Release       | S    | A0       | Native CI job on Linux (and macOS evidence job); skip reasons visible        |
-|    13 | `QA-003`  | Quality       | M    | A0       | Generated Mach-O corpus covering load commands/fixup formats                 |
-|    14 | `QA-004`  | Quality       | M    | A0       | Performance baseline suite with machine metadata and budgets                 |
-|    15 | `LDR-010` | Loader        | M    | A0       | Code-signature parser for ad-hoc/signed fixtures (no verification yet)       |
+| Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                     |
+| ----: | --------- | ------------- | ---- | ------- | ---------------------------------------------------------------------------- |
+|     1 | `THR-005` | Threads       | L    | THR-001 | Signals: handlers, masks, raise/kill, waitpid interaction                    |
+|     2 | `KRN-006` | Kernel        | M    | KRN-005 | Port sets and notifications; 100-port select; exactly-once notification      |
+|     3 | `KRN-007` | Kernel        | M    | KRN-004 | Port/memory descriptors in transit; COPY_SEND/MAKE_SEND_ONCE tests           |
+|     4 | `KRN-009` | Kernel        | L    | KRN-003 | Memory objects/shared memory; COW, unmap, two-task sharing                   |
+|     5 | `KRN-010` | Kernel        | M    | KRN-005 | Mach trap parity table; success/error vectors; fuzz                          |
+|     6 | `KRN-011` | Kernel        | S    | KRN-005 | Per-task port/message/memory quotas; teardown test                           |
+|     7 | `KRN-012` | Kernel        | M    | KRN-005 | 16-thread/1M-message stress; leak check                                      |
+|     8 | `LDR-001` | Loader        | M    | A0      | Legacy `LC_DYLD_INFO` rebase/bind decoder; opcode fixtures resolve correctly |
+|     9 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash  |
+|    10 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                                |
+|    11 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                           |
+|    12 | `REL-001` | Release       | S    | A0      | Native CI job on Linux (and macOS evidence job); skip reasons visible        |
+|    13 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                 |
+|    14 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                 |
+|    15 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)       |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
 `CS-001`, `INP-001`) are ready but require a licensed-Mac window.
-`THR-004` is the critical-path task. `KRN-006` and the remaining KRN tasks are the parallel
+`THR-005` is the critical-path task. `KRN-006` and the remaining KRN tasks are the parallel
 lane. Do not start two critical-path tasks at once.
 
 ### First twelve sessions
@@ -61,8 +61,8 @@ non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                     |
 | ------- | ------------- | ---------------------- | ------------------------------------ |
-| 1       | `THR-004`     | `KRN-006`              | pthread shim; port sets select       |
-| 2       | `THR-005`     | `KRN-007`              | Signals; descriptors                 |
+| 1       | `THR-005`     | `KRN-006`              | Signals; port sets select            |
+| 2       | `THR-006`     | `KRN-007`              | Spawn/exec; descriptors              |
 | 3       | `THR-006`     | `KRN-009`              | Spawn/exec; memory objects           |
 | 4       | `THR-007`     | `KRN-010`              | posix_spawn; trap parity table       |
 | 5       | `THR-008`     | `KRN-011`              | kqueue/timers; quotas                |
@@ -124,7 +124,7 @@ window/software renderer boundary while KRN/LDR/RT gates remain open.
 
 Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 
-### Threads — THR-001/002/003/003a (done)
+### Threads — THR-001/002/003/003a/004 (done)
 
 | ID         | Task                                             | Evidence                                                                                    |
 | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
@@ -133,7 +133,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-003`  | Blocking Mach bridge                             | `packages/darwin-compat/src/runtime/blocking.ts`; sender wake, timeout, interrupt tests     |
 | `THR-003a` | Runtime blocking wiring                          | `DarwinSyscallKernel` + `mach_msg_trap` integration test parks/resumes a guest thread       |
 
-`THR-004` (pthread/libSystem shim) is next.
+`THR-005` (signals) is next.
 
 ### A1 — kernel, threads, observability, quality foundation
 
@@ -155,8 +155,8 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-002`  | Scheduler/run queue            | P0       | L    | **done**  | THR-001          | Round-robin CPU scheduler, block/unblock, budgets      |
 | `THR-003`  | Blocking syscall bridge        | P0       | M    | **done**  | KRN-005, THR-002 | `BlockingMachBridge` park/wake/timeout/interrupt tests |
 | `THR-003a` | Runtime blocking wiring        | P0       | M    | **done**  | THR-003          | `DarwinSyscallKernel` + real receive park/resume test  |
-| `THR-004`  | pthread/libSystem shim         | P1       | L    | blocked   | THR-003a         | 8-worker fixture                                       |
-| `THR-005`  | Signals                        | P1       | L    | blocked   | THR-001          | Handler/mask/queue cases                               |
+| `THR-004`  | pthread/libSystem shim         | P1       | L    | **done**  | THR-003a         | create/join/mutex/cond; 8-worker fixture               |
+| `THR-005`  | Signals                        | P1       | L    | **next**  | THR-001          | Handler/mask/queue cases                               |
 | `THR-006`  | fork/exec/waitpid/groups       | P1       | L    | blocked   | THR-001          | Parent/child status, groups                            |
 | `THR-007`  | posix_spawn attributes         | P2       | M    | blocked   | THR-006          | Redirected fds/argv/env                                |
 | `THR-008`  | kqueue/timers                  | P2       | L    | blocked   | THR-003          | Precision/wakeup, no busy wait                         |

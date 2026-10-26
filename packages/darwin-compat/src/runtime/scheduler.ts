@@ -21,6 +21,8 @@ export interface GuestThreadOptions {
   readonly stackPointer: bigint;
   readonly label?: string;
   readonly quantum?: number;
+  /** Initial x0 value (a pthread-style argument pointer). */
+  readonly argument?: bigint;
 }
 
 export interface GuestThread {
@@ -41,6 +43,7 @@ export interface SchedulerSwitchEvent {
 export interface SchedulerOptions {
   readonly quantum?: number;
   readonly onSwitch?: (event: SchedulerSwitchEvent) => void;
+  readonly onTerminate?: (thread: GuestThread) => void;
 }
 
 export interface SchedulerRunOptions {
@@ -70,6 +73,7 @@ export class GuestScheduler {
   private readonly queue: GuestThread[] = [];
   private readonly defaultQuantum: number;
   private readonly onSwitch: SchedulerOptions["onSwitch"];
+  private terminateHandler: SchedulerOptions["onTerminate"];
   private nextId = 1;
   private switches = 0;
   private current: GuestThread | null = null;
@@ -78,11 +82,17 @@ export class GuestScheduler {
     this.memory = memory;
     this.defaultQuantum = Math.max(1, options.quantum ?? DEFAULT_QUANTUM);
     this.onSwitch = options.onSwitch;
+    this.terminateHandler = options.onTerminate;
+  }
+
+  setTerminateHandler(handler: SchedulerOptions["onTerminate"]): void {
+    this.terminateHandler = handler;
   }
 
   createThread(options: GuestThreadOptions): GuestThread {
     const cpu = new Arm64CpuClass();
     cpu.reset(options.entry, options.stackPointer);
+    if (options.argument !== undefined) cpu.writeRegister(0, options.argument);
     const thread: GuestThread = {
       id: this.nextId++,
       label: options.label ?? `thread-${this.nextId}`,
@@ -126,6 +136,7 @@ export class GuestScheduler {
     thread.state = "terminated";
     thread.exitStatus = status ?? thread.cpu.exitStatus;
     this.removeFromQueue(thread);
+    this.terminateHandler?.(thread);
     if (this.current === thread) this.onSwitch?.({ threadId: thread.id, reason: "terminated" });
   }
 

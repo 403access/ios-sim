@@ -189,8 +189,9 @@ signals, spawn/exec, timers, and teardown.
 ports, C + FFI tests). THR-002 is implemented as a cooperative guest CPU scheduler in
 `packages/darwin-compat/src/runtime/scheduler.ts` (round-robin, block/unblock, budgets). THR-003
 is implemented as `runtime/blocking.ts` (park/wake/timeout/interrupt tests), and THR-003a wires
-it into `DarwinSyscallKernel` with a real `mach_msg_trap` park/resume test. THR-004
-(pthread/libSystem shim) is next.
+it into `DarwinSyscallKernel` with a real `mach_msg_trap` park/resume test. THR-004 provides a
+pthread core shim (create/join/mutex/cond) with an 8-worker fixture; once/TLS/libc bindings remain
+RT-010. THR-005 (signals) is next.
 
 | ID      | Task                               | Size | Depends          | Deliverable                                      | Acceptance                                                                     |
 | ------- | ---------------------------------- | ---- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
