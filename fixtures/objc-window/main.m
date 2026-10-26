@@ -160,6 +160,7 @@ static unsigned gTick;
   UIView *overlay = [[UIView alloc] initWithFrame:CGRectMake(250, 20, 100, 100)];
   overlay.backgroundColor = [UIColor greenColor];
   [overlay setAlpha:0.5];
+  [[overlay layer] setCornerRadius:12];
   [window addSubview:overlay];
   UIView *container = [[UIView alloc] initWithFrame:CGRectMake(20, 140, 200, 100)];
   container.backgroundColor = [UIColor grayColor];

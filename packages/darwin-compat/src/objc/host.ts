@@ -110,6 +110,11 @@ const GESTURE_STATE_CANCELLED = 4;
 const GESTURE_INSTANCE_SIZE = 24;
 const TAP_SLOP = 10;
 
+const LAYER_CORNER_RADIUS = 8;
+const LAYER_MASKS = 16;
+const LAYER_OPACITY = 24;
+const LAYER_INSTANCE_SIZE = 32;
+
 const DATA_BYTES = 8;
 const DATA_LENGTH = 16;
 const DATA_INSTANCE_SIZE = 24;
@@ -337,6 +342,7 @@ export class ObjcHost {
   private readonly children = new Map<bigint, bigint[]>();
   private readonly superviews = new Map<bigint, bigint>();
   private readonly gestures = new Map<bigint, bigint[]>();
+  private readonly viewLayers = new Map<bigint, bigint>();
   private readonly gestureDefs = new Map<
     bigint,
     {
@@ -977,6 +983,11 @@ export class ObjcHost {
           types: "B16@0:8",
           run: (cpu, receiver) =>
             cpu.writeRegister(0, this.memory.read(receiver + BigInt(VIEW_HIDDEN), 1)),
+        },
+        {
+          selector: "layer",
+          types: "@16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, this.viewLayer(receiver)),
         },
         {
           selector: "addGestureRecognizer:",
@@ -2130,6 +2141,60 @@ export class ObjcHost {
     });
     this.registerClass(panGesture);
 
+    const layer = this.defineClass({
+      name: "CALayer",
+      superclass: "NSObject",
+      instanceSize: LAYER_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "setCornerRadius:",
+          types: "v24@0:8d16",
+          run: (cpu, receiver) =>
+            this.writeDouble(receiver, LAYER_CORNER_RADIUS, Math.max(0, cpu.readVectorDouble(0))),
+        },
+        {
+          selector: "cornerRadius",
+          types: "d16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeVectorDouble(0, this.readDouble(receiver, LAYER_CORNER_RADIUS)),
+        },
+        {
+          selector: "setMasksToBounds:",
+          types: "v20@0:8B16",
+          run: (cpu, receiver) =>
+            this.memory.write(
+              receiver + BigInt(LAYER_MASKS),
+              1,
+              cpu.readRegister(2) === 0n ? 0n : 1n,
+            ),
+        },
+        {
+          selector: "masksToBounds",
+          types: "B16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(LAYER_MASKS), 1)),
+        },
+        {
+          selector: "setOpacity:",
+          types: "v24@0:8f16",
+          run: (cpu, receiver) =>
+            this.writeDouble(
+              receiver,
+              LAYER_OPACITY,
+              Math.max(0, Math.min(1, cpu.readVectorSingle(0))),
+            ),
+        },
+        {
+          selector: "opacity",
+          types: "f16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeVectorSingle(0, this.readDouble(receiver, LAYER_OPACITY)),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(layer);
+
     const data = this.defineClass({
       name: "NSData",
       superclass: "NSObject",
@@ -3232,6 +3297,43 @@ export class ObjcHost {
     return klass ? `<${klass.name}>` : `<object 0x${receiver.toString(16)}>`;
   }
 
+  private viewLayer(view: bigint): bigint {
+    const existing = this.viewLayers.get(view);
+    if (existing !== undefined) return existing;
+    const klass = this.classes.get("CALayer");
+    if (!klass) throw new ObjcError("internal_error", "CALayer is missing");
+    const instance = this.allocateInstance(klass);
+    this.writeDouble(instance, LAYER_OPACITY, 1);
+    this.viewLayers.set(view, instance);
+    return instance;
+  }
+
+  /** Fill a rectangle with rounded corners, one scanline at a time. */
+  private fillRoundedRect(
+    framebuffer: Framebuffer,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+    color: Rgba,
+    clip: { x: number; y: number; width: number; height: number },
+  ): void {
+    const r = Math.min(radius, width / 2, height / 2);
+    if (r <= 0) {
+      framebuffer.fillRect(x, y, width, height, color, clip);
+      return;
+    }
+    for (let row = 0; row < height; row += 1) {
+      const dy =
+        row + 0.5 < r ? r - (row + 0.5) : row + 0.5 > height - r ? row + 0.5 - (height - r) : 0;
+      const inset = dy <= 0 ? 0 : r - Math.sqrt(Math.max(0, r * r - dy * dy));
+      const left = x + inset;
+      const right = x + width - inset;
+      if (right > left) framebuffer.fillRect(left, y + row, right - left, 1, color, clip);
+    }
+  }
+
   /** Copy host bytes into guest memory and wrap them in an NSData. */
   private newData(bytes: Uint8Array): bigint {
     const klass = this.classes.get("NSData");
@@ -4065,11 +4167,14 @@ export class ObjcHost {
     if (alpha <= 0 || rect.width <= 0 || rect.height <= 0) return;
     const color = this.colorOf(view);
     if (color && color.a > 0) {
-      framebuffer.fillRect(
+      const cornerRadius = this.readDouble(this.viewLayer(view), LAYER_CORNER_RADIUS);
+      this.fillRoundedRect(
+        framebuffer,
         absoluteX,
         absoluteY,
         rect.width,
         rect.height,
+        cornerRadius,
         { ...color, a: color.a * alpha },
         clip,
       );

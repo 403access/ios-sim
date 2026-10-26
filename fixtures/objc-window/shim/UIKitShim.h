@@ -81,6 +81,13 @@ __attribute__((objc_root_class))
                     alpha:(CGFloat)alpha;
 @end
 
+@interface CALayer : NSObject
+- (void)setCornerRadius:(double)radius;
+- (double)cornerRadius;
+- (void)setMasksToBounds:(BOOL)masks;
+- (BOOL)masksToBounds;
+@end
+
 @interface UIView : NSObject
 + (void)beginAnimations:(const char *)identifier context:(void *)context;
 + (void)setAnimationDuration:(double)duration;
@@ -128,6 +135,10 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 @interface UIPanGestureRecognizer : UIGestureRecognizer
 - (CGPoint)translationInView:(UIView *)view;
 - (void)setTranslation:(CGPoint)translation inView:(UIView *)view;
+@end
+
+@interface UIView (Layer)
+- (CALayer *)layer;
 @end
 
 @interface UIView (Gestures)
@@ -228,12 +239,6 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (BOOL)isValid;
 - (double)timeInterval;
 - (void)fire;
-@end
-
-@interface UIView (Gestures)
-- (void)addGestureRecognizer:(UIGestureRecognizer *)recognizer;
-- (void)removeGestureRecognizer:(UIGestureRecognizer *)recognizer;
-- (id)gestureRecognizers;
 @end
 
 @interface UILabel : UIView

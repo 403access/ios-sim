@@ -87,6 +87,8 @@ const SELECTORS = {
   imageNamed: "imageNamed:",
   imageWithData: "imageWithData:",
   dataWithContentsOfFile: "dataWithContentsOfFile:",
+  layer: "layer",
+  setCornerRadius: "setCornerRadius:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
   beginAnimations: "beginAnimations:context:",
@@ -286,6 +288,7 @@ interface Plan {
   readonly switchRect: number;
   readonly sliderRect: number;
   readonly imageRect: number;
+  readonly cornerRadius: number;
   readonly wrapRect: number;
   readonly animationDuration: number;
   readonly animationAlpha: number;
@@ -598,6 +601,8 @@ function planData(): Plan {
   cursor += 8;
   const animationAlpha = cursor;
   cursor += 8;
+  const cornerRadius = cursor;
+  cursor += 8;
   const timerInterval = cursor;
   cursor += 8;
   const half = cursor;
@@ -712,6 +717,7 @@ function planData(): Plan {
     switchRect,
     sliderRect,
     imageRect,
+    cornerRadius,
     wrapRect,
     animationDuration,
     animationAlpha,
@@ -1308,6 +1314,15 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(movReg(0, 21));
     emitAddress(1, selector(SELECTORS.setAlpha));
     emitDouble(0, dataAddress(plan.half));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    // [[overlay layer] setCornerRadius:12];
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.layer));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitAddress(1, selector(SELECTORS.setCornerRadius));
+    emitDouble(0, dataAddress(plan.cornerRadius));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
     emitWord(movReg(0, 19));
@@ -2559,6 +2574,7 @@ function emitData(
   f64(plan.sliderRect + 8, 560);
   f64(plan.sliderRect + 16, 300);
   f64(plan.sliderRect + 24, 24);
+  f64(plan.cornerRadius, 12);
   f64(plan.imageRect, 250);
   f64(plan.imageRect + 8, 140);
   f64(plan.imageRect + 16, 80);

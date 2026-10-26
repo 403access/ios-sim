@@ -190,6 +190,13 @@ as `objcStats` in the process result and CLI JSON: allocations, retains, release
 autoreleases, pool pushes/pops, deallocs, associations, weak stores/loads/zeroings, and
 message dispatch totals split into host and guest IMPs.
 
+### Layers
+
+`-layer` returns a lazily created `CALayer` per view. Its corner radius rounds the view's own
+background fill (scanline coverage, no anti-aliasing); masks-to-bounds and opacity are stored but
+do not affect rendering yet, and children are never clipped to a rounded rect. There are no layer
+transforms, masks, shadows, or animations on layer properties — Core Animation is still absent.
+
 ### Animation
 
 `+beginAnimations:context:` starts capturing property changes; `-setFrame:` and `-setAlpha:` then
