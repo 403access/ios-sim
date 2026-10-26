@@ -197,7 +197,7 @@ it into `DarwinSyscallKernel` with a real `mach_msg_trap` park/resume test. THR-
 | THR-001 | Thread objects and thread ports    | M    | KRN-003          | Guest thread table, thread ports, thread groups  | Create/join/terminate; port identity stable; teardown frees names              |
 | THR-002 | Scheduler and run queue            | L    | THR-001          | Deterministic scheduler with priorities/yield    | N threads make progress; no starvation in test matrix; traces explain switches |
 | THR-003 | Blocking syscall bridge            | M    | KRN-005, THR-002 | Syscall block/wake integration                   | read/recv blocks one thread, wakes another; timeout/interrupt paths            |
-| THR-004 | pthread/libSystem shim             | L    | THR-001/2        | `pthread_create/join/mutex/cond/once/TLS` subset | Fixture program runs 8 workers; differential against a Mac where possible      |
+| THR-004 | pthread/libSystem shim             | L    | THR-003a         | `pthread_create/join/mutex/cond/once/TLS` subset | Fixture program runs 8 workers; differential against a Mac where possible      |
 | THR-005 | Signals and delivery               | L    | THR-001          | Signal state, handlers, masks, `raise/kill`      | Default/ignored/handled paths; blocked signal queued; `waitpid` interaction    |
 | THR-006 | fork/exec/waitpid/process groups   | L    | THR-001          | Process creation and reaping                     | Parent/child exit status, pipes? no pipes yet; group signalling                |
 | THR-007 | posix_spawn attributes             | M    | THR-006          | File actions, attributes, environment            | Spawn a fixture with redirected fds and custom argv/env                        |
