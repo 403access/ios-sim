@@ -84,6 +84,9 @@ const SELECTORS = {
   addTarget: "addTarget:action:forControlEvents:",
   setAlpha: "setAlpha:",
   grayColor: "grayColor",
+  blackColor: "blackColor",
+  setText: "setText:",
+  setTextColor: "setTextColor:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -115,7 +118,8 @@ type SlotName =
   | "classButton"
   | "delegateSelf"
   | "classView"
-  | "mainView";
+  | "mainView"
+  | "classLabel";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -154,6 +158,7 @@ interface Plan {
   readonly overlayRect: number;
   readonly containerRect: number;
   readonly nestedRect: number;
+  readonly labelRect: number;
   readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
@@ -245,6 +250,7 @@ function planData(): Plan {
     "delegateSelf",
     "classView",
     "mainView",
+    "classLabel",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -270,6 +276,7 @@ function planData(): Plan {
     DEMO_VIEW_CLASS_NAME,
     DEMO_CATEGORY_NAME,
     DEMO_BASE_CLASS_NAME,
+    "HELLO 42",
     "Tappable",
     "_pressed",
     "B",
@@ -359,6 +366,8 @@ function planData(): Plan {
   cursor += 32;
   const nestedRect = cursor;
   cursor += 32;
+  const labelRect = cursor;
+  cursor += 32;
   const half = cursor;
   cursor += 8;
 
@@ -415,7 +424,7 @@ function planData(): Plan {
     {
       name: "__const",
       offset: windowRect,
-      size: 64 + 4 * 32 + 32 + 32 + 64 + 8,
+      size: 64 + 4 * 32 + 32 + 32 + 64 + 32 + 8,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -458,6 +467,7 @@ function planData(): Plan {
     overlayRect,
     containerRect,
     nestedRect,
+    labelRect,
     half,
     size: cursor,
     sections,
@@ -869,6 +879,40 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UILabel *label = [[UILabel alloc] initWithFrame:(20,400,300,40)];
+    emitPointer(0, slot("classLabel"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.labelRect));
+    emitDouble(1, dataAddress(plan.labelRect + 8));
+    emitDouble(2, dataAddress(plan.labelRect + 16));
+    emitDouble(3, dataAddress(plan.labelRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setText));
+    emitAddress(2, dataAddress(plan.stringOffsets["HELLO 42"]!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.blackColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setTextColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -1038,6 +1082,7 @@ function emitData(
     DEMO_VIEW_CLASS_NAME,
     DEMO_CATEGORY_NAME,
     DEMO_BASE_CLASS_NAME,
+    "HELLO 42",
     "Tappable",
     "_pressed",
     "B",
@@ -1227,6 +1272,7 @@ function emitData(
   bind(plan.slotOffsets.classPool, "_OBJC_CLASS_$_NSAutoreleasePool");
   bind(plan.slotOffsets.classButton, "_OBJC_CLASS_$_UIButton");
   bind(plan.slotOffsets.classView, "_OBJC_CLASS_$_UIView");
+  bind(plan.slotOffsets.classLabel, "_OBJC_CLASS_$_UILabel");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
@@ -1257,6 +1303,10 @@ function emitData(
   f64(plan.nestedRect + 8, 10);
   f64(plan.nestedRect + 16, 80);
   f64(plan.nestedRect + 24, 40);
+  f64(plan.labelRect, 20);
+  f64(plan.labelRect + 8, 400);
+  f64(plan.labelRect + 16, 300);
+  f64(plan.labelRect + 24, 40);
   f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {
     const rect = plan.rectTable + index * 32;

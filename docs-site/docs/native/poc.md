@@ -90,7 +90,7 @@ not mean the gate after it is reachable.
 The generated fixture and the clang fixture both render:
 
 ```text
-frame 375x667 sha256=b6a758771b0dcea2eb58105e257eb28125c8ed2b39f76aac8d9adfe1098d0f72
+frame 375x667 sha256=fe70e09fce2f0e5aa52dd1eb6ec84bc8199e018bb47e32515b40fec5d2f71047
 ```
 
 The digest is asserted by the hermetic test and by the gated clang test, so the two independent

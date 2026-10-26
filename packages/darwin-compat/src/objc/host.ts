@@ -17,7 +17,8 @@ import { ObjcError } from "../errors.js";
 import { Arm64Cpu, type SyscallResult } from "../arm64/cpu.js";
 import type { LoadedProgram } from "../dyld/loader.js";
 import type { VirtualMemory } from "../dyld/vm.js";
-import { Framebuffer, WHITE, type Rgba } from "../ui/framebuffer.js";
+import { BLACK, Framebuffer, WHITE, type Rgba } from "../ui/framebuffer.js";
+import { drawText } from "../ui/font.js";
 import {
   adrp,
   b,
@@ -77,6 +78,11 @@ const COLOR_GREEN = 16;
 const COLOR_BLUE = 24;
 const COLOR_ALPHA = 32;
 const COLOR_INSTANCE_SIZE = 40;
+
+const LABEL_TEXT = 64;
+const LABEL_COLOR = 72;
+const LABEL_SCALE = 80;
+const LABEL_INSTANCE_SIZE = 96;
 
 const CONTROLLER_VIEW = 8;
 const CONTROLLER_INSTANCE_SIZE = 16;
@@ -829,6 +835,70 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(button);
+
+    const label = this.defineClass({
+      name: "UILabel",
+      superclass: "UIView",
+      instanceSize: LABEL_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "init",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, doubleBits(1));
+            this.memory.write(receiver + BigInt(LABEL_SCALE), 8, doubleBits(2));
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "initWithFrame:",
+          types: "@48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",
+          run: (cpu, receiver) => {
+            this.writeRect(receiver, this.readRect(cpu));
+            this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, doubleBits(1));
+            this.memory.write(receiver + BigInt(LABEL_SCALE), 8, doubleBits(2));
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "setText:",
+          types: "v24@0:8*16",
+          run: (cpu, receiver) =>
+            this.memory.write(receiver + BigInt(LABEL_TEXT), 8, cpu.readRegister(2)),
+        },
+        {
+          selector: "text",
+          types: "*16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(LABEL_TEXT), 8)),
+        },
+        {
+          selector: "setTextColor:",
+          types: "v24@0:8@16",
+          run: (cpu, receiver) =>
+            this.memory.write(receiver + BigInt(LABEL_COLOR), 8, cpu.readRegister(2)),
+        },
+        {
+          selector: "textColor",
+          types: "@16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(LABEL_COLOR), 8)),
+        },
+        {
+          selector: "setFontSize:",
+          types: "v24@0:8d16",
+          run: (cpu, receiver) =>
+            this.memory.write(receiver + BigInt(LABEL_SCALE), 8, cpu.readVectorBits(0, 64)),
+        },
+        {
+          selector: "fontSize",
+          types: "d16@0:8",
+          run: (cpu, receiver) => cpu.writeVectorDouble(0, this.readDouble(receiver, LABEL_SCALE)),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(label);
 
     const controller = this.defineClass({
       name: "UIViewController",
@@ -1904,13 +1974,30 @@ export class ObjcHost {
         clip,
       );
     }
+    const klass = this.instances.get(view);
+    if (klass?.name === "UILabel") {
+      const textPointer = this.memory.read(view + BigInt(LABEL_TEXT), 8);
+      if (textPointer !== 0n) {
+        const text = this.memory.readCString(textPointer, 1024);
+        const colorPointer = this.memory.read(view + BigInt(LABEL_COLOR), 8);
+        const color = colorPointer === 0n ? BLACK : (this.colorAtPointer(colorPointer) ?? BLACK);
+        const scale = Math.max(1, Math.min(8, Math.round(this.readDouble(view, LABEL_SCALE) || 2)));
+        drawText(framebuffer, absoluteX + scale * 2, absoluteY + scale * 2, text, {
+          scale,
+          color,
+        });
+      }
+    }
     for (const child of this.children.get(view) ?? []) {
       this.paint(child, framebuffer, absoluteX, absoluteY, clip, alpha);
     }
   }
 
   private colorOf(view: bigint): Rgba | null {
-    const pointer = this.memory.read(view + BigInt(VIEW_BACKGROUND), 8);
+    return this.colorAtPointer(this.memory.read(view + BigInt(VIEW_BACKGROUND), 8));
+  }
+
+  private colorAtPointer(pointer: bigint): Rgba | null {
     if (pointer === 0n) return null;
     const klass = this.instances.get(pointer);
     if (!klass || klass.name !== "UIColor") return null;

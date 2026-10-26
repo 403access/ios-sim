@@ -61,6 +61,7 @@ started.
 - [x] `UIButton` target/action dispatch on touch-up
 - [x] `UIView` alpha and parent-alpha compositing
 - [x] Parent-relative frames with nested painting and hit-testing
+- [x] `UILabel` with a 3×5 bitmap font
 - [~] Real event source, timers, display link, text, a live window
 - [~] Run loop, input, text, CoreAnimation, a live host window (headless one-shot frame only)
 
@@ -73,7 +74,7 @@ started.
 ## Evidence
 
 - `bun apps/native/src/bin.ts uikit-demo --out frame.png` →
-  `frame 375x667 sha256=b6a758771b0dcea2eb58105e257eb28125c8ed2b39f76aac8d9adfe1098d0f72`
+  `frame 375x667 sha256=fe70e09fce2f0e5aa52dd1eb6ec84bc8199e018bb47e32515b40fec5d2f71047`
 - `bunx vitest run tests/native/objc-clang.test.ts` → clang app digest equals the generated
   digest (macOS + Xcode only; prints its skip reason elsewhere).
 - `bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --out clang.png` →

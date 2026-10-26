@@ -71,6 +71,7 @@ __attribute__((objc_root_class))
 + (UIColor *)yellowColor;
 + (UIColor *)orangeColor;
 + (UIColor *)grayColor;
++ (UIColor *)blackColor;
 + (UIColor *)whiteColor;
 + (UIColor *)colorWithRed:(CGFloat)red
                     green:(CGFloat)green
@@ -88,6 +89,11 @@ __attribute__((objc_root_class))
 - (void)touchesBegan:(id)touches withEvent:(id)event;
 - (void)touchesMoved:(id)touches withEvent:(id)event;
 - (void)touchesEnded:(id)touches withEvent:(id)event;
+@end
+
+@interface UILabel : UIView
+- (void)setText:(const char *)text;
+- (void)setTextColor:(UIColor *)color;
 @end
 
 @interface UIButton : UIView
