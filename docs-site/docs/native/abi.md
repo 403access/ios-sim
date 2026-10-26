@@ -273,6 +273,12 @@ concrete suggestion, plus any required bootstrap service absent from `availableS
 blocked. The normal loader mode still throws `symbol_not_found`, so this is an explicit
 diagnostic path, not silent success.
 
+Entitlement policy hooks (`src/dyld/entitlements.ts`) check the parsed signature's XML
+entitlements. Policies can require keys, deny keys, or require exact values; dotted keys are
+matched literally first (entitlements often contain dots) and nested dictionaries fall back to
+dot traversal. A denied main image fails with `entitlement_denied`; `bootReport` exposes the
+entitlements. This is policy, not code-signature verification or TCC.
+
 ## Memory pressure
 
 `Jetsam` (`src/runtime/jetsam.ts`) tracks per-pid footprint and priority

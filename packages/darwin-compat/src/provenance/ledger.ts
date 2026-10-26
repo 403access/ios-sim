@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "LDR-011",
+    claim: "Applies require/deny/expected-value entitlement policies to the main image.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/dyld/entitlements.ts",
+      "packages/darwin-compat/src/dyld/entitlements.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/dyld/entitlements.test.ts",
+    limitation: "Policy hooks only; no signature verification or TCC enforcement.",
+  },
+  {
     id: "LDR-009",
     claim:
       "Parses dyld environment variables, preloads inserted libraries, and reports closure order.",

@@ -48,6 +48,7 @@ describe("boot report", () => {
     expect(report).toEqual({
       ok: true,
       images: ["/hello"],
+      entitlements: null,
       missingSymbols: [],
       missingServices: [],
       warnings: [],

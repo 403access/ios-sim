@@ -7,6 +7,7 @@
  */
 
 import type { LoadedProgram, MissingSymbol } from "../dyld/loader.js";
+import type { PlistValue } from "../plist/parse.js";
 
 export interface MissingService {
   readonly service: string;
@@ -16,6 +17,7 @@ export interface MissingService {
 export interface BootReport {
   readonly ok: boolean;
   readonly images: readonly string[];
+  readonly entitlements: PlistValue | null;
   readonly missingSymbols: readonly (MissingSymbol & { suggestion: string })[];
   readonly missingServices: readonly MissingService[];
   readonly warnings: readonly string[];
@@ -50,6 +52,7 @@ export function bootReport(program: LoadedProgram, options: BootReportOptions = 
   return {
     ok: missingSymbols.length === 0 && missingServices.length === 0,
     images: program.images.map((image) => image.path),
+    entitlements: program.main.image.codeSignatureInfo?.entitlements ?? null,
     missingSymbols,
     missingServices,
     warnings,

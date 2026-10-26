@@ -524,8 +524,10 @@ containers, ARC/blocks, and CF/run loop. RT-012 adds runtime benchmarks (ObjC di
 Foundation containers, CF loop, conformance) to the 12-case budgeted suite; all pass. The
 user-space roadmap is complete apart from the partial RT-009/RT-010 items, Mac-gated evidence, and
 LEG-002/human legal review. LDR-009 adds dyld env parsing, `DYLD_LIBRARY_PATH` lookup,
-`DYLD_INSERT_LIBRARIES` preload, print callbacks, and an ordered dependency closure. LDR-011
-(entitlements/policy hooks) is next.
+`DYLD_INSERT_LIBRARIES` preload, print callbacks, and an ordered dependency closure. LDR-011 adds
+entitlement require/deny/expected-value policy hooks, loader denial, and boot-report visibility.
+The user-space roadmap is now complete apart from RT-009/RT-010 partials, Mac-gated evidence, and
+LEG-002/human legal review.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

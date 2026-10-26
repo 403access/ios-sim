@@ -39,6 +39,7 @@ import {
 import type { MachOImage } from "../macho/types.js";
 import { VirtualMemory } from "./vm.js";
 import { describeLoaderError, type LoaderReport } from "./diagnostics.js";
+import { evaluateEntitlements, type EntitlementPolicy } from "./entitlements.js";
 
 export interface FileProvider {
   readFile(path: string): Uint8Array;
@@ -140,6 +141,8 @@ export interface LoaderOptions {
   readonly insertLibraries?: readonly string[];
   /** Called after each image is mapped, for DYLD_PRINT_LIBRARIES. */
   readonly onImageLoaded?: (image: LoadedImage) => void;
+  /** Policy checked against the main image's embedded entitlements. */
+  readonly entitlementPolicy?: EntitlementPolicy;
 }
 
 interface LazyState {
@@ -180,6 +183,7 @@ export class ImageLoader {
   private readonly missingSymbolMode: "throw" | "zero";
   private readonly insertLibraries: readonly string[];
   private readonly onImageLoaded: ((image: LoadedImage) => void) | undefined;
+  private readonly entitlementPolicy: EntitlementPolicy | undefined;
   private readonly missingSymbols: MissingSymbol[] = [];
   private readonly cache = new Map<string, LoadedImage>();
   private readonly order: LoadedImage[] = [];
@@ -201,6 +205,7 @@ export class ImageLoader {
     this.missingSymbolMode = options.missingSymbols ?? "throw";
     this.insertLibraries = options.insertLibraries ?? [];
     this.onImageLoaded = options.onImageLoaded;
+    this.entitlementPolicy = options.entitlementPolicy;
   }
 
   get memoryView(): VirtualMemory {
@@ -224,6 +229,17 @@ export class ImageLoader {
     }
     const entry = entryPoint(main);
     const stackSize = main.image.main?.stackSize ?? 8 * 1024 * 1024;
+    if (this.entitlementPolicy) {
+      const result = evaluateEntitlements(main.image.codeSignatureInfo, this.entitlementPolicy);
+      if (!result.allowed) {
+        throw new LoaderError("entitlement_denied", result.reason ?? "entitlement policy denied", {
+          path: main.path,
+          missing: result.missing,
+          denied: result.denied,
+          mismatched: result.mismatched,
+        });
+      }
+    }
     const lazyStates = context.lazyStates;
     this.pin(main);
     const initializers = dedupe([...this.order].reverse().flatMap((image) => image.initializers));
