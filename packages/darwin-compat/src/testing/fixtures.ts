@@ -79,6 +79,31 @@ export function buildDependentProgram() {
   });
 }
 
+/** Dylib used by dlopen tests; exports `_other`. */
+export function buildOtherDylib() {
+  const text = words(movz(0, 0), 0xd65f03c0);
+  return buildMachO({
+    fileType: "dylib",
+    installName: "/lib/libother.dylib",
+    text,
+    symbols: [{ name: "_other", value: HELLO_TEXT_BASE }],
+    exports: [{ name: "_other", address: HELLO_TEXT_BASE }],
+  });
+}
+
+/** Dylib that depends on `buildOtherDylib`, used for refcount tests. */
+export function buildDependentDylib() {
+  const text = words(movz(0, 0), 0xd65f03c0);
+  return buildMachO({
+    fileType: "dylib",
+    installName: "/lib/libdependent.dylib",
+    text,
+    dependencies: [{ name: "/lib/libother.dylib" }],
+    symbols: [{ name: "_dependent", value: HELLO_TEXT_BASE }],
+    exports: [{ name: "_dependent", address: HELLO_TEXT_BASE }],
+  });
+}
+
 /**
  * Same call-through-`__DATA` shape as `buildDependentProgram`, but the import
  * is encoded with legacy `LC_DYLD_INFO_ONLY` bind opcodes (LDR-001).

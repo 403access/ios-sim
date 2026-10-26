@@ -14,9 +14,12 @@ import {
   buildLegacyRebaseProgram,
   buildLegacyWeakProgram,
   buildMachPingProgram,
+  buildOtherDylib,
+  buildDependentDylib,
   HELLO_DATA_BASE,
 } from "../testing/fixtures.js";
 import { MapFileProvider } from "./loader.js";
+import { DynamicLoader } from "./dlopen.js";
 import { DarwinRuntime } from "../runtime/process.js";
 import { ImageLoader } from "./loader.js";
 
@@ -181,6 +184,41 @@ describe("dyld loader and runtime", () => {
         details: { stage: "initializer" },
       });
     }
+  });
+
+  it("opens, resolves, and unloads a dylib with reference counts", () => {
+    const provider = new MapFileProvider(
+      new Map([["/lib/libother.dylib", buildOtherDylib().bytes]]),
+    );
+    const loader = new ImageLoader({ provider });
+    const dynamic = new DynamicLoader(loader);
+    const first = dynamic.open("/lib/libother.dylib");
+    const second = dynamic.open("/lib/libother.dylib");
+    expect(dynamic.refCount("/lib/libother.dylib")).toBe(2);
+    expect(dynamic.symbol(first, "_other")).toBe(0x1_0000_1000n);
+    expect(dynamic.symbol(first, "_missing")).toBeNull();
+
+    expect(dynamic.close(first)).toBe(false);
+    expect(dynamic.isLoaded("/lib/libother.dylib")).toBe(true);
+    expect(dynamic.close(second)).toBe(true);
+    expect(dynamic.isLoaded("/lib/libother.dylib")).toBe(false);
+    expect(() => loader.memoryView.read(0x1_0000_1000n, 4)).toThrow(/unmapped/);
+  });
+
+  it("retains dependencies until their last dynamic reference closes", () => {
+    const provider = new MapFileProvider(
+      new Map([
+        ["/lib/libdependent.dylib", buildDependentDylib().bytes],
+        ["/lib/libother.dylib", buildOtherDylib().bytes],
+      ]),
+    );
+    const dynamic = new DynamicLoader(new ImageLoader({ provider }));
+    const handle = dynamic.open("/lib/libdependent.dylib");
+    expect(dynamic.refCount("/lib/libother.dylib")).toBe(1);
+    expect(dynamic.loadedPaths()).toContain("/lib/libother.dylib");
+    dynamic.close(handle);
+    expect(dynamic.isLoaded("/lib/libdependent.dylib")).toBe(false);
+    expect(dynamic.isLoaded("/lib/libother.dylib")).toBe(false);
   });
 
   it("reports a missing dependency with a stable code", () => {

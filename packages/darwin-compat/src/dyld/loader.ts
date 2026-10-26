@@ -26,6 +26,7 @@ import {
   DYLD_CHAINED_PTR_ARM64E,
   DYLD_CHAINED_PTR_ARM64E_USERLAND,
   DYLD_CHAINED_PTR_ARM64E_USERLAND24,
+  MH_DYLIB,
   MH_EXECUTE,
 } from "../macho/constants.js";
 import type { ExportEntry } from "../macho/exports-trie.js";
@@ -152,6 +153,10 @@ export class ImageLoader {
   private readonly cache = new Map<string, LoadedImage>();
   private readonly order: LoadedImage[] = [];
   private readonly stats: LoadStats = { images: 0, fixups: 0, binds: 0, rebases: 0, cacheHits: 0 };
+  private readonly lazyStates: LazyState[] = [];
+  private readonly lazyByAddress = new Map<string, LazyState>();
+  private readonly pinned = new Set<string>();
+  private mainPath: string | null = null;
 
   constructor(options: LoaderOptions = {}) {
     this.provider = options.provider ?? new NodeFileProvider();
@@ -168,20 +173,8 @@ export class ImageLoader {
 
   load(path: string): LoadedProgram {
     const executablePath = normalize(path);
-    const context: LoadContext = {
-      provider: this.provider,
-      memory: this.memory,
-      searchPaths: this.searchPaths,
-      extraRpaths: this.extraRpaths,
-      executablePath,
-      maxImages: this.maxImages,
-      externalSymbols: this.externalSymbols,
-      cache: this.cache,
-      order: this.order,
-      stats: this.stats,
-      lazyStates: [],
-      lazyByAddress: new Map(),
-    };
+    this.mainPath = executablePath;
+    const context = this.contextFor(executablePath);
     const main = this.loadImage(executablePath, context);
     if (main.image.header.fileType !== MH_EXECUTE) {
       throw new LoaderError(
@@ -193,6 +186,7 @@ export class ImageLoader {
     const entry = entryPoint(main);
     const stackSize = main.image.main?.stackSize ?? 8 * 1024 * 1024;
     const lazyStates = context.lazyStates;
+    this.pin(main);
     const initializers = dedupe([...this.order].reverse().flatMap((image) => image.initializers));
     const terminators = dedupe(this.order.flatMap((image) => image.terminators));
     return {
@@ -215,6 +209,78 @@ export class ImageLoader {
       },
       resolveExport: (name: string) => lookupFlat(main, name),
       bindLazy: (address: bigint) => bindLazy(context, address),
+    };
+  }
+
+  /**
+   * Load one `MH_DYLIB` into the existing address space (LDR-004). The image
+   * joins the same cache/order as the main program, so static and dynamic
+   * lookups see one namespace.
+   */
+  loadDylib(path: string): LoadedImage {
+    const normalized = normalize(path);
+    const context = this.contextFor(this.mainPath ?? normalized);
+    const image = this.loadImage(normalized, context);
+    if (image.image.header.fileType !== MH_DYLIB) {
+      throw new LoaderError(
+        "not_dylib",
+        `${normalized} is Mach-O file type ${image.image.header.fileType}, expected MH_DYLIB`,
+        { fileType: image.image.header.fileType },
+      );
+    }
+    return image;
+  }
+
+  /** True when an image was loaded as part of the main program graph. */
+  isPinned(path: string): boolean {
+    return this.pinned.has(normalize(path));
+  }
+
+  /** Remove a dynamically loaded image and release its mappings. */
+  unloadImage(path: string): boolean {
+    const normalized = normalize(path);
+    if (this.pinned.has(normalized)) return false;
+    const loaded = this.cache.get(normalized);
+    if (!loaded) return false;
+    for (const segment of loaded.image.segments) {
+      if (segment.vmSize === 0 || segment.name === "__PAGEZERO") continue;
+      const address = loaded.base + BigInt(segment.vmAddress - loaded.image.preferredBase);
+      const size = Math.ceil(segment.vmSize / this.memory.pageSize) * this.memory.pageSize;
+      this.memory.unmap(address, size);
+    }
+    this.cache.delete(normalized);
+    const index = this.order.findIndex((candidate) => candidate.path === normalized);
+    if (index >= 0) this.order.splice(index, 1);
+    return true;
+  }
+
+  private pin(loaded: LoadedImage): void {
+    const seen = new Set<string>();
+    const visit = (image: LoadedImage): void => {
+      if (seen.has(image.path)) return;
+      seen.add(image.path);
+      this.pinned.add(image.path);
+      for (const dependency of image.dependencies) {
+        if (dependency) visit(dependency);
+      }
+    };
+    visit(loaded);
+  }
+
+  private contextFor(executablePath: string): LoadContext {
+    return {
+      provider: this.provider,
+      memory: this.memory,
+      searchPaths: this.searchPaths,
+      extraRpaths: this.extraRpaths,
+      executablePath,
+      maxImages: this.maxImages,
+      externalSymbols: this.externalSymbols,
+      cache: this.cache,
+      order: this.order,
+      stats: this.stats,
+      lazyStates: this.lazyStates,
+      lazyByAddress: this.lazyByAddress,
     };
   }
 
@@ -655,6 +721,11 @@ function lookupFlat(main: LoadedImage, name: string): bigint | null {
     }
   }
   return null;
+}
+
+/** Resolve a symbol from one image and its reexports (dlsym semantics). */
+export function resolveImageExport(image: LoadedImage, name: string): bigint | null {
+  return lookupExport(image, name, new Set());
 }
 
 function entryPoint(image: LoadedImage): bigint {

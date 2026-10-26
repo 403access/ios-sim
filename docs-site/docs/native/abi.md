@@ -141,6 +141,13 @@ the pointer arrays after fixups, deduplicates addresses, runs initializers depen
 (reverse load order), then `main`, then terminators main-first. The runtime attributes an
 instruction-limit or deadline failure to `stage: "initializer" | "terminator"`.
 
+`DynamicLoader` (`src/dyld/dlopen.ts`) adds `open`/`symbol`/`close` handles over one
+`ImageLoader`. Opening the same image twice increments a reference count; closing the last handle
+unmaps its segments and evicts it from the image cache. Dependencies are retained and released
+with the parent. Main-program images are pinned and never unloaded. This is the semantic layer
+only: guest `dlopen`/`dlsym` syscalls, `RTLD_GLOBAL`, constructors on open, and interposition are
+not wired yet.
+
 ## MIG-lite
 
 `MigWriter`/`MigReader` are 4-byte aligned and bounded:

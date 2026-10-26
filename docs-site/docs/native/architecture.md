@@ -131,9 +131,10 @@ load dependencies → apply fixups.
 - Missing non-weak symbols fail with `symbol_not_found`; weak lookups produce a null pointer.
 
 **Not implemented:** shared cache, executable lazy-stub trampolines, general weak-definition
-coalescing, `dlopen`, two-level namespace enforcement beyond ordinals, and code-signing
-validation. Legacy `LC_DYLD_INFO` rebase/bind, lazy, and weak streams are decoded (LDR-001/002);
-module init/term arrays run around `main` (LDR-003); threaded bind streams remain unsupported.
+coalescing, two-level namespace enforcement beyond ordinals, and code-signing validation. Legacy `LC_DYLD_INFO` rebase/bind, lazy, and weak streams are decoded (LDR-001/002);
+module init/term arrays run around `main` (LDR-003); dynamic handles support `dlopen`/`dlsym`/
+`dlclose` semantics at the loader API (LDR-004), but guest syscalls are not wired; threaded bind
+streams remain unsupported.
 
 **Tested by:** entry selection, cross-image chained binds, sliding, dependency errors, and
 execution of the resulting program.
