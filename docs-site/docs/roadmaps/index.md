@@ -97,7 +97,8 @@ single commit.
   (`RT-007`), toll-free CF bridging plus a run loop (`RT-008`), and partial Swift 5 metadata
   parsing (`RT-009`, execution blocked), and malloc/mem-string primitives (`RT-010`, C fixture
   blocked), a 200-case runtime conformance suite (`RT-011`), and runtime performance budgets
-  (`RT-012`), dyld environment/closure support (`LDR-009`), and entitlement policy hooks
+  (`RT-012`), dyld environment/closure support (`LDR-009`), kqueue/kevent semantics (`THR-008`),
+  and entitlement policy hooks
   (`LDR-011`), and synthetic shared-cache parsing/sliding/symbol lookup (`LDR-006/007/008`,
   licensed cache unverified).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux

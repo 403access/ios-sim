@@ -33,6 +33,8 @@ export const SYS_FSTAT = 189;
 export const SYS_MMAP = 197;
 export const SYS_LSEEK = 199;
 export const SYS_SYSCTL = 202;
+export const SYS_KQUEUE = 362;
+export const SYS_KEVENT = 363;
 export const SYS_ISSETUGID = 327;
 export const SYS_GETENTROPY = 500;
 

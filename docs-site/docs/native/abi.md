@@ -70,11 +70,17 @@ Darwin's ABI. Mach traps return a `kern_return_t` in `x0` without touching carry
 |    197 | `mmap`         | ✓      | anonymous and file-backed; `MAP_FIXED` with hint |
 |    199 | `lseek`        | ✓      | per-descriptor position                          |
 |    202 | `sysctl`       | ✗      | `ENOSYS`                                         |
+|    362 | `kqueue`       | ✓      | semantic queue descriptor                        |
+|    363 | `kevent`       | ✓      | read/write/timer filters; nonblocking timeout    |
 |    327 | `issetugid`    | ✓      | returns 0                                        |
 |    500 | `getentropy`   | ✓      | up to 256 bytes                                  |
 
 Everything else is `ENOSYS` in lenient mode and a hard `unsupported_syscall` error in strict
 mode.
+
+Option A also reserves non-Apple guest-libc traps `0x200..0x206` for
+`malloc/free/memcpy/strlen/memset/realloc/calloc`. They exist for the freestanding C fixture and
+are not part of Darwin's syscall ABI.
 
 ### Mach traps
 

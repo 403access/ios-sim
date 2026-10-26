@@ -26,6 +26,7 @@ import type { VirtualMemory } from "../dyld/vm.js";
 import type { BlockingMachBridge } from "../runtime/blocking.js";
 import type { GuestThread } from "../runtime/scheduler.js";
 import { MallocHeap } from "../libc/memory.js";
+import { Kqueue, KqueueError } from "./kqueue.js";
 import {
   KERN_INVALID_ARGUMENT,
   KERN_MESSAGE_TOO_LARGE,
@@ -65,6 +66,8 @@ import {
   SYS_GETPPID,
   SYS_GETTIMEOFDAY,
   SYS_GETUID,
+  SYS_KEVENT,
+  SYS_KQUEUE,
   SYS_HOST_SELF_TRAP,
   SYS_ISSETUGID,
   SYS_LIBC_CALLOC,
@@ -139,7 +142,7 @@ interface StdinState {
 }
 
 interface FdEntry {
-  readonly kind: "stdin" | "stdout" | "stderr" | "file";
+  readonly kind: "stdin" | "stdout" | "stderr" | "file" | "kqueue";
   readonly handle?: number;
   readonly path?: string;
   position: number;
@@ -180,6 +183,7 @@ export class DarwinSyscallKernel {
   readonly strict: boolean;
   readonly blocking: BlockingMachBridge | undefined;
   private libcHeap: MallocHeap | null = null;
+  private readonly kqueues = new Map<number, Kqueue>();
   exitStatus: number | null = null;
   readonly unsupported = new Map<number, number>();
   private readonly trace: SyscallKernelOptions["trace"];
@@ -253,6 +257,17 @@ export class DarwinSyscallKernel {
         return this.read(Number(args[0]!), args[1]!, Number(args[2]!));
       case SYS_OPEN:
         return this.open(args[0]!, Number(args[1]!), Number(args[2]!));
+      case SYS_KQUEUE:
+        return this.createKqueue();
+      case SYS_KEVENT:
+        return this.kevent(
+          Number(args[0]!),
+          args[1]!,
+          Number(args[2]!),
+          args[3]!,
+          Number(args[4]!),
+          args[5]!,
+        );
       case SYS_CLOSE:
         return this.close(Number(args[0]!));
       case SYS_LSEEK:
@@ -414,6 +429,11 @@ export class DarwinSyscallKernel {
   private close(fd: number): SyscallResult {
     if (fd <= 2) return this.errno(ERRNO_MAP.EBADF!);
     const entry = this.fds.get(fd);
+    if (entry?.kind === "kqueue") {
+      this.fds.delete(fd);
+      this.kqueues.delete(fd);
+      return this.ok(0);
+    }
     if (!entry || entry.kind !== "file") return this.errno(ERRNO_MAP.EBADF!);
     try {
       closeSync(entry.handle!);
@@ -551,6 +571,66 @@ export class DarwinSyscallKernel {
     }
   }
 
+  private createKqueue(): SyscallResult {
+    const fd = this.nextFd();
+    this.fds.set(fd, { kind: "kqueue", position: 0, append: false });
+    this.kqueues.set(fd, new Kqueue());
+    return this.ok(fd);
+  }
+
+  private kevent(
+    fd: number,
+    changePointer: bigint,
+    changeCount: number,
+    eventPointer: bigint,
+    eventCount: number,
+    timeoutPointer: bigint,
+  ): SyscallResult {
+    const queue = this.kqueues.get(fd);
+    if (!queue) return this.errno(ERRNO_MAP.EBADF!);
+    if (changeCount < 0 || eventCount < 0) return this.errno(ERRNO_MAP.EINVAL!);
+    try {
+      for (let index = 0; index < changeCount; index += 1) {
+        const event = readKevent(this.memory, changePointer + BigInt(index * 32));
+        queue.add(event);
+        this.markReady(queue, event.ident, event.filter);
+      }
+      if (eventCount === 0) return this.ok(0);
+      const pause = timeoutPointer === 0n ? 0 : Number(this.memory.read(timeoutPointer, 8));
+      const timeoutMs = Math.max(
+        0,
+        pause * 1000 + Number(this.memory.read(timeoutPointer + 8n, 8)) / 1e6,
+      );
+      let ready = queue.poll(this.now(), eventCount);
+      if (ready.length === 0 && timeoutMs > 0) {
+        // Semantic implementation: no scheduler here, so a timeout returns no events.
+        ready = [];
+      }
+      ready.forEach((event, index) =>
+        writeKevent(this.memory, eventPointer + BigInt(index * 32), event),
+      );
+      return this.ok(ready.length);
+    } catch (error) {
+      if (error instanceof KqueueError) return this.errno(ERRNO_MAP.EINVAL!);
+      throw error;
+    }
+  }
+
+  private pollKqueue(queue: Kqueue, max: number): import("./kqueue.js").KqueueEvent[] {
+    const now = Date.now();
+    return queue.poll(now, max);
+  }
+
+  private markReady(queue: Kqueue, ident: number, filter: number): void {
+    if (filter === -1 && ident === 0 && this.stdin.offset < this.stdin.bytes.length)
+      queue.signal(filter, ident);
+    if (filter === -2 && (ident === 1 || ident === 2)) queue.signal(filter, ident);
+  }
+
+  private now(): number {
+    return Date.now();
+  }
+
   private dup(fd: number): SyscallResult {
     const entry = this.fds.get(fd);
     if (!entry) return this.errno(ERRNO_MAP.EBADF!);
@@ -641,6 +721,35 @@ export class DarwinSyscallKernel {
     }
     return candidate;
   }
+}
+
+function readKevent(memory: VirtualMemory, address: bigint): import("./kqueue.js").KqueueEvent {
+  const bytes = memory.readBytes(address, 32);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return {
+    ident: Number(view.getBigUint64(0, true)),
+    filter: view.getInt16(8, true),
+    flags: view.getUint16(10, true),
+    fflags: view.getUint32(12, true),
+    data: view.getBigInt64(16, true),
+    udata: view.getBigUint64(24, true),
+  };
+}
+
+function writeKevent(
+  memory: VirtualMemory,
+  address: bigint,
+  event: import("./kqueue.js").KqueueEvent,
+): void {
+  const bytes = new Uint8Array(32);
+  const view = new DataView(bytes.buffer);
+  view.setBigUint64(0, BigInt(event.ident), true);
+  view.setInt16(8, event.filter, true);
+  view.setUint16(10, event.flags, true);
+  view.setUint32(12, event.fflags, true);
+  view.setBigInt64(16, event.data, true);
+  view.setBigUint64(24, event.udata, true);
+  memory.writeBytes(address, bytes);
 }
 
 function errnoFor(error: unknown): number {
