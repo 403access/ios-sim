@@ -55,7 +55,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-26 · segments, formatting, layers",
+  updated: "2026-10-26 · JSON, segments, formatting",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -170,11 +170,12 @@ export const architecture: Architecture = {
       id: "foundation",
       name: "Foundation shim",
       kicker: "The objects apps share",
-      percent: 58,
+      percent: 62,
       chips: [
         { label: "NSString", state: "done" },
         { label: "NSData", state: "done" },
         { label: "formatting", state: "done" },
+        { label: "JSON", state: "done" },
         { label: "collections", state: "done" },
         { label: "timers", state: "done" },
         { label: "bundle", state: "done" },
@@ -184,12 +185,12 @@ export const architecture: Architecture = {
       shipped: [
         "NSString, NSNumber, NSArray/NSMutableArray, NSDictionary/NSMutableDictionary",
         "NSUserDefaults, notifications with userInfo, NSTimer, delayed perform",
-        "NSBundle, formatted NSLog, NSData, a PNG decoder behind UIImage",
+        "NSBundle, formatted NSLog, NSData, JSON, a PNG decoder behind UIImage",
       ],
       open: [
         "NSDate, NSURL, NSError, NSFileManager",
-        "NSJSONSerialization, NSKeyedArchiver, NSOperation/GCD",
-        "KVC/KVO, NSInvocation, NSRunLoop",
+        "NSKeyedArchiver, NSOperation/GCD, NSRunLoop",
+        "KVC/KVO, NSInvocation",
       ],
       evidence: "objc/host.ts · ui/png.ts · runtime/process.ts",
     },
@@ -315,6 +316,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "6033504", text: "NSJSONSerialization + dataUsingEncoding" },
     { hash: "617591e", text: "UISegmentedControl selection and rendering" },
     { hash: "0d18a9e", text: "stringWithFormat + formatted NSLog (stack varargs)" },
     { hash: "754f212", text: "CALayer corner radius on view backgrounds" },
