@@ -13,6 +13,7 @@ import { VirtualMemory } from "../dyld/vm.js";
 import { ImageLoader, MapFileProvider } from "../dyld/loader.js";
 import { MachKernel, type MachTask } from "../mach/kernel.js";
 import { DarwinSyscallKernel, type ByteSink } from "../syscall/kernel.js";
+import { writeInitialStack } from "./stack.js";
 import type { SyscallResult } from "../arm64/cpu.js";
 import { GuestScheduler, type GuestThread, type SchedulerRunOptions } from "./scheduler.js";
 import { ProcessTable, type ProcessRecord } from "./process-table.js";
@@ -46,6 +47,16 @@ interface ProcessRuntimeRecord {
   readonly process: ProcessRecord;
   kernel: DarwinSyscallKernel | null;
   readonly images: Map<number, ProgramImage>;
+  readonly stdout: ByteSink | undefined;
+  readonly stderr: ByteSink | undefined;
+}
+
+export interface SpawnOptions {
+  readonly argv?: readonly string[];
+  readonly env?: Readonly<Record<string, string>>;
+  readonly stdout?: ByteSink;
+  readonly stderr?: ByteSink;
+  readonly stackSize?: number;
 }
 
 export class ProcessRuntime {
@@ -66,6 +77,11 @@ export class ProcessRuntime {
   }
 
   create(image: ProgramImage, options: { stackSize?: number } = {}): ProcessRuntimeRecord {
+    return this.spawn(image, { argv: [image.path], stackSize: options.stackSize });
+  }
+
+  /** posix_spawn-shaped entry point: argv/env and stdout/stderr redirection. */
+  spawn(image: ProgramImage, options: SpawnOptions = {}): ProcessRuntimeRecord {
     const memory = new VirtualMemory();
     const program = this.loadImage(memory, image);
     const stackSize = Math.max(
@@ -73,21 +89,37 @@ export class ProcessRuntime {
       Math.min(options.stackSize ?? program.stackSize, 64 * 1024 * 1024),
     );
     const stack = memory.allocate(stackSize, { tag: "process-stack" });
+    const layout = writeInitialStack(
+      memory,
+      stack,
+      stackSize,
+      options.argv ?? [],
+      options.env ?? {},
+    );
     const scheduler = new GuestScheduler(memory);
-    scheduler.createThread({
+    const thread = scheduler.createThread({
       entry: program.entry,
-      stackPointer: stack + BigInt(stackSize) - 16n,
+      stackPointer: layout.stackPointer,
       label: "main",
     });
+    thread.cpu.writeRegister(0, BigInt(layout.argc));
+    thread.cpu.writeRegister(1, layout.argvPointer);
+    thread.cpu.writeRegister(2, layout.envpPointer);
     const process = this.table.spawn(memory, scheduler);
-    const record: ProcessRuntimeRecord = { process, kernel: null, images: new Map() };
+    const record: ProcessRuntimeRecord = {
+      process,
+      kernel: null,
+      images: new Map(),
+      stdout: options.stdout,
+      stderr: options.stderr,
+    };
     this.records.set(process.pid, record);
     return record;
   }
 
   exec(pid: number, image: ProgramImage): void {
     const record = this.require(pid);
-    this.table.exec(process.pid, { bytes: image.bytes, path: image.path });
+    this.table.exec(record.process.pid, { bytes: image.bytes, path: image.path });
     record.kernel = null;
   }
 
@@ -129,7 +161,13 @@ export class ProcessRuntime {
     const cpu = thread.cpu;
     if (number === GUEST_FORK) {
       const child = this.table.fork(process.pid);
-      const childRecord: ProcessRuntimeRecord = { process: child, kernel: null, images: new Map() };
+      const childRecord: ProcessRuntimeRecord = {
+        process: child,
+        kernel: null,
+        images: new Map(),
+        stdout: record.stdout,
+        stderr: record.stderr,
+      };
       for (const [id, image] of record.images) childRecord.images.set(id, image);
       this.records.set(child.pid, childRecord);
       return { value: child.pid };
@@ -185,8 +223,8 @@ export class ProcessRuntime {
       mach: this.mach,
       task,
       rootDir: this.rootDir,
-      stdout: this.stdout,
-      stderr: this.stderr,
+      stdout: record.stdout ?? this.stdout,
+      stderr: record.stderr ?? this.stderr,
     });
     return record.kernel;
   }

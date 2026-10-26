@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { addImm, adrp, cbnz, ldrUnsigned, movReg, movz, svc, words } from "../arm64/assembler.js";
 import { buildMachO } from "../macho/build.js";
+import { buildDemoProgram } from "../demo.js";
+import { CaptureSink } from "../syscall/kernel.js";
 import { ProcessRuntime } from "./process-runtime.js";
 
 const DATA = 0x100004000;
@@ -28,6 +30,32 @@ function forkWaitProgram(): Uint8Array {
 }
 
 describe("ProcessRuntime", () => {
+  it("spawns with argv/env and redirects stdout", () => {
+    const argProgram = buildMachO({
+      text: words(movz(16, 1), svc(0x80)),
+      data: new Uint8Array(0x1000),
+    });
+    const runtime = new ProcessRuntime({ rootDir: process.cwd() });
+    const child = runtime.spawn(
+      { bytes: argProgram.bytes, path: "/args" },
+      { argv: ["args", "one", "two"], env: { MODE: "test" } },
+    );
+    const thread = child.process.scheduler.listThreads()[0]!;
+    expect(thread.cpu.readRegister(0)).toBe(3n);
+    const envp = thread.cpu.readRegister(2);
+    const first = child.process.memory.read(envp, 8);
+    expect(child.process.memory.readCString(first)).toBe("MODE=test");
+    expect(runtime.run(child.process.pid)).toBe(3);
+
+    const out = new CaptureSink();
+    const demo = runtime.spawn(
+      { bytes: buildDemoProgram().bytes, path: "/demo" },
+      { argv: ["/demo"], stdout: out },
+    );
+    expect(runtime.run(demo.process.pid)).toBe(42);
+    expect(out.text()).toBe("hello from darwin\n");
+  });
+
   it("execs a registered image through the guest exec syscall", () => {
     const initial = buildMachO({
       text: words(movz(0, 1), movz(16, 912), svc(0x80)),

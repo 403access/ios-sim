@@ -194,7 +194,8 @@ pthread core shim (create/join/mutex/cond) with an 8-worker fixture; once/TLS/li
 RT-010. THR-005 adds guest signal handlers, masks, raise/kill, default actions, and context
 save/restore. THR-006 adds a ProcessTable with memory/CPU fork cloning, exec replacement,
 waitpid/reaping, and process groups; THR-006a wires it into guest syscalls through `ProcessRuntime`.
-THR-007 (posix_spawn attributes) is next.
+THR-007 adds argv/env stack construction and stdout/stderr spawn redirection; arbitrary `dup2`
+actions remain future work. THR-008 (kqueue/timers) is next.
 
 | ID      | Task                               | Size | Depends          | Deliverable                                      | Acceptance                                                                     |
 | ------- | ---------------------------------- | ---- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |

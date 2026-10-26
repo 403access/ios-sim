@@ -9,6 +9,7 @@
  */
 
 import { RuntimeError } from "../errors.js";
+import { writeInitialStack } from "./stack.js";
 import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { ImageLoader, type FileProvider, type LoadedProgram } from "../dyld/loader.js";
@@ -101,7 +102,13 @@ export class DarwinRuntime {
     const program = loader.load(options.program);
     const stackSize = Math.max(0x4000, Math.min(program.stackSize, 64 * 1024 * 1024));
     const stackBase = memory.allocate(stackSize, { tag: "stack", protection: 3 });
-    const layout = writeStack(memory, stackBase, stackSize, options.argv ?? [], options.env ?? {});
+    const layout = writeInitialStack(
+      memory,
+      stackBase,
+      stackSize,
+      options.argv ?? [],
+      options.env ?? {},
+    );
 
     const cpu = new Arm64Cpu({
       onInstruction: options.traceInstructions
@@ -231,71 +238,4 @@ export class DarwinProcess {
 
 function sinkBytes(sink: ByteSink): Uint8Array {
   return sink instanceof CaptureSink ? sink.bytes() : new Uint8Array();
-}
-
-interface StackLayout {
-  readonly argc: number;
-  readonly argvPointer: bigint;
-  readonly envpPointer: bigint;
-  readonly stackPointer: bigint;
-}
-
-/**
- * Build a Darwin-like initial stack: strings first, then argv pointers, a null
- * terminator, envp pointers, and a null terminator. Registers also carry the
- * values because this layer's entry ABI is documented as `x0=argc`, `x1=argv`,
- * `x2=envp` (a real dyld would call a libSystem `start` instead).
- */
-function writeStack(
-  memory: VirtualMemory,
-  stackBase: bigint,
-  stackSize: number,
-  argv: readonly string[],
-  env: Readonly<Record<string, string>>,
-): StackLayout {
-  const envEntries = Object.entries(env).map(([key, value]) => `${key}=${value}`);
-  let cursor = stackBase + BigInt(stackSize);
-  const strings: bigint[] = [];
-  const pushString = (value: string): bigint => {
-    const bytes = new TextEncoder().encode(value);
-    cursor -= BigInt(bytes.length + 1);
-    if (cursor < stackBase)
-      throw new RuntimeError("stack_overflow", "argv/env exceed the process stack");
-    memory.writeBytes(cursor, bytes);
-    memory.write(cursor + BigInt(bytes.length), 1, 0n);
-    return cursor;
-  };
-
-  const argvPointers: bigint[] = [];
-  for (const value of argv) argvPointers.push(pushString(value));
-  const envpPointers: bigint[] = [];
-  for (const value of envEntries) envpPointers.push(pushString(value));
-
-  cursor &= ~0xfn;
-  const pointerCount = 1 + argvPointers.length + 1 + envpPointers.length + 1;
-  cursor -= BigInt(pointerCount * 8);
-  if (cursor < stackBase)
-    throw new RuntimeError("stack_overflow", "argv/env pointer table exceeds the process stack");
-  cursor &= ~0xfn;
-  if (cursor < stackBase)
-    throw new RuntimeError("stack_overflow", "argv/env pointer table exceeds the process stack");
-  const table = cursor;
-  let at = table;
-  memory.write(at, 8, BigInt(argvPointers.length));
-  at += 8n;
-  const argvPointer = at;
-  for (const pointer of argvPointers) {
-    memory.write(at, 8, pointer);
-    at += 8n;
-  }
-  memory.write(at, 8, 0n);
-  at += 8n;
-  const envpPointer = at;
-  for (const pointer of envpPointers) {
-    memory.write(at, 8, pointer);
-    at += 8n;
-  }
-  memory.write(at, 8, 0n);
-
-  return { argc: argvPointers.length, argvPointer, envpPointer, stackPointer: table };
 }
