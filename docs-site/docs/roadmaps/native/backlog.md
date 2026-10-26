@@ -216,18 +216,18 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `LDR-012` | Fileset/bundle/dSYM metadata    | P3       | S    | **done**    | A0               | Fixture parse                                        |
 | `LDR-013` | Loader diagnostics              | P1       | S    | **done**    | A0               | Actionable report                                    |
 | `LDR-014` | Differential loader suite       | P1       | M    | blocked     | LDR-005/008, Mac | ≥50 cases match                                      |
-| `RT-001`  | ObjC runtime core               | P0       | L    | **done** | LDR-004          | Class/selector/method tests                          |
-| `RT-002`  | Message send/cache              | P0       | L    | **done** | RT-001           | Dispatch matrix                                      |
-| `RT-003`  | Ivars/properties/ARC            | P0       | L    | **done** | RT-002           | ARC fixture                                          |
-| `RT-004`  | Categories/protocols/exceptions | P1       | M    | **done** | RT-002           | Override/unwind                                      |
-| `RT-005`  | Blocks/associations             | P1       | M    | **done** | RT-003           | Lifetime tests                                       |
-| `RT-006`  | Foundation strings/collections  | P1       | L    | **done** | RT-003           | 100-case conformance                                 |
-| `RT-007`  | Foundation files/URL/JSON/plist | P1       | L    | **done** | RT-006           | Jail round-trip                                      |
-| `RT-008`  | CF bridging/run loop            | P1       | L    | **done** | RT-006           | Bridge/run loop                                      |
+| `RT-001`  | ObjC runtime core               | P0       | L    | **done**    | LDR-004          | Class/selector/method tests                          |
+| `RT-002`  | Message send/cache              | P0       | L    | **done**    | RT-001           | Dispatch matrix                                      |
+| `RT-003`  | Ivars/properties/ARC            | P0       | L    | **done**    | RT-002           | ARC fixture                                          |
+| `RT-004`  | Categories/protocols/exceptions | P1       | M    | **done**    | RT-002           | Override/unwind                                      |
+| `RT-005`  | Blocks/associations             | P1       | M    | **done**    | RT-003           | Lifetime tests                                       |
+| `RT-006`  | Foundation strings/collections  | P1       | L    | **done**    | RT-003           | 100-case conformance                                 |
+| `RT-007`  | Foundation files/URL/JSON/plist | P1       | L    | **done**    | RT-006           | Jail round-trip                                      |
+| `RT-008`  | CF bridging/run loop            | P1       | L    | **done**    | RT-006           | Bridge/run loop                                      |
 | `RT-009`  | Swift runtime/metadata          | P1       | L    | **partial** | RT-002           | Swift fixture runs                                   |
 | `RT-010`  | libSystem/libc/malloc/pthread   | P1       | L    | **partial** | THR-004          | C fixture passes                                     |
-| `RT-011`  | Runtime conformance             | P1       | M    | **done** | RT-007           | 200 assertions                                       |
-| `RT-012`  | Runtime performance             | P2       | M    | **done** | RT-011           | Budgets met                                          |
+| `RT-011`  | Runtime conformance             | P1       | M    | **done**    | RT-007           | 200 assertions                                       |
+| `RT-012`  | Runtime performance             | P2       | M    | **done**    | RT-011           | Budgets met                                          |
 
 ### A3–A7 — system, graphics, UI, security, storage
 

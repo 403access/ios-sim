@@ -24,6 +24,18 @@ export interface SwiftTypeDescriptor {
   readonly resilient: boolean;
 }
 
+export interface SwiftField {
+  readonly name: string;
+  readonly type: string;
+  readonly flags: number;
+}
+
+export interface SwiftFieldDescriptor {
+  readonly kind: number;
+  readonly recordSize: number;
+  readonly fields: readonly SwiftField[];
+}
+
 export interface SwiftProtocolDescriptor {
   readonly name: string;
   readonly flags: number;
@@ -33,6 +45,7 @@ export interface SwiftProtocolDescriptor {
 export interface SwiftMetadata {
   readonly types: readonly SwiftTypeDescriptor[];
   readonly protocols: readonly SwiftProtocolDescriptor[];
+  readonly fields: readonly SwiftFieldDescriptor[];
 }
 
 const CONTEXT_KIND_MASK = 0x1f;
@@ -112,6 +125,50 @@ export function parseSwiftTypes(
   return types;
 }
 
+export function parseSwiftFields(
+  bytes: Uint8Array,
+  descriptorCount = Number.MAX_SAFE_INTEGER,
+): SwiftFieldDescriptor[] {
+  const view = reader(bytes, 0, bytes.length, "field metadata");
+  const descriptors: SwiftFieldDescriptor[] = [];
+  let cursor = 0;
+  while (cursor < bytes.length && descriptors.length < descriptorCount) {
+    if (cursor + 16 > bytes.length) {
+      throw new SwiftMetadataError("swift_out_of_bounds", "field descriptor header is truncated");
+    }
+    const kind = view.getUint16(cursor + 8, true);
+    const recordSize = view.getUint16(cursor + 10, true);
+    const count = view.getUint32(cursor + 12, true);
+    if (recordSize < 12) {
+      throw new SwiftMetadataError(
+        "swift_bad_field",
+        `field record size ${recordSize} is too small`,
+      );
+    }
+    if (count > 10_000) {
+      throw new SwiftMetadataError("swift_bad_field", `field descriptor declares ${count} fields`);
+    }
+    const fields: SwiftField[] = [];
+    let fieldCursor = cursor + 16;
+    for (let index = 0; index < count; index += 1) {
+      if (fieldCursor + recordSize > bytes.length) {
+        throw new SwiftMetadataError("swift_out_of_bounds", `field ${index} is truncated`);
+      }
+      const nameOffset = relative(bytes, fieldCursor, `field ${index} name`);
+      const typeOffset = relative(bytes, fieldCursor + 4, `field ${index} type`);
+      fields.push({
+        name: cstring(bytes, nameOffset, "field"),
+        type: cstring(bytes, typeOffset, "field type"),
+        flags: view.getUint32(fieldCursor + 8, true),
+      });
+      fieldCursor += recordSize;
+    }
+    descriptors.push({ kind, recordSize, fields });
+    cursor = fieldCursor;
+  }
+  return descriptors;
+}
+
 export function parseSwiftProtocols(
   bytes: Uint8Array,
   pointerCount = bytes.length / 4,
@@ -144,11 +201,13 @@ export function parseSwiftProtocols(
 export function parseSwiftMetadata(input: {
   types?: Uint8Array;
   protocols?: Uint8Array;
+  fields?: Uint8Array;
   typeCount?: number;
   protocolCount?: number;
 }): SwiftMetadata {
   return {
     types: input.types ? parseSwiftTypes(input.types, input.typeCount) : [],
     protocols: input.protocols ? parseSwiftProtocols(input.protocols, input.protocolCount) : [],
+    fields: input.fields ? parseSwiftFields(input.fields) : [],
   };
 }

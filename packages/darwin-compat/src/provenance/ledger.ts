@@ -271,7 +271,7 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
   },
   {
     id: "RT-009",
-    claim: "Parses Swift 5 type and protocol descriptors from __swift5 sections.",
+    claim: "Parses Swift 5 type, protocol, and field descriptors from __swift5 sections.",
     status: "partial",
     evidence: [
       "packages/darwin-compat/src/swift/metadata.ts",

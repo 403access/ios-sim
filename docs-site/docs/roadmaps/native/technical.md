@@ -529,7 +529,8 @@ LEG-002/human legal review. LDR-009 adds dyld env parsing, `DYLD_LIBRARY_PATH` l
 entitlement require/deny/expected-value policy hooks, loader denial, and boot-report visibility.
 LDR-006 adds a synthetic shared-cache header/mapping/image/sub-cache parser and `ios-sim-native
 cache`; LDR-007 adds page-aligned slide application and sub-cache/image resolution over synthetic
-caches. LDR-008 extracts an embedded Mach-O from a synthetic cache and resolves exports/symbols;
+caches. LDR-008 extracts an embedded Mach-O from a synthetic cache and resolves exports/symbols; RT-009
+now also parses Swift field descriptors (names/mangled types);
 real cache fixups and differential symbols are still Mac-gated, so it remains partial. The user-space
 roadmap is complete apart from LDR-006/RT-009/RT-010 partials, Mac-gated evidence, and LEG-002/human
 legal review.
