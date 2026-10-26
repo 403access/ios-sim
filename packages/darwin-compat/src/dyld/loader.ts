@@ -252,6 +252,11 @@ export class ImageLoader {
     return this.interpositions.get(target.toString())?.replacement ?? target;
   }
 
+  /** Number of images currently mapped by this loader. */
+  loadedImageCount(): number {
+    return this.order.length;
+  }
+
   /** True when an image was loaded as part of the main program graph. */
   isPinned(path: string): boolean {
     return this.pinned.has(normalize(path));

@@ -160,6 +160,25 @@ export class MachKernel {
     return task;
   }
 
+  /** Object counts for leak checks and diagnostics. */
+  stats(): {
+    tasks: number;
+    ports: number;
+    queuedMessages: number;
+    services: number;
+    hostNames: number;
+  } {
+    let queuedMessages = 0;
+    for (const port of this.ports.values()) queuedMessages += port.queue.length;
+    return {
+      tasks: this.tasks.size,
+      ports: this.ports.size,
+      queuedMessages,
+      services: this.services.size,
+      hostNames: this.hostNames.size,
+    };
+  }
+
   destroyTask(task: MachTask): void {
     for (const [name, entry] of task.names) {
       this.dropRight(task, name, entry);
@@ -415,6 +434,9 @@ export class MachKernel {
       for (const [service, portId] of this.services) {
         if (portId === entry.portId) this.services.delete(service);
       }
+      // A receive port has no owner once the task dies. Removing it prevents
+      // unbounded growth across task create/destroy cycles (QA-006).
+      this.ports.delete(entry.portId);
     }
   }
 }

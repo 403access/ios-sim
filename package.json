@@ -35,6 +35,7 @@
     "fuzz:1m": "bun scripts/fuzz-darwin.ts --iterations 1000000",
     "corpus": "bun scripts/build-corpus.ts",
     "bench": "bun scripts/bench.ts",
+    "soak": "bun scripts/soak.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "format": "bun fmt",
     "format:check": "bun fmt --check",

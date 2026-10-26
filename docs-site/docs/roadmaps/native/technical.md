@@ -473,7 +473,10 @@ runtime counters and `ios-sim-native stats` text/JSON output. REL-001 adds a ded
 that runs native tests, the gated clang test (printing its skip reason), the generated corpus, a
 100k-per-target fuzz pass, and a scaled benchmark. QA-005 adds a broader concurrency suite:
 32 Mach receivers woken by 32 senders, 8 processes with 8 threads each forked and reaped, and 16
-parked receivers interrupted. QA-006 (leak/resource checks) is next.
+parked receivers interrupted. QA-006 adds a bounded soak harness and three resource cases (Mach
+objects, dynamic images, process table). A 10-second local run was flat; the harness found a real
+Mach leak where receive ports survived `destroyTask`, now fixed. A 24-hour run uses the same
+command (`bun run soak --hours 24`). REL-002 (reproducible fixtures) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
