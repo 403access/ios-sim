@@ -86,6 +86,18 @@ export class ObjcObject {
   }
 }
 
+export interface CacheStats {
+  readonly hits: number;
+  readonly misses: number;
+  readonly entries: number;
+}
+
+export type ObjcForwardHandler = (
+  receiver: ObjcObject,
+  selector: string,
+  args: readonly unknown[],
+) => unknown;
+
 export interface DispatchRecord {
   readonly owner: string;
   readonly selector: string;
@@ -97,6 +109,9 @@ export class ObjcRuntime {
   private readonly selectors = new Set<string>();
   private readonly cache = new Map<string, Map<string, ObjcIMP>>();
   private readonly dispatchCounts = new Map<string, number>();
+  private cacheHits = 0;
+  private cacheMisses = 0;
+  private forwardHandler: ObjcForwardHandler | null = null;
 
   registerClass(name: string, superclassName?: string): ObjcClass {
     if (name.length === 0) throw new ObjcError("bad_class", "class name cannot be empty");
@@ -153,17 +168,60 @@ export class ObjcRuntime {
       this.cache.set(className, cache);
     }
     const cached = cache.get(selector);
-    if (cached) return cached;
+    if (cached) {
+      this.cacheHits += 1;
+      return cached;
+    }
     const found = cls.lookup(selector);
     if (!found) return null;
     cache.set(selector, found.implementation);
+    this.cacheMisses += 1;
     return found.implementation;
+  }
+
+  cacheStats(): CacheStats {
+    let entries = 0;
+    for (const cache of this.cache.values()) entries += cache.size;
+    return { hits: this.cacheHits, misses: this.cacheMisses, entries };
+  }
+
+  setForwardHandler(handler: ObjcForwardHandler | null): void {
+    this.forwardHandler = handler;
+  }
+
+  respondsTo(receiver: ObjcObject | null, selector: string): boolean {
+    if (receiver === null) return false;
+    return receiver.isa.respondsTo(selector);
+  }
+
+  methodOwner(className: string, selector: string): string | null {
+    return this.requireClass(className).lookup(selector)?.owner.name ?? null;
+  }
+
+  /** Message a superclass implementation, used by `[super ...]` style dispatch. */
+  sendSuper(
+    receiver: ObjcObject,
+    superclassName: string,
+    selector: string,
+    ...args: unknown[]
+  ): unknown {
+    const superclass = this.requireClass(superclassName);
+    const found = superclass.lookup(selector);
+    if (!found) {
+      throw new ObjcError(
+        "unrecognized_selector",
+        `${superclass.name} does not respond to ${selector}`,
+        { class: superclass.name, selector },
+      );
+    }
+    return found.implementation(receiver, selector, args);
   }
 
   send(receiver: ObjcObject | null, selector: string, ...args: unknown[]): unknown {
     if (receiver === null) return undefined;
     const implementation = this.lookup(receiver.isa.name, selector);
     if (!implementation) {
+      if (this.forwardHandler) return this.forwardHandler(receiver, selector, args);
       throw new ObjcError(
         "unrecognized_selector",
         `${receiver.isa.name} does not respond to ${selector}`,

@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 82 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 83 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -35,15 +35,15 @@ started by a human with host access, not by a Linux-only agent.
 |     2 | `LEG-002` | Legal      | M    | LEG-001 | Runtime legal review; written gate             |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `RT-002` is the next task;
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `RT-003` is the next task;
 `LEG-002` remains a human/legal gate, not an implementation task. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-51 are complete through RT-001 (substrate, loader, threads, quality, observability,
+Sessions 1-52 are complete through RT-002 (substrate, loader, threads, quality, observability,
 release, provenance, quickstart, diagnostics, claims, roadmap validation, version policy,
-supply-chain checks, repro bundle, session roles, metrics, trace filtering, coverage, and ObjC
-core). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+supply-chain checks, repro bundle, session roles, metrics, trace filtering, coverage, ObjC core,
+and dispatch matrix). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |

@@ -508,7 +508,9 @@ Prometheus text, `/healthz`, and optional bearer auth. DX-002 adds type/level/pi
 trace filters before NDJSON/Chrome export. QA-007 adds a coverage gate: aggregate Mach-O parser
 statement coverage is 90.03% (1590/1766) and CI fails below 90%. RT-001 adds a clean-room
 class/selector/method registry with superclass lookup, per-class dispatch caches, ivars, nil
-receivers, and stable unknown-selector errors. RT-002 (message send/cache matrix) is next.
+receivers, and stable unknown-selector errors. RT-002 adds the full dispatch matrix, super calls,
+cache hit/miss stats, cache invalidation, and a forwarding hook. RT-003 (ivars/properties/ARC) is
+next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

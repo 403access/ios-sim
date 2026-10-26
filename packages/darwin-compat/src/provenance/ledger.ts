@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-002",
+    claim: "Dispatches a receiver×selector matrix with super calls, cache stats, and forwarding.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/objc/runtime.ts",
+      "packages/darwin-compat/src/objc/dispatch.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/objc/dispatch.test.ts",
+    limitation: "Semantic dispatch; not objc_msgSend ABI/trampolines.",
+  },
+  {
     id: "RT-001",
     claim: "Provides a clean-room ObjC class/selector/method registry with dispatch caches.",
     status: "implemented",
