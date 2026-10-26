@@ -273,6 +273,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     limitation: "This is a clean-room API subset and software renderer, not Apple UIKit.",
   },
   {
+    id: "DX-004",
+    claim: "Builds a SHA-256 reproduction bundle with doctor, versions, corpus, and bench data.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/testing/repro.ts",
+      "packages/darwin-compat/src/testing/repro.test.ts",
+      "scripts/repro-bundle.ts",
+    ],
+    command: "bun run repro:bundle",
+  },
+  {
     id: "REL-006",
     claim: "Audits manifests, lockfile, ignore rules, and frozen install for supply-chain policy.",
     status: "implemented",

@@ -32,5 +32,6 @@ export * from "./provenance/ledger.js";
 export * from "./provenance/claims.js";
 export * from "./provenance/roadmap.js";
 export * from "./provenance/supply-chain.js";
+export * from "./testing/repro.js";
 export * from "./inspect.js";
 export * from "./demo.js";

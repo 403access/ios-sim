@@ -500,8 +500,9 @@ check. DX-006 adds a backlog validator for duplicate ready rows, done-in-queue, 
 and unknown session IDs; CI runs it. REL-004 adds a version policy (patch drift allowed, major/minor
 and ABI/schema versions exact) plus a workspace consistency gate. REL-006 adds a supply-chain
 gate: no install hooks, no insecure sources, bounded dependency ranges, required overrides,
-lockfile presence, ignored build output, and a documented frozen install. DX-004 (repro bundle) is
-next.
+lockfile presence, ignored build output, and a documented frozen install. DX-004 builds a
+tar.gz with doctor/versions/environment/corpus/bench data and a SHA-256 manifest, so another
+host can reproduce and compare. THR-011 (roles/sessions) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

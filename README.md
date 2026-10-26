@@ -180,6 +180,7 @@ bun run claims           # no false simulator claims
 bun run roadmap:check    # backlog IDs/statuses are consistent
 bun run versions         # workspace + ABI/schema versions agree
 bun run supply-chain     # manifests, lockfile, ignore rules, frozen install
+bun run repro:bundle     # tar.gz with doctor/corpus/bench + SHA-256
 bun run quickstart       # demo + optional real-clang fixture
 bun run native trace <file> --chrome  # runtime events as a Chrome trace
 bun run native why <file>             # explain loader outcome
