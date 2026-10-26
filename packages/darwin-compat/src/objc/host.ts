@@ -1763,7 +1763,9 @@ export class ObjcHost {
       }
       const messageSend = this.symbols.get("_objc_msgSend");
       if (!messageSend) throw new ObjcError("internal_error", "objc_msgSend is not registered");
-      const stub = this.writeApplicationStub();
+      const becomesActive = this.resolveFrom(delegateClass, "applicationDidBecomeActive:") !== null;
+      const willTerminate = this.resolveFrom(delegateClass, "applicationWillTerminate:") !== null;
+      const stub = this.writeApplicationStub(becomesActive, willTerminate);
       cpu.writeRegister(0, delegate);
       cpu.writeRegister(1, this.internString("application:didFinishLaunchingWithOptions:"));
       cpu.writeRegister(2, application);
@@ -1792,7 +1794,7 @@ export class ObjcHost {
    * The stub owns the ABI: every guest callback is a normal `blr` through
    * `objc_msgSend`, so +initialize, categories, and overrides all apply.
    */
-  private writeApplicationStub(): bigint {
+  private writeApplicationStub(becomesActive: boolean, willTerminate: boolean): bigint {
     const messageSend = this.symbols.get("_objc_msgSend");
     if (!messageSend) throw new ObjcError("internal_error", "objc_msgSend is not registered");
     const address = this.stubCursor;
@@ -1811,10 +1813,13 @@ export class ObjcHost {
     code.push(stpPre(29, 30, 31, -16));
     code.push(stpPre(19, 20, 31, -16));
     code.push(stpPre(21, 22, 31, -16));
+    code.push(stpPre(23, 24, 31, -16));
     code.push(movReg(19, 0));
     code.push(movReg(20, 1));
     code.push(movReg(21, 2));
     code.push(movReg(22, 3));
+    code.push(movReg(23, 0));
+    code.push(movReg(24, 2));
 
     loadLiteral(16, messageSend);
     code.push(movReg(0, 19));
@@ -1822,6 +1827,15 @@ export class ObjcHost {
     code.push(movReg(2, 21));
     code.push(movReg(3, 22));
     code.push(blr(16));
+
+    if (becomesActive) {
+      code.push(movReg(0, 23));
+      loadLiteral(1, this.internString("applicationDidBecomeActive:"));
+      code.push(movReg(2, 24));
+      code.push(movz(3, 0));
+      loadLiteral(16, messageSend);
+      code.push(blr(16));
+    }
 
     loadLiteral(16, this.presentAddress);
     code.push(blr(16));
@@ -1846,7 +1860,16 @@ export class ObjcHost {
     const back = code.length;
     code.push(b(0));
     const done = code.length;
+    if (willTerminate) {
+      code.push(movReg(0, 23));
+      loadLiteral(1, this.internString("applicationWillTerminate:"));
+      code.push(movReg(2, 24));
+      code.push(movz(3, 0));
+      loadLiteral(16, messageSend);
+      code.push(blr(16));
+    }
     code.push(movz(0, 0));
+    code.push(ldpPost(23, 24, 31, 16));
     code.push(ldpPost(21, 22, 31, 16));
     code.push(ldpPost(19, 20, 31, 16));
     code.push(ldpPost(29, 30, 31, 16));

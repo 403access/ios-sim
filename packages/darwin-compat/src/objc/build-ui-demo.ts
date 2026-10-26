@@ -87,6 +87,8 @@ const SELECTORS = {
   blackColor: "blackColor",
   setText: "setText:",
   setTextColor: "setTextColor:",
+  didBecomeActive: "applicationDidBecomeActive:",
+  willTerminate: "applicationWillTerminate:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -119,7 +121,9 @@ type SlotName =
   | "delegateSelf"
   | "classView"
   | "mainView"
-  | "classLabel";
+  | "classLabel"
+  | "activeMarker"
+  | "terminateMarker";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -251,6 +255,8 @@ function planData(): Plan {
     "classView",
     "mainView",
     "classLabel",
+    "activeMarker",
+    "terminateMarker",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -296,7 +302,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 3 * 24;
+  cursor += 8 + 5 * 24;
   const appCategory = cursor;
   cursor += 48;
 
@@ -571,6 +577,14 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitMarker(slot("deallocMarker"), 1);
   emitWord(ret());
 
+  label("appActive");
+  emitMarker(slot("activeMarker"), 1);
+  emitWord(ret());
+
+  label("appTerminate");
+  emitMarker(slot("terminateMarker"), 1);
+  emitWord(ret());
+
   label("tapButton");
   emitWord(stpPre(29, 30, 31, -16));
   emitWord(stpPre(19, 20, 31, -16));
@@ -615,6 +629,8 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("tapDealloc") ?? 0),
     bases.textBase + (code.labels.get("tapProbeColor") ?? 0),
     bases.textBase + (code.labels.get("tapButton") ?? 0),
+    bases.textBase + (code.labels.get("appActive") ?? 0),
+    bases.textBase + (code.labels.get("appTerminate") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -652,6 +668,16 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       { name: "_initOrder", value: dataAddress(plan.slotOffsets.initOrder), sectionIndex: 2 },
+      {
+        name: "_activeMarker",
+        value: dataAddress(plan.slotOffsets.activeMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_terminateMarker",
+        value: dataAddress(plan.slotOffsets.terminateMarker),
+        sectionIndex: 2,
+      },
       {
         name: "_deallocMarker",
         value: dataAddress(plan.slotOffsets.deallocMarker),
@@ -1068,6 +1094,8 @@ function emitData(
   tapDeallocImp: number,
   tapProbeColorImp: number,
   tapButtonImp: number,
+  appActiveImp: number,
+  appTerminateImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -1113,7 +1141,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 3);
+  u32(plan.appCategoryMethods + 4, 5);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -1137,6 +1165,14 @@ function emitData(
   rebase(buttonEntry, selector(SELECTORS.buttonTapped));
   rebase(buttonEntry + 8, selector(TYPES));
   rebase(buttonEntry + 16, tapButtonImp);
+  const activeEntry = plan.appCategoryMethods + 80;
+  rebase(activeEntry, selector(SELECTORS.didBecomeActive));
+  rebase(activeEntry + 8, selector(TYPES));
+  rebase(activeEntry + 16, appActiveImp);
+  const terminateEntry = plan.appCategoryMethods + 104;
+  rebase(terminateEntry, selector(SELECTORS.willTerminate));
+  rebase(terminateEntry + 8, selector(TYPES));
+  rebase(terminateEntry + 16, appTerminateImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }

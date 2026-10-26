@@ -93,6 +93,8 @@ static unsigned gTick;
 - (BOOL)application:(id)application didFinishLaunchingWithOptions:(id)options;
 - (void)tick:(id)ignored;
 - (void)buttonTapped:(id)sender;
+- (void)applicationDidBecomeActive:(id)application;
+- (void)applicationWillTerminate:(id)application;
 @end
 
 @implementation AppDelegate
@@ -127,6 +129,12 @@ static unsigned gTick;
   return YES;
 }
 
+- (void)applicationDidBecomeActive:(id)application {
+  (void)application;
+}
+- (void)applicationWillTerminate:(id)application {
+  (void)application;
+}
 - (void)buttonTapped:(id)sender {
   (void)sender;
   gView.backgroundColor = [UIColor orangeColor];

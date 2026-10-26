@@ -45,6 +45,10 @@ describe("ObjC UIKit demo", () => {
     expect(result.program.memory.read(baseInit!, 8)).toBe(1n);
     expect(result.program.memory.read(tapInit!, 8)).toBe(1n);
     expect(result.program.memory.read(initOrder!, 8)).toBe(2n);
+    expect(result.program.memory.read(result.program.resolveExport("_activeMarker")!, 8)).toBe(1n);
+    expect(result.program.memory.read(result.program.resolveExport("_terminateMarker")!, 8)).toBe(
+      1n,
+    );
 
     const frame = result.frames[0]!;
     expect(frame.width).toBe(DEMO_SCREEN.width);

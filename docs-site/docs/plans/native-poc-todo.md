@@ -59,6 +59,7 @@ started.
 - [x] Taps and multi-sample drags (`touchesMoved:`)
 - [x] Scripted ticks (`tick:` to the delegate) with an animated view
 - [x] `UIButton` target/action dispatch on touch-up
+- [x] Application lifecycle: didFinishLaunching, didBecomeActive, willTerminate
 - [x] `UIView` alpha and parent-alpha compositing
 - [x] Parent-relative frames with nested painting and hit-testing
 - [x] `UILabel` with a 3×5 bitmap font

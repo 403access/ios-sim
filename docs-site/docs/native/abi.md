@@ -220,7 +220,9 @@ classes get an `isa` and their declared `instanceSize`; the shim does not lay ou
 The fourth argument is a C string, a documented deviation from Apple's `NSString *`. The host:
 
 1. allocates the `UIApplication` and delegate instances;
-2. generates a guest stub that sends the delegate message through `objc_msgSend`;
+2. generates a guest stub that sends `application:didFinishLaunchingWithOptions:` and, when the
+   delegate implements them, `applicationDidBecomeActive:` and `applicationWillTerminate:`,
+   through `objc_msgSend`;
 3. then runs a bounded event loop: `nextEvent` (host trap) returns a record of
    `{receiver, touches, event, selector}` or zero; the stub sends that selector to the receiver
    and renders after each callback. Touch records target the hit view; tick records target the
