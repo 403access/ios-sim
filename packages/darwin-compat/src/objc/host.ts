@@ -166,6 +166,7 @@ export class ObjcHost {
     messages: 0,
     hostDispatches: 0,
     guestDispatches: 0,
+    deallocs: 0,
   };
   readonly frames: CapturedFrame[] = [];
   readonly width: number;
@@ -194,6 +195,9 @@ export class ObjcHost {
   private readonly associations = new Map<bigint, Map<bigint, Association>>();
   private readonly weakSlots = new Map<bigint, Set<bigint>>();
   private readonly weakOwners = new Map<bigint, bigint>();
+  private readonly deadObjects = new Set<bigint>();
+  private readonly deallocPage: bigint;
+  private deallocCursor: bigint;
   private readonly autoreleasePools: bigint[][] = [];
   private readonly initializeStubs = new Map<bigint, bigint>();
   private readonly initializePage: bigint;
@@ -234,6 +238,8 @@ export class ObjcHost {
     });
     this.initializeStubCursor = this.initializePage;
     this.loadStubPage = this.memory.allocate(0x1000, { tag: "objc-load-stub", protection: 7 });
+    this.deallocPage = this.memory.allocate(0x1000, { tag: "objc-dealloc-stubs", protection: 7 });
+    this.deallocCursor = this.deallocPage;
 
     // Data symbols some metadata references directly.
     const emptyCache = this.allocBytes(16);
@@ -365,7 +371,9 @@ export class ObjcHost {
       return { value: cpu.readRegister(0) };
     });
     this.registerSymbol("_objc_release", (cpu) => {
-      this.releaseObject(cpu.readRegister(0));
+      const object = cpu.readRegister(0);
+      const dealloc = this.releaseObject(object);
+      if (dealloc !== null) this.scheduleDealloc(cpu, object, dealloc);
       return { value: 0n };
     });
     for (const name of [
@@ -533,7 +541,10 @@ export class ObjcHost {
         {
           selector: "release",
           types: "v16@0:8",
-          run: (_cpu, receiver) => this.releaseObject(receiver),
+          run: (cpu, receiver) => {
+            const dealloc = this.releaseObject(receiver);
+            if (dealloc !== null) this.scheduleDealloc(cpu, receiver, dealloc);
+          },
         },
         {
           selector: "autorelease",
@@ -1321,33 +1332,75 @@ export class ObjcHost {
   }
 
   private retainObject(object: bigint): void {
-    if (!this.instances.has(object)) return;
+    if (!this.instances.has(object) || this.deadObjects.has(object)) return;
     this.refcounts.set(object, (this.refcounts.get(object) ?? 1) + 1);
     this.stats.retains += 1;
   }
 
-  private releaseObject(object: bigint): void {
-    if (!this.instances.has(object)) return;
+  /**
+   * Drop a reference. Returns a guest `-dealloc` IMP when the object reaches
+   * zero and overrides dealloc. Callers that can divert execution (the direct
+   * release entry points) schedule it; bookkeeping releases leave the object
+   * dead without running guest code.
+   */
+  private releaseObject(object: bigint): bigint | null {
+    if (!this.instances.has(object) || this.deadObjects.has(object)) return null;
     const count = (this.refcounts.get(object) ?? 1) - 1;
     this.stats.releases += 1;
     if (count <= 0) {
-      // The object is logically dead. Its guest memory is not reclaimed and
-      // -dealloc is not called; the PoC process is short-lived and the docs
-      // state this limitation.
       this.refcounts.delete(object);
+      this.deadObjects.add(object);
       this.zeroWeakSlots(object);
       this.removeAssociated(object);
-      return;
+      const klass = this.instances.get(object);
+      if (!klass) return null;
+      const dealloc = this.resolveFrom(klass, "dealloc");
+      if (!dealloc || this.hostMethods.has(dealloc.imp)) return null;
+      this.stats.deallocs += 1;
+      return dealloc.imp;
     }
     this.refcounts.set(object, count);
+    return null;
+  }
+
+  private scheduleDealloc(cpu: Arm64Cpu, object: bigint, imp: bigint): void {
+    const address = this.deallocCursor;
+    this.deallocCursor += 64n;
+    if (this.deallocCursor > this.deallocPage + 0x1000n) {
+      throw new ObjcError("stub_limit", "the -dealloc stub page overflowed");
+    }
+    const selector = this.internString("dealloc");
+    const code = [
+      stpPre(29, 30, 31, -16),
+      ldrLiteral(0, 16),
+      ldrLiteral(1, 24),
+      ldrLiteral(16, 32),
+      blr(16),
+      ldpPost(29, 30, 31, 16),
+      ret(),
+    ];
+    // literals start after 7 instructions (28) but the ldr offsets need exact
+    // positions; place them at 32 to keep 8-byte alignment.
+    const literalStart = 32;
+    code[1] = ldrLiteral(0, literalStart - 1 * 4);
+    code[2] = ldrLiteral(1, literalStart + 8 - 2 * 4);
+    code[3] = ldrLiteral(16, literalStart + 16 - 3 * 4);
+    code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
+    this.memory.write(address + 32n, 8, object);
+    this.memory.write(address + 40n, 8, selector);
+    this.memory.write(address + 48n, 8, imp);
+    cpu.writeRegister(0, object);
+    cpu.pc = address;
   }
 
   private autoreleaseObject(object: bigint): void {
     if (!this.instances.has(object)) return;
     this.stats.autoreleases += 1;
     const pool = this.autoreleasePools.at(-1);
+    // Apple's runtime leaks an autoreleased object when no pool is in place;
+    // releasing immediately would make convenience constructors return dead
+    // objects.
     if (pool) pool.push(object);
-    else this.releaseObject(object);
   }
 
   private conformsToProtocol(receiver: bigint, protocol: bigint): boolean {

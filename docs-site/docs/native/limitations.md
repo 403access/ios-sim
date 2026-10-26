@@ -71,8 +71,9 @@ macOS-gated test runs compiler output end to end.
   no real event source, display link, wall-clock timer, multitouch, gesture recognisers, or host
   window.
 - **ARC is approximated, not implemented.** Retain/release update a refcount, autorelease pools
-  drain on pop, and weak slots are zeroed at zero count, but zero-count objects are not reclaimed
-  and `-dealloc` is not called. Objects live until the process exits; the PoC is short-lived.
+  drain on pop, weak slots are zeroed at zero count, and direct releases call a guest `-dealloc`
+  override. Zero-count objects are not reclaimed, and bookkeeping releases skip `-dealloc`.
+  Objects live until the process exits; the PoC is short-lived.
 - **Selectors are C strings.** The shim follows the modern direct-selector convention; a selector
   registered as an opaque `objc_selector` struct is not supported.
 - **Classes are realised eagerly.** `+load`, categories, `+initialize`, protocol conformance,

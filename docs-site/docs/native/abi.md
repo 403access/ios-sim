@@ -181,11 +181,14 @@ Recognised runtime entry points: `objc_retain`, `objc_release`, `objc_autoreleas
 `objc_setAssociatedObject`, `objc_getAssociatedObject`, `objc_removeAssociatedObjects`,
 `objc_storeWeak`, `objc_loadWeakRetained`, `objc_loadWeak`, `objc_destroyWeak`,
 `objc_sync_enter/exit`. Retain/release update a host-side refcount (objects start at 1; convenience
-constructors return autoreleased objects), and autorelease pools are real stacks drained on pop. Objects are never reclaimed and `-dealloc` is
-not called; the PoC process is short-lived and the docs state the limitation. Counts are exposed
+constructors return autoreleased objects), and autorelease pools are real stacks drained on pop.
+When a direct `-release`/`objc_release` reaches zero and the class overrides `-dealloc`, a generated
+stub calls it and returns to the release caller. Bookkeeping releases (pool drain, storeStrong,
+associated values) mark the object dead without running guest code, and guest memory is never
+reclaimed. An autoreleased object with no pool is leaked, matching the runtime's warning. Counts are exposed
 as `objcStats` in the process result and CLI JSON: allocations, retains, releases,
-autoreleases, pool pushes/pops, associations, weak stores/loads/zeroings, and message
-dispatch totals split into host and guest IMPs.
+autoreleases, pool pushes/pops, deallocs, associations, weak stores/loads/zeroings, and
+message dispatch totals split into host and guest IMPs.
 
 ### Shim classes
 

@@ -80,6 +80,7 @@ export interface ProcessResult {
     messages: number;
     hostDispatches: number;
     guestDispatches: number;
+    deallocs: number;
   }>;
 }
 
@@ -287,6 +288,7 @@ export class DarwinProcess {
         messages: 0,
         hostDispatches: 0,
         guestDispatches: 0,
+        deallocs: 0,
       },
     };
   }

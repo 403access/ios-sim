@@ -74,6 +74,7 @@ const SELECTORS = {
   initialize: "initialize",
   load: "load",
   tick: "tick:",
+  dealloc: "dealloc",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -99,7 +100,8 @@ type SlotName =
   | "superStruct"
   | "baseInitMarker"
   | "tapInitMarker"
-  | "initOrder";
+  | "initOrder"
+  | "deallocMarker";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -218,6 +220,7 @@ function planData(): Plan {
     "baseInitMarker",
     "tapInitMarker",
     "initOrder",
+    "deallocMarker",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -273,7 +276,7 @@ function planData(): Plan {
   const tapEmptyMethods = cursor;
   cursor += 8;
   const tapMethods = cursor;
-  cursor += 8 + 3 * 24;
+  cursor += 8 + 4 * 24;
   const tapIvars = cursor;
   cursor += 8 + 32;
   const tapProtocols = cursor;
@@ -515,6 +518,10 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   label("tapEnded");
   emitTouchHandler(SELECTORS.greenColor);
 
+  label("tapDealloc");
+  emitMarker(slot("deallocMarker"), 1);
+  emitWord(ret());
+
   const data = emitData(
     bases,
     plan,
@@ -529,6 +536,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("tapSuperBegan") ?? 0),
     bases.textBase + (code.labels.get("tapMoved") ?? 0),
     bases.textBase + (code.labels.get("tapEnded") ?? 0),
+    bases.textBase + (code.labels.get("tapDealloc") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -566,6 +574,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       { name: "_initOrder", value: dataAddress(plan.slotOffsets.initOrder), sectionIndex: 2 },
+      {
+        name: "_deallocMarker",
+        value: dataAddress(plan.slotOffsets.deallocMarker),
+        sectionIndex: 2,
+      },
     ],
   };
 
@@ -668,6 +681,17 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // Temporary TapView: releasing it runs the guest -dealloc override.
+    emitPointer(0, slot("classTapView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.release));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
@@ -788,6 +812,7 @@ function emitData(
   tapSuperBeganImp: number,
   tapMovedImp: number,
   tapEndedImp: number,
+  tapDeallocImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -881,7 +906,7 @@ function emitData(
   u32(plan.tapEmptyMethods, 24);
   u32(plan.tapEmptyMethods + 4, 0);
   u32(plan.tapMethods, 24);
-  u32(plan.tapMethods + 4, 3);
+  u32(plan.tapMethods + 4, 4);
 
   const beganEntry = plan.tapMethods + 8;
   rebase(beganEntry, selector(SELECTORS.touchesBegan));
@@ -895,6 +920,10 @@ function emitData(
   rebase(endedEntry, selector(SELECTORS.touchesEnded));
   rebase(endedEntry + 8, selector(TYPES));
   rebase(endedEntry + 16, tapEndedImp);
+  const deallocEntry = plan.tapMethods + 80;
+  rebase(deallocEntry, selector(SELECTORS.dealloc));
+  rebase(deallocEntry + 8, selector(TYPES));
+  rebase(deallocEntry + 16, tapDeallocImp);
 
   rebase(plan.tapRo + 24, address(plan.stringOffsets[DEMO_VIEW_CLASS_NAME]!));
   rebase(plan.tapRo + 32, address(plan.tapMethods));
