@@ -55,16 +55,16 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-26 · JSON, segments, formatting",
+  updated: "2026-10-26 · navigation, JSON, segments",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
-  tests: 158,
+  tests: 160,
   gated: 6,
   g2: 8,
   m1Budget: 31,
   stats: [
-    { value: "158", label: "hermetic tests" },
+    { value: "160", label: "hermetic tests" },
     { value: "6", label: "macOS-gated" },
     { value: "33", label: "host classes" },
     { value: "36", label: "runtime symbols" },
@@ -119,7 +119,7 @@ export const architecture: Architecture = {
       id: "uikit",
       name: "UIKit shim",
       kicker: "Views · controls · controllers",
-      percent: 70,
+      percent: 74,
       chips: [
         { label: "views", state: "done" },
         { label: "controls", state: "done" },
@@ -127,17 +127,17 @@ export const architecture: Architecture = {
         { label: "gestures", state: "done" },
         { label: "text", state: "done" },
         { label: "images", state: "done" },
-        { label: "navigation", state: "planned" },
+        { label: "navigation", state: "done" },
         { label: "tables", state: "planned" },
       ],
       shipped: [
         "View tree, hit-testing, clipping, scroll drags, responder forwarding",
         "Label (bitmap, wrapping), button, switch, slider, segments, image view",
-        "Lifecycle + appearance, notifications, tap/pan recognisers",
+        "Navigation controller with bar, title, and back button",
         "Legacy and block animations on the virtual clock",
       ],
       open: [
-        "UINavigationController, UITabBarController, UITableView/UICollectionView",
+        "UITabBarController, UITableView/UICollectionView, animated transitions",
         "Auto Layout, transforms, CALayer, multiple windows",
         "Alert/action sheets, text fields, keyboard",
       ],
@@ -316,6 +316,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "4c1f090", text: "UINavigationController push/pop with host chrome" },
     { hash: "6033504", text: "NSJSONSerialization + dataUsingEncoding" },
     { hash: "617591e", text: "UISegmentedControl selection and rendering" },
     { hash: "0d18a9e", text: "stringWithFormat + formatted NSLog (stack varargs)" },
