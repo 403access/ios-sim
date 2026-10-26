@@ -12,10 +12,11 @@ LIBRARY := $(BUILD_DIR)/libdarwin_host.so
 endif
 
 TEST_BIN := $(BUILD_DIR)/test_darwin_host
+STRESS_BIN := $(BUILD_DIR)/stress_darwin_host
 
-.PHONY: all test clean
+.PHONY: all test stress clean
 
-all: $(LIBRARY) $(TEST_BIN)
+all: $(LIBRARY) $(TEST_BIN) $(STRESS_BIN)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -26,8 +27,14 @@ $(LIBRARY): src/host.c include/darwin_host.h | $(BUILD_DIR)
 $(TEST_BIN): src/host.c tests/test_host.c include/darwin_host.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ src/host.c tests/test_host.c
 
+$(STRESS_BIN): src/host.c tests/stress_host.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ src/host.c tests/stress_host.c
+
 test: $(TEST_BIN)
 	./$(TEST_BIN)
+
+stress: $(STRESS_BIN)
+	./$(STRESS_BIN)
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -18,12 +18,12 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..005 + THR-001..007 done; THR-008 is next.                                         |
+| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..007 done; THR-008 is next.                                         |
 | A2 loader/runtime | **Partially startable.** Legacy bindings, fuzzing, diagnostics, and signing parse can proceed in parallel.  |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 39 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 40 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -32,9 +32,9 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                    |
 | ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------------------------------- |
-|     1 | `KRN-012` | Kernel        | M    | KRN-005 | Native stress/soak; 16 threads/1M messages                                  |
-|     2 | `THR-008` | Threads       | L    | THR-003 | kqueue/timers; event loop wakeup, no busy wait                              |
-|     3 | `THR-009` | Threads       | S    | THR-003 | Clock/timebase; sleep/wake accuracy                                         |
+|     1 | `THR-008` | Threads       | L    | THR-003 | kqueue/timers; event loop wakeup, no busy wait                              |
+|     2 | `THR-009` | Threads       | S    | THR-003 | Clock/timebase; sleep/wake accuracy                                         |
+|     3 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                    |
 |     4 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                    |
 |     5 | `THR-012` | Threads       | M    | THR-004 | Concurrency stress; 64 threads/processes, no leak                           |
 |     6 | `LDR-002` | Loader        | M    | LDR-001 | Lazy/weak binding; lazy/weak tests                                          |
@@ -109,7 +109,7 @@ exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evi
 This spike does not satisfy UI-G1 or change the critical path. It exists to de-risk the host
 window/software renderer boundary while KRN/LDR/RT gates remain open.
 
-### Kernel boundary — KRN-001..011 (done)
+### Kernel boundary — KRN-001..012 (done)
 
 | ID        | Task                           | Evidence                                                                |
 | --------- | ------------------------------ | ----------------------------------------------------------------------- |
@@ -147,7 +147,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `KRN-009`  | Memory objects/shared memory   | P1       | L    | **done**  | KRN-003          | Shared mappings, clone isolation, unmap tests              |
 | `KRN-010`  | Mach trap parity table         | P1       | M    | **done**  | KRN-005          | Trap table/dispatch, unsupported vectors, fuzz             |
 | `KRN-011`  | Quotas/resource accounting     | P2       | S    | **done**  | KRN-005          | Port/message/memory quotas, usage, enforcement             |
-| `KRN-012`  | Native stress/soak             | P1       | M    | **next**  | KRN-005          | 16 threads/1M messages, leak-free                          |
+| `KRN-012`  | Native stress/soak             | P1       | M    | **done**  | KRN-005          | 16 threads/1M messages, zero queued, leak-free             |
 | `THR-001`  | Threads/thread ports           | P0       | M    | **done**  | KRN-003          | Thread lifecycle objects/ports; C + FFI tests              |
 | `THR-002`  | Scheduler/run queue            | P0       | L    | **done**  | THR-001          | Round-robin CPU scheduler, block/unblock, budgets          |
 | `THR-003`  | Blocking syscall bridge        | P0       | M    | **done**  | KRN-005, THR-002 | `BlockingMachBridge` park/wake/timeout/interrupt tests     |

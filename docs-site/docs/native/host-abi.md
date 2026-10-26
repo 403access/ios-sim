@@ -143,6 +143,12 @@ variable, so a blocked set receive wakes. Removing/deallocating a receive port c
 `DH_NOTIFY_DEAD` message on a registered notify port exactly once. The notification body is the
 dead port id.
 
+## Stress
+
+`KRN-012` adds `tests/stress_host.c`: 16 native threads send 1,000,000 messages through a shared
+receive port while one receiver drains the queue. It verifies sent/received counts, zero queued
+messages, and teardown. Run with `make -C packages/darwin-host stress` or `bun run test:kernel`.
+
 ## Quotas
 
 `KRN-011` adds per-task quotas for ports, queued messages, and mapped memory bytes. Defaults are
