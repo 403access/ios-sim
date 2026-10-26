@@ -77,8 +77,9 @@ blocks class `__NSConcreteStackBlock`.
 The binary also loads UIKit, Foundation, libobjc, libSystem, and CoreFoundation. Its eight "other"
 symbols are `NSLog`, `NSStringFromClass`, the `NSObject`/`UIResponder` metaclasses,
 `___CFConstantStringClassReference`, `___stack_chk_fail`, `___stack_chk_guard`, and
-`__objc_empty_cache`. The `@"..."` literals are the interesting one: any stock app needs constant
-`CFString` objects, which the shim does not provide (its fixture strings are C strings).
+`__objc_empty_cache`. The `@"..."` literals are the interesting one: the shim now exports
+`___CFConstantStringClassReference` and reads the 32-byte literal layout, which the clang fixture
+exercises (`[label setText:@"TAPPED"]`). Literal _collections_ (`@[]`, `@{}`) are still missing.
 
 **Reading the number honestly.** Thirty-one is the _link-time_ surface of that app, not the size of
 the job. Each missing class must behave like Apple's at the ABI level, and the frameworks the app

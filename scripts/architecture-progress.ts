@@ -55,7 +55,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-27 · transforms, tables, navigation",
+  updated: "2026-10-27 · CF strings, transforms, tables",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -171,12 +171,13 @@ export const architecture: Architecture = {
       id: "foundation",
       name: "Foundation shim",
       kicker: "The objects apps share",
-      percent: 62,
+      percent: 66,
       chips: [
         { label: "NSString", state: "done" },
         { label: "NSData", state: "done" },
         { label: "formatting", state: "done" },
         { label: "JSON", state: "done" },
+        { label: "CF strings", state: "done" },
         { label: "collections", state: "done" },
         { label: "timers", state: "done" },
         { label: "bundle", state: "done" },
@@ -186,7 +187,7 @@ export const architecture: Architecture = {
       shipped: [
         "NSString, NSNumber, NSArray/NSMutableArray, NSDictionary/NSMutableDictionary",
         "NSUserDefaults, notifications with userInfo, NSTimer, delayed perform",
-        "NSBundle, formatted NSLog, NSData, JSON, a PNG decoder behind UIImage",
+        "NSBundle, formatted NSLog, NSData, JSON, constant strings, PNG images",
       ],
       open: [
         "NSDate, NSURL, NSError, NSFileManager",
@@ -317,6 +318,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "8ddaf21", text: 'Constant @"..." string literals via CFString reference' },
     { hash: "0a84fd3", text: "Affine transforms on view backgrounds" },
     { hash: "af15ed7", text: "UITableView rows, selection, and scroll offset" },
     { hash: "4c1f090", text: "UINavigationController push/pop with host chrome" },
