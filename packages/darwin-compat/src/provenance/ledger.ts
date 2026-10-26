@@ -178,6 +178,18 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "LDR-008",
+    claim: "Extracts synthetic cache images and resolves their export/symbol addresses.",
+    status: "partial",
+    evidence: [
+      "packages/darwin-compat/src/dyld/shared-cache.ts",
+      "packages/darwin-compat/src/dyld/shared-cache.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/dyld/shared-cache.test.ts",
+    limitation:
+      "Synthetic cache fixtures only; real cache fixups and differential symbols are unverified.",
+  },
+  {
     id: "LDR-007",
     claim:
       "Applies page-aligned slides and resolves sub-cache/image membership on synthetic caches.",

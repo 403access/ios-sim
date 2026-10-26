@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { buildHello } from "../testing/fixtures.js";
 import {
   applyCacheSlide,
+  buildSyntheticCacheWithImage,
+  cacheImageBytes,
+  cacheSymbol,
   buildSyntheticSharedCache,
   imageAtAddress,
   imageForPath,
@@ -94,5 +98,28 @@ describe("cache slide and sub-cache resolution", () => {
     expect(subCacheForAddress(cache, 0x9000n)?.cacheVMOffset).toBe(0x8000n);
     const second = cache.subCaches[1]!;
     expect(imagesForSubCache(cache, second).map((image) => image.path)).toEqual(["/b", "/c"]);
+  });
+});
+
+describe("cache image extraction and symbols", () => {
+  it("extracts an embedded Mach-O and resolves its exports", () => {
+    const macho = buildHello().bytes;
+    const bytes = buildSyntheticCacheWithImage("/usr/lib/libfixture.dylib", macho);
+    const cache = parseSharedCache(bytes);
+    const extracted = cacheImageBytes(cache, bytes, "/usr/lib/libfixture.dylib");
+    expect(extracted.macho.header.magic).toBe(0xfeedfacf);
+    expect(cacheSymbol(cache, bytes, "/usr/lib/libfixture.dylib", "_start")).toBe(0x180002000n);
+    expect(cacheSymbol(cache, bytes, "/usr/lib/libfixture.dylib", "_missing")).toBeNull();
+    expect(imageForPath(cache, "/usr/lib/libfixture.dylib")?.address).toBe(0x180001000n);
+  });
+
+  it("rejects missing images, unmapped addresses, and malformed Mach-O", () => {
+    const bytes = buildSyntheticCacheWithImage("/a", buildHello().bytes);
+    const cache = parseSharedCache(bytes);
+    expect(() => cacheImageBytes(cache, bytes, "/missing")).toThrow(/no image/);
+    const unmapped = { ...cache, mappings: [] };
+    expect(() => cacheImageBytes(unmapped, bytes, "/a")).toThrow(/not mapped/);
+    const bad = buildSyntheticCacheWithImage("/bad", Uint8Array.from([1, 2, 3, 4]));
+    expect(() => cacheImageBytes(parseSharedCache(bad), bad, "/bad")).toThrow();
   });
 });

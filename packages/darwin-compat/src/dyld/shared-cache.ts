@@ -11,6 +11,8 @@
  */
 
 import { CompatError } from "../errors.js";
+import { parseMachO } from "../macho/parse.js";
+import type { MachOImage } from "../macho/types.js";
 
 export class SharedCacheError extends CompatError {
   override name = "SharedCacheError";
@@ -98,6 +100,105 @@ export function imagesForSubCache(cache: SharedCacheInfo, subCache: CacheSubCach
       image.address >= subCache.cacheVMOffset &&
       (next === undefined || image.address < next.cacheVMOffset),
   );
+}
+
+/**
+ * Extract the Mach-O bytes for a cache image. The synthetic cache builder
+ * places the image 0x1000 bytes into its mapping.
+ */
+export function cacheImageBytes(
+  cache: SharedCacheInfo,
+  cacheBytes: Uint8Array,
+  path: string,
+): { bytes: Uint8Array; image: CacheImage; macho: MachOImage } {
+  const image = imageForPath(cache, path);
+  if (!image) throw new SharedCacheError("cache_image_missing", `cache has no image ${path}`);
+  let mapping: CacheMapping | null = null;
+  for (const candidate of cache.mappings) {
+    if (image.address >= candidate.address && image.address < candidate.address + candidate.size) {
+      mapping = candidate;
+      break;
+    }
+  }
+  if (!mapping) {
+    throw new SharedCacheError(
+      "cache_image_unmapped",
+      `${path} at 0x${image.address.toString(16)} is not mapped`,
+    );
+  }
+  const offset = Number(mapping.fileOffset + (image.address - mapping.address));
+  if (offset < 0 || offset >= cacheBytes.length) {
+    throw new SharedCacheError(
+      "cache_image_out_of_bounds",
+      `${path} file offset ${offset} is outside the cache`,
+    );
+  }
+  const slice = cacheBytes.subarray(offset);
+  const macho = parseMachO(slice).image;
+  return { bytes: slice.subarray(0, macho.byteLength), image, macho };
+}
+
+/** Resolve one exported symbol from a cache image (synthetic caches). */
+export function cacheSymbol(
+  cache: SharedCacheInfo,
+  cacheBytes: Uint8Array,
+  path: string,
+  symbol: string,
+): bigint | null {
+  const { image, macho } = cacheImageBytes(cache, cacheBytes, path);
+  const exported = macho.exportsTrie?.exports.get(symbol);
+  if (exported && exported.address !== null && exported.kind !== "reexport") {
+    return exported.kind === "absolute"
+      ? BigInt(exported.address)
+      : image.address + BigInt(exported.address);
+  }
+  const found = macho.symbols.find(
+    (entry) => entry.name === symbol && !entry.debug && !entry.undefined && entry.external,
+  );
+  if (!found) return null;
+  return image.address + BigInt(found.value - macho.preferredBase);
+}
+
+/** Build a synthetic cache embedding one generated Mach-O image. */
+export function buildSyntheticCacheWithImage(
+  path: string,
+  machoBytes: Uint8Array,
+  options: { start?: bigint } = {},
+): Uint8Array {
+  const start = options.start ?? 0x180000000n;
+  const headerSize = 0x400;
+  const mappingOffset = headerSize;
+  const imagesOffset = mappingOffset + 32;
+  const subOffset = imagesOffset + 32;
+  const pathStart = subOffset;
+  const pathBytes = new TextEncoder().encode(`${path}\0`);
+  const dataStart = Math.ceil((pathStart + pathBytes.length) / 0x1000) * 0x1000;
+  const imageOffset = 0x1000;
+  const total = dataStart + imageOffset + machoBytes.length;
+  const bytes = new Uint8Array(total);
+  const view = new DataView(bytes.buffer);
+  bytes.set(new TextEncoder().encode("dyld_v1  arm64e").subarray(0, 16), 0);
+  view.setUint32(16, mappingOffset, true);
+  view.setUint32(20, 1, true);
+  view.setUint32(24, imagesOffset, true);
+  view.setUint32(28, 1, true);
+  view.setBigUint64(48, start, true);
+  view.setBigUint64(56, BigInt(imageOffset + machoBytes.length), true);
+  view.setBigUint64(64, 0x1_0000_0000n, true);
+  view.setUint32(188, 0, true);
+  view.setUint32(192, 0, true);
+  view.setBigUint64(mappingOffset, start, true);
+  view.setBigUint64(mappingOffset + 8, BigInt(imageOffset + machoBytes.length), true);
+  view.setBigUint64(mappingOffset + 16, BigInt(dataStart), true);
+  view.setUint32(mappingOffset + 24, 5, true);
+  view.setUint32(mappingOffset + 28, 5, true);
+  view.setBigUint64(imagesOffset, start + BigInt(imageOffset), true);
+  view.setBigUint64(imagesOffset + 8, 0n, true);
+  view.setBigUint64(imagesOffset + 16, 1n, true);
+  view.setUint32(imagesOffset + 24, pathStart, true);
+  bytes.set(pathBytes, pathStart);
+  bytes.set(machoBytes, dataStart + imageOffset);
+  return bytes;
 }
 
 export function parseSharedCache(bytes: Uint8Array): SharedCacheInfo {

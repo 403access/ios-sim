@@ -39,9 +39,9 @@ and is a human/legal gate; Mac-evidence tasks remain blocked until a licensed ho
 
 ### Next sessions
 
-Sessions 1-65 add synthetic shared-cache parsing, sliding, and sub-cache resolution. The user-space
-substrate, loader, threads, quality, observability, release, provenance, ObjC/Foundation/runtime
-layers, performance, dyld env, entitlement policy, and cache resolution are done. Remaining work is
+Sessions 1-66 add synthetic cache image extraction and export lookup. The user-space substrate,
+loader, threads, quality, observability, release, provenance, ObjC/Foundation/runtime layers,
+performance, dyld env, entitlement policy, and cache resolution are done. Remaining work is
 Mac-gated, legal, or A3-A7. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
