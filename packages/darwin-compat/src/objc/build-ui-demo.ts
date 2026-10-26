@@ -56,6 +56,10 @@ const SELECTORS = {
   init: "init",
   view: "view",
   setRootViewController: "setRootViewController:",
+  stringWithUTF8String: "stringWithUTF8String:",
+  text: "text",
+  length: "length",
+  isEqualToString: "isEqualToString:",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -154,7 +158,11 @@ type SlotName =
   | "lifecycleMarker"
   | "willAppearMarker"
   | "didAppearMarker"
-  | "appearOrder";
+  | "appearOrder"
+  | "classString"
+  | "stringText"
+  | "stringLength"
+  | "stringEqual";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -307,6 +315,10 @@ function planData(): Plan {
     "willAppearMarker",
     "didAppearMarker",
     "appearOrder",
+    "classString",
+    "stringText",
+    "stringLength",
+    "stringEqual",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -797,6 +809,16 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       {
+        name: "_stringLength",
+        value: dataAddress(plan.slotOffsets.stringLength),
+        sectionIndex: 2,
+      },
+      {
+        name: "_stringEqual",
+        value: dataAddress(plan.slotOffsets.stringEqual),
+        sectionIndex: 2,
+      },
+      {
         name: "_willAppearMarker",
         value: dataAddress(plan.slotOffsets.willAppearMarker),
         sectionIndex: 2,
@@ -1104,11 +1126,40 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitDouble(3, dataAddress(plan.labelRect + 24));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
-    emitWord(movReg(0, 21));
-    emitAddress(1, selector(SELECTORS.setText));
+    // NSString *text = [NSString stringWithUTF8String:"HELLO 42"];
+    emitPointer(0, slot("classString"));
+    emitAddress(1, selector(SELECTORS.stringWithUTF8String));
     emitAddress(2, dataAddress(plan.stringOffsets["HELLO 42"]!));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
+    emitStore(0, slot("stringText"));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setText));
+    emitPointer(2, slot("stringText"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    // (void)[[label text] length]; (void)[[label text] isEqualToString:text];
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.text));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.length));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("stringLength"));
+    emitPointer(0, slot("classString"));
+    emitAddress(1, selector(SELECTORS.stringWithUTF8String));
+    emitAddress(2, dataAddress(plan.stringOffsets["HELLO 42"]!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.isEqualToString));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("stringEqual"));
     emitPointer(0, slot("classColor"));
     emitAddress(1, selector(SELECTORS.blackColor));
     emitPointer(16, slot("msgSend"));
@@ -1691,6 +1742,7 @@ function emitData(
   bind(plan.slotOffsets.classCenter, "_OBJC_CLASS_$_NSNotificationCenter");
   bind(plan.slotOffsets.classDefaults, "_OBJC_CLASS_$_NSUserDefaults");
   bind(plan.slotOffsets.classController, "_OBJC_CLASS_$_UIViewController");
+  bind(plan.slotOffsets.classString, "_OBJC_CLASS_$_NSString");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));

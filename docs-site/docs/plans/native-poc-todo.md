@@ -67,6 +67,7 @@ started.
 - [x] `UIScrollView` content offset (painting and hit-testing)
 - [x] `NSNotificationCenter` registration and multi-observer posting
 - [x] `NSUserDefaults` bool/integer storage with counters
+- [x] `NSString` (`stringWithUTF8String:`, length, equality); label text accepts strings or C strings
 - [x] `UIViewController -viewDidLoad` once, via a category or subclass
 - [x] `UIViewController -viewWillAppear:`/`-viewDidAppear:` when the root view is shown
 - [x] `UILabel` with a 3×5 bitmap font (left/centre/right alignment)

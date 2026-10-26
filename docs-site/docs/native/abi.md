@@ -219,6 +219,11 @@ generated guest stub, so the message that triggered them still returns normally.
 controller's view sits at the bottom of the window's subview stack; anything added later stays
 on top for painting and hit-testing.
 
+The shim's `NSString` is a small object holding a pointer to guest bytes; `-length` counts UTF-8
+bytes and `-integerValue` parses base 10. Where the shim took a C string before (`UILabel -setText:`,
+notification names, defaults keys) a bare pointer is still accepted, so generated and clang code can
+mix the two forms.
+
 Defaults keys are C strings and live in memory for the process; stores/reads are counted in
 `objcStats`. Notification names are C strings;
 a post builds a small guest stub that sends the selector to every matching observer before

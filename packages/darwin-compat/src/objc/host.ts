@@ -92,6 +92,9 @@ const LABEL_SCALE = 80;
 const LABEL_ALIGNMENT = 88;
 const LABEL_INSTANCE_SIZE = 96;
 
+const STRING_POINTER = 8;
+const STRING_INSTANCE_SIZE = 16;
+
 const CONTROLLER_VIEW = 8;
 const CONTROLLER_INSTANCE_SIZE = 16;
 
@@ -915,6 +918,63 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(button);
+
+    const string = this.defineClass({
+      name: "NSString",
+      superclass: "NSObject",
+      instanceSize: STRING_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "UTF8String",
+          types: "*16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(STRING_POINTER), 8)),
+        },
+        {
+          selector: "length",
+          types: "Q16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, BigInt(this.stringValue(receiver).length)),
+        },
+        {
+          selector: "isEqualToString:",
+          types: "B24@0:8@16",
+          run: (cpu, receiver) => {
+            const other = this.stringValue(cpu.readRegister(2));
+            cpu.writeRegister(0, this.stringValue(receiver) === other ? 1n : 0n);
+          },
+        },
+        {
+          selector: "description",
+          types: "@16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, receiver),
+        },
+        {
+          selector: "integerValue",
+          types: "q16@0:8",
+          run: (cpu, receiver) => {
+            const parsed = Number.parseInt(this.stringValue(receiver), 10);
+            cpu.writeRegister(0, Number.isFinite(parsed) ? BigInt(parsed) : 0n);
+          },
+        },
+      ],
+      classMethods: [
+        {
+          selector: "stringWithUTF8String:",
+          types: "@24@0:8*16",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass) throw new ObjcError("bad_receiver", "stringWithUTF8String: is not a class");
+            cpu.writeRegister(0, this.newString(cpu.readRegister(2)));
+          },
+        },
+        {
+          selector: "stringWithString:",
+          types: "@24@0:8@16",
+          run: (cpu) => cpu.writeRegister(0, this.newString(cpu.readRegister(2))),
+        },
+      ],
+    });
+    this.registerClass(string);
 
     const defaults = this.defineClass({
       name: "NSUserDefaults",
@@ -2033,6 +2093,43 @@ export class ObjcHost {
     return klass ? `<${klass.name}>` : `<object 0x${receiver.toString(16)}>`;
   }
 
+  /** Allocate an NSString holding a copy-free pointer to a guest C string. */
+  private newString(text: bigint): bigint {
+    const klass = this.classes.get("NSString");
+    if (!klass) throw new ObjcError("internal_error", "NSString is missing");
+    const instance = this.allocateInstance(klass);
+    this.memory.write(
+      instance + BigInt(STRING_POINTER),
+      8,
+      text === 0n ? this.internString("") : text,
+    );
+    return instance;
+  }
+
+  /**
+   * Read a string argument. The shim accepts both a bare C string and an
+   * NSString instance, so older shim calls keep working while apps can pass
+   * objects. Objects are recognised by their class chain.
+   */
+  private stringValue(address: bigint): string {
+    if (address === 0n) return "";
+    if (this.instanceKindOf(address, "NSString")) {
+      const pointer = this.memory.read(address + BigInt(STRING_POINTER), 8);
+      return pointer === 0n ? "" : this.memory.readCString(pointer, 4096);
+    }
+    return this.memory.readCString(address, 4096);
+  }
+
+  private instanceKindOf(instance: bigint, name: string): boolean {
+    let klass = this.instances.get(instance);
+    while (klass) {
+      if (klass.name === name) return true;
+      if (klass.superclass === 0n) return false;
+      klass = this.byAddress.get(klass.superclass);
+    }
+    return false;
+  }
+
   private readCString(address: bigint): string {
     if (address === 0n) throw new ObjcError("bad_selector", "null selector");
     return this.memory.readCString(address, 512);
@@ -2451,7 +2548,7 @@ export class ObjcHost {
     if (klass?.name === "UILabel") {
       const textPointer = this.memory.read(view + BigInt(LABEL_TEXT), 8);
       if (textPointer !== 0n) {
-        const text = this.memory.readCString(textPointer, 1024);
+        const text = this.stringValue(textPointer);
         const colorPointer = this.memory.read(view + BigInt(LABEL_COLOR), 8);
         const color = colorPointer === 0n ? BLACK : (this.colorAtPointer(colorPointer) ?? BLACK);
         const scale = Math.max(1, Math.min(8, Math.round(this.readDouble(view, LABEL_SCALE) || 2)));

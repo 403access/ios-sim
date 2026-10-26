@@ -128,8 +128,17 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)postNotificationName:(const char *)name object:(id)object;
 @end
 
+@interface NSString : NSObject
++ (id)stringWithUTF8String:(const char *)text;
+- (const char *)UTF8String;
+- (unsigned long)length;
+- (BOOL)isEqualToString:(NSString *)other;
+@end
+
+// Text accepts an NSString or a bare C string; the host reads either.
 @interface UILabel : UIView
-- (void)setText:(const char *)text;
+- (void)setText:(id)text;
+- (id)text;
 - (void)setTextColor:(UIColor *)color;
 - (void)setTextAlignment:(long)alignment;
 @end

@@ -19,6 +19,7 @@ static int gTapInit;
 static int gInitOrder;
 static int gLifecycle;
 static int gAppear;
+static int gString;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
@@ -57,7 +58,7 @@ static int gAppear;
 - (void)touchesBegan:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;
-  if (!(gBaseInit && gTapInit && gInitOrder == 2 && gLifecycle == 1)) {
+  if (!(gBaseInit && gTapInit && gInitOrder == 2 && gLifecycle == 1 && gString == 1)) {
     self.backgroundColor = [UIColor purpleColor];
     return;
   }
@@ -164,7 +165,11 @@ static unsigned gTick;
   UIViewController *controller = [[UIViewController alloc] init];
   [window setRootViewController:controller];
   UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(20, 400, 300, 40)];
-  [label setText:"HELLO 42"];
+  NSString *text = [NSString stringWithUTF8String:"HELLO 42"];
+  [label setText:text];
+  if ([[label text] isEqualToString:text] && [[label text] length] == 8) {
+    gString = 1;
+  }
   [label setTextColor:[UIColor blackColor]];
   [label setTextAlignment:1];
   [window addSubview:label];

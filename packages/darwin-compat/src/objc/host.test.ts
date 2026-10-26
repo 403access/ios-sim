@@ -50,6 +50,8 @@ describe("ObjC UIKit demo", () => {
       1n,
     );
     expect(result.program.memory.read(result.program.resolveExport("_defaultsInt")!, 8)).toBe(7n);
+    expect(result.program.memory.read(result.program.resolveExport("_stringLength")!, 8)).toBe(8n);
+    expect(result.program.memory.read(result.program.resolveExport("_stringEqual")!, 8)).toBe(1n);
     expect(result.program.memory.read(result.program.resolveExport("_lifecycleMarker")!, 8)).toBe(
       1n,
     );
