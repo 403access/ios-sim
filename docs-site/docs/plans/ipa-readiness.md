@@ -102,7 +102,7 @@ These items have visible value even if G2 never lands:
 
 **Foundation depth**
 
-- `NSData`, `NSDate`, `NSURL`, `NSError`, `NSBundle`, `NSFileManager`, `NSJSONSerialization`,
+- `NSDate`, `NSURL`, `NSError`, `NSFileManager`, `NSJSONSerialization`,
   `NSKeyedArchiver`, `NSOperation`/GCD, `NSRunLoop`, `NSInvocation`, KVC/KVO.
 - `NSString` beyond `UTF8String`/`length`/`isEqualToString:`/`integerValue`; `NSUserDefaults`
   beyond bool/int.

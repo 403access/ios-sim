@@ -235,10 +235,13 @@ static unsigned gTick;
   NSBundle *bundle = [NSBundle mainBundle];
   NSString *iconPath = [bundle pathForResource:"assets/icon" ofType:"png"];
   NSString *missingPath = [bundle pathForResource:"nope" ofType:"png"];
-  if (iconPath != nil && missingPath == nil) {
+  NSData *data = [NSData dataWithContentsOfFile:iconPath];
+  UIImage *named = [UIImage imageNamed:"assets/icon.png"];
+  UIImage *icon = [UIImage imageWithData:data];
+  if (iconPath != nil && missingPath == nil && named != nil && icon != nil &&
+      [data length] > 0) {
     gBundle = 1;
   }
-  UIImage *icon = [UIImage imageNamed:"assets/icon.png"];
   UIImageView *picture = [[UIImageView alloc] initWithImage:icon];
   [picture setFrame:CGRectMake(250, 140, 80, 80)];
   [window addSubview:picture];

@@ -110,6 +110,10 @@ const GESTURE_STATE_CANCELLED = 4;
 const GESTURE_INSTANCE_SIZE = 24;
 const TAP_SLOP = 10;
 
+const DATA_BYTES = 8;
+const DATA_LENGTH = 16;
+const DATA_INSTANCE_SIZE = 24;
+
 const IMAGE_WIDTH = 8;
 const IMAGE_HEIGHT = 16;
 const IMAGE_INSTANCE_SIZE = 24;
@@ -2126,6 +2130,56 @@ export class ObjcHost {
     });
     this.registerClass(panGesture);
 
+    const data = this.defineClass({
+      name: "NSData",
+      superclass: "NSObject",
+      instanceSize: DATA_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "length",
+          types: "Q16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, this.memory.read(receiver + 16n, 8)),
+        },
+        {
+          selector: "bytes",
+          types: "^v16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, this.memory.read(receiver + 8n, 8)),
+        },
+      ],
+      classMethods: [
+        {
+          selector: "dataWithContentsOfFile:",
+          types: "@24@0:8@16",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "dataWithContentsOfFile: is not a class");
+            }
+            const path = this.stringValue(cpu.readRegister(2));
+            const name = this.resourceName(path);
+            const bytes = name === null ? null : (this.resources?.(name) ?? null);
+            cpu.writeRegister(0, bytes === null ? 0n : this.newData(bytes));
+          },
+        },
+        {
+          selector: "dataWithBytes:length:",
+          types: "@32@0:8^v16Q24",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "dataWithBytes:length: is not a class");
+            }
+            const source = cpu.readRegister(2);
+            const length = Number(cpu.readRegister(3));
+            if (length <= 0) {
+              cpu.writeRegister(0, this.newData(new Uint8Array(0)));
+              return;
+            }
+            cpu.writeRegister(0, this.newData(this.memory.readBytes(source, length)));
+          },
+        },
+      ],
+    });
+    this.registerClass(data);
+
     const image = this.defineClass({
       name: "UIImage",
       superclass: "NSObject",
@@ -2141,6 +2195,30 @@ export class ObjcHost {
         },
       ],
       classMethods: [
+        {
+          selector: "imageWithData:",
+          types: "@24@0:8@16",
+          run: (cpu) => {
+            const data = cpu.readRegister(2);
+            if (data === 0n) {
+              cpu.writeRegister(0, 0n);
+              return;
+            }
+            const pointer = this.memory.read(data + 8n, 8);
+            const length = Number(this.memory.read(data + 16n, 8));
+            if (pointer === 0n || length <= 0) {
+              cpu.writeRegister(0, 0n);
+              return;
+            }
+            let decoded: DecodedImage | null = null;
+            try {
+              decoded = decodePng(this.memory.readBytes(pointer, length));
+            } catch {
+              decoded = null;
+            }
+            cpu.writeRegister(0, decoded === null ? 0n : this.newImage(decoded));
+          },
+        },
         {
           selector: "imageNamed:",
           types: "@24@0:8*16",
@@ -3152,6 +3230,32 @@ export class ObjcHost {
   private describe(receiver: bigint): string {
     const klass = this.byAddress.get(this.classOf(receiver));
     return klass ? `<${klass.name}>` : `<object 0x${receiver.toString(16)}>`;
+  }
+
+  /** Copy host bytes into guest memory and wrap them in an NSData. */
+  private newData(bytes: Uint8Array): bigint {
+    const klass = this.classes.get("NSData");
+    if (!klass) throw new ObjcError("internal_error", "NSData is missing");
+    const instance = this.allocateInstance(klass);
+    const pointer = this.allocBytes(Math.max(1, bytes.length));
+    if (bytes.length > 0) this.memory.writeBytes(pointer, bytes);
+    this.memory.write(instance + 8n, 8, pointer);
+    this.memory.write(instance + 16n, 8, BigInt(bytes.length));
+    return instance;
+  }
+
+  /**
+   * Reduce a bundle path (`<root>/assets/icon.png`) to the resource name the
+   * loader understands. Anything outside the bundle is rejected.
+   */
+  private resourceName(path: string): string | null {
+    let name = path;
+    if (this.bundlePath.length > 0 && name.startsWith(this.bundlePath)) {
+      name = name.slice(this.bundlePath.length);
+    }
+    name = name.replace(/^\/+/, "");
+    if (name.length === 0 || name.split("/").includes("..")) return null;
+    return name;
   }
 
   /** Decode and cache a resource image; a missing or bad file yields null. */

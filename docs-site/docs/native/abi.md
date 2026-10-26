@@ -211,8 +211,9 @@ identity/no-op because nothing here copies or frees a block.
 `UIImage` resolves its name through the host's resource loader: names are relative to the runtime
 root (the fixture directory for the demo, the image directory for a built app) and may omit the
 `.png` extension. The loader tries the process file provider, then the host filesystem, so virtual
-providers still work for images next to an app. Only 8-bit, non-interlaced PNGs with RGB or RGBA
-pixels decode; anything else fails the load and `+imageNamed:` returns nil, which `UIImageView`
+providers still work for images next to an app. `+imageWithData:` decodes an `NSData` produced by `+dataWithContentsOfFile:` or
+`+dataWithBytes:length:`, copying the bytes into guest memory. Only 8-bit, non-interlaced PNGs with
+RGB or RGBA pixels decode; anything else fails the load and `+imageNamed:` returns nil, which `UIImageView`
 renders as nothing. `UIImageView` ignores `contentMode` and always stretches to its frame with
 nearest-neighbour sampling, multiplied by the view's alpha.
 

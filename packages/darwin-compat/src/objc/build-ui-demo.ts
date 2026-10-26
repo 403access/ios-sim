@@ -85,6 +85,8 @@ const SELECTORS = {
   postNotificationUserInfo: "postNotificationName:object:userInfo:",
   userInfo: "userInfo",
   imageNamed: "imageNamed:",
+  imageWithData: "imageWithData:",
+  dataWithContentsOfFile: "dataWithContentsOfFile:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
   beginAnimations: "beginAnimations:context:",
@@ -226,7 +228,12 @@ type SlotName =
   | "classTapGesture"
   | "tapGesture"
   | "gestureMarker"
-  | "label";
+  | "label"
+  | "classData"
+  | "iconData"
+  | "dataLength"
+  | "imageNamed"
+  | "imageFromData";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -426,6 +433,11 @@ function planData(): Plan {
     "tapGesture",
     "gestureMarker",
     "label",
+    "classData",
+    "iconData",
+    "dataLength",
+    "imageNamed",
+    "imageFromData",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -1056,6 +1068,21 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       {
+        name: "_dataLength",
+        value: dataAddress(plan.slotOffsets.dataLength),
+        sectionIndex: 2,
+      },
+      {
+        name: "_imageNamed",
+        value: dataAddress(plan.slotOffsets.imageNamed),
+        sectionIndex: 2,
+      },
+      {
+        name: "_imageFromData",
+        value: dataAddress(plan.slotOffsets.imageFromData),
+        sectionIndex: 2,
+      },
+      {
         name: "_bundleFound",
         value: dataAddress(plan.slotOffsets.bundleFound),
         sectionIndex: 2,
@@ -1492,6 +1519,26 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(blr(16));
     emitStore(0, slot("bundleMissing"));
 
+    // NSData *data = [NSData dataWithContentsOfFile:found];
+    // UIImage *fromData = [UIImage imageWithData:data];
+    emitPointer(0, slot("classData"));
+    emitAddress(1, selector(SELECTORS.dataWithContentsOfFile));
+    emitPointer(2, slot("bundleFound"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("iconData"));
+    emitPointer(0, slot("iconData"));
+    emitAddress(1, selector(SELECTORS.length));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("dataLength"));
+    emitPointer(0, slot("classImage"));
+    emitAddress(1, selector(SELECTORS.imageWithData));
+    emitPointer(2, slot("iconData"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("imageFromData"));
+
     // UILabel *wrapped = [[UILabel alloc] initWithFrame:(20,240,300,60)];
     emitPointer(0, slot("classLabel"));
     emitAddress(1, selector(SELECTORS.alloc));
@@ -1523,13 +1570,13 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(blr(16));
 
     // UIImageView *picture = [[UIImageView alloc] initWithImage:
-    //     [UIImage imageNamed:"assets/icon.png"]];
+    //     [UIImage imageWithData:data]];
     emitPointer(0, slot("classImage"));
     emitAddress(1, selector(SELECTORS.imageNamed));
     emitAddress(2, dataAddress(plan.stringOffsets["assets/icon.png"]!));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
-    emitStore(0, slot("image"));
+    emitStore(0, slot("imageNamed"));
     emitPointer(0, slot("classImageView"));
     emitAddress(1, selector(SELECTORS.alloc));
     emitPointer(16, slot("msgSend"));
@@ -1537,7 +1584,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(movReg(21, 0));
     emitWord(movReg(0, 21));
     emitAddress(1, selector(SELECTORS.initWithImage));
-    emitPointer(2, slot("image"));
+    emitPointer(2, slot("imageFromData"));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
     emitWord(movReg(0, 21));
@@ -2438,6 +2485,7 @@ function emitData(
   bind(plan.slotOffsets.classSwitch, "_OBJC_CLASS_$_UISwitch");
   bind(plan.slotOffsets.classSlider, "_OBJC_CLASS_$_UISlider");
   bind(plan.slotOffsets.classBundle, "_OBJC_CLASS_$_NSBundle");
+  bind(plan.slotOffsets.classData, "_OBJC_CLASS_$_NSData");
   bind(plan.slotOffsets.classTapGesture, "_OBJC_CLASS_$_UITapGestureRecognizer");
   bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
   bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");

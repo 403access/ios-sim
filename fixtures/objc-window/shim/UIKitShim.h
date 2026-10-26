@@ -273,8 +273,16 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 
 // Image names are paths under the runtime root, as C strings; Apple takes an
 // NSString without an extension. Only 8-bit non-interlaced PNGs decode.
+@interface NSData : NSObject
++ (id)dataWithContentsOfFile:(NSString *)path;
++ (id)dataWithBytes:(const void *)bytes length:(unsigned long)length;
+- (unsigned long)length;
+- (const void *)bytes;
+@end
+
 @interface UIImage : NSObject
 + (id)imageNamed:(const char *)name;
++ (id)imageWithData:(NSData *)data;
 - (CGSize)size;
 @end
 

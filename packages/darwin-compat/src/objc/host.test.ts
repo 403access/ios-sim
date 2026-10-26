@@ -239,6 +239,16 @@ describe("ObjC UIKit demo", () => {
       const offset = (y * frame.width + x) * 4;
       return [...frame.pixels.slice(offset, offset + 3)];
     };
+    // The image came from file data, and the named lookup still works.
+    expect(
+      result.program.memory.read(result.program.resolveExport("_dataLength")!, 8),
+    ).toBeGreaterThan(0n);
+    expect(result.program.memory.read(result.program.resolveExport("_imageNamed")!, 8)).not.toBe(
+      0n,
+    );
+    expect(result.program.memory.read(result.program.resolveExport("_imageFromData")!, 8)).not.toBe(
+      0n,
+    );
     // Four quadrants of the 8x8 fixture: red, green, blue, half-black.
     expect(at(254, 144)).toEqual([255, 0, 0]);
     expect(at(325, 144)).toEqual([0, 255, 0]);
