@@ -26,6 +26,8 @@ typedef struct DHMessage {
   int32_t message_id;
   uint32_t sender_task;
   uint32_t reply_port;
+  uint32_t transfer_port;
+  uint32_t transfer_disposition;
   uint32_t count;
   uint32_t words[];
 } DHMessage;
@@ -146,6 +148,8 @@ static void enqueue_notification_locked(uint32_t notify_port_id, uint32_t dead_p
   message->message_id = (int32_t)DH_NOTIFY_DEAD;
   message->sender_task = 0;
   message->reply_port = 0;
+  message->transfer_port = 0;
+  message->transfer_disposition = 0;
   message->count = 1;
   message->words[0] = dead_port_id;
   if (notify->last == NULL) notify->first = message;
@@ -735,9 +739,15 @@ int dh_service_lookup(uint32_t task_id, const char *service, uint32_t *out_name)
   return DH_ERR_NOT_FOUND;
 }
 
-int dh_send(uint32_t task_id, uint32_t remote, uint32_t local, int32_t message_id,
-            const uint32_t *words, uint32_t count) {
+static int send_impl(uint32_t task_id, uint32_t remote, uint32_t local, int32_t message_id,
+                     const uint32_t *words, uint32_t count, uint32_t transfer_name,
+                     uint32_t disposition) {
   if (count > DH_MAX_MESSAGE_WORDS || (count > 0 && words == NULL)) return DH_ERR_INVALID_ARGUMENT;
+  if (transfer_name != 0 && disposition != DH_PORT_DISPOSITION_COPY_SEND &&
+      disposition != DH_PORT_DISPOSITION_MAKE_SEND &&
+      disposition != DH_PORT_DISPOSITION_MAKE_SEND_ONCE) {
+    return DH_ERR_INVALID_ARGUMENT;
+  }
   pthread_mutex_lock(&g_lock);
   DHTask *task = task_locked(task_id);
   if (task == NULL) {
@@ -762,6 +772,30 @@ int dh_send(uint32_t task_id, uint32_t remote, uint32_t local, int32_t message_i
     }
     reply_port = reply->port_id;
   }
+  uint32_t transfer_port = 0;
+  if (transfer_name != 0) {
+    DHName *transfer = name_locked(task, transfer_name);
+    if (transfer == NULL || transfer->set_id != 0) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_INVALID_NAME;
+    }
+    if (disposition == DH_PORT_DISPOSITION_COPY_SEND &&
+        (transfer->rights & DH_RIGHT_SEND) == 0) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_INVALID_RIGHT;
+    }
+    if (disposition == DH_PORT_DISPOSITION_MAKE_SEND &&
+        (transfer->rights & DH_RIGHT_RECEIVE) == 0) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_INVALID_RIGHT;
+    }
+    if (disposition == DH_PORT_DISPOSITION_MAKE_SEND_ONCE &&
+        (transfer->rights & (DH_RIGHT_SEND | DH_RIGHT_RECEIVE)) == 0) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_INVALID_RIGHT;
+    }
+    transfer_port = transfer->port_id;
+  }
   DHMessagePort *port = port_locked(destination->port_id);
   if (port == NULL) {
     pthread_mutex_unlock(&g_lock);
@@ -782,6 +816,8 @@ int dh_send(uint32_t task_id, uint32_t remote, uint32_t local, int32_t message_i
   message->message_id = message_id;
   message->sender_task = task->id;
   message->reply_port = reply_port;
+  message->transfer_port = transfer_port;
+  message->transfer_disposition = transfer_port != 0 ? disposition : 0;
   message->count = count;
   if (count > 0) memcpy(message->words, words, (size_t)count * sizeof(uint32_t));
   if (port->last == NULL) {
@@ -798,9 +834,20 @@ int dh_send(uint32_t task_id, uint32_t remote, uint32_t local, int32_t message_i
   return DH_OK;
 }
 
-int dh_receive(uint32_t task_id, uint32_t name, uint32_t *out_words, uint32_t out_capacity,
-               uint32_t *out_count, uint32_t *out_remote, uint32_t *out_local,
-               int32_t *out_message_id, uint32_t timeout_ms) {
+int dh_send(uint32_t task_id, uint32_t remote, uint32_t local, int32_t message_id,
+            const uint32_t *words, uint32_t count) {
+  return send_impl(task_id, remote, local, message_id, words, count, 0, 0);
+}
+
+int dh_send_port(uint32_t task_id, uint32_t remote, uint32_t local, int32_t message_id,
+                 const uint32_t *words, uint32_t count, uint32_t transfer_name,
+                 uint32_t disposition) {
+  return send_impl(task_id, remote, local, message_id, words, count, transfer_name, disposition);
+}
+
+static int receive_impl(uint32_t task_id, uint32_t name, uint32_t *out_words, uint32_t out_capacity,
+                        uint32_t *out_count, uint32_t *out_remote, uint32_t *out_local,
+                        int32_t *out_message_id, uint32_t timeout_ms, uint32_t *out_transfer_name) {
   if (out_count == NULL || out_remote == NULL || out_local == NULL || out_message_id == NULL ||
       (out_capacity > 0 && out_words == NULL)) {
     return DH_ERR_INVALID_ARGUMENT;
@@ -921,9 +968,35 @@ int dh_receive(uint32_t task_id, uint32_t name, uint32_t *out_words, uint32_t ou
       *out_local = reply_name;
     }
   }
+  if (out_transfer_name != NULL) {
+    *out_transfer_name = 0;
+    if (message->transfer_port != 0) {
+      uint32_t rights = message->transfer_disposition == DH_PORT_DISPOSITION_MAKE_SEND_ONCE
+                            ? DH_RIGHT_SEND_ONCE
+                            : DH_RIGHT_SEND;
+      uint32_t transferred = 0;
+      if (alloc_name_locked(task, message->transfer_port, rights, &transferred) == DH_OK) {
+        *out_transfer_name = transferred;
+      }
+    }
+  }
   free(message);
   pthread_mutex_unlock(&g_lock);
   return DH_OK;
+}
+
+int dh_receive(uint32_t task_id, uint32_t name, uint32_t *out_words, uint32_t out_capacity,
+               uint32_t *out_count, uint32_t *out_remote, uint32_t *out_local,
+               int32_t *out_message_id, uint32_t timeout_ms) {
+  return receive_impl(task_id, name, out_words, out_capacity, out_count, out_remote, out_local,
+                      out_message_id, timeout_ms, NULL);
+}
+
+int dh_receive_port(uint32_t task_id, uint32_t name, uint32_t *out_words, uint32_t out_capacity,
+                    uint32_t *out_count, uint32_t *out_remote, uint32_t *out_local,
+                    int32_t *out_message_id, uint32_t timeout_ms, uint32_t *out_transfer_name) {
+  return receive_impl(task_id, name, out_words, out_capacity, out_count, out_remote, out_local,
+                      out_message_id, timeout_ms, out_transfer_name);
 }
 
 int dh_kernel_stats(uint32_t *out_tasks, uint32_t *out_ports, uint32_t *out_messages) {

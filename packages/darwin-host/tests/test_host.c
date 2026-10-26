@@ -100,6 +100,38 @@ int main(void) {
         "dead notification delivered");
   CHECK(message_id == (int32_t)DH_NOTIFY_DEAD && words[0] == dead_port, "dead notification body");
 
+  uint32_t transfer_receive = 0;
+  CHECK(dh_port_create_receive(task, "transfer", &transfer_receive) == DH_OK, "transfer receive");
+  uint32_t transfer_port = 0;
+  CHECK(dh_name_port_id(task, receive, &transfer_port) == DH_OK, "transfer port id");
+  uint32_t transfer_send = 0;
+  CHECK(dh_port_make_send(task, transfer_port, &transfer_send) == DH_OK, "transfer send");
+  uint32_t transfer_box = receive;
+  uint32_t moved = 0;
+  CHECK(dh_send_port(task, second_send, 0, 66, body, 1, transfer_send,
+                     DH_PORT_DISPOSITION_COPY_SEND) == DH_OK,
+        "send COPY_SEND descriptor");
+  CHECK(dh_receive_port(task, second_receive, words, 8, &count, &remote, &local, &message_id,
+                        DH_TIMEOUT_NONE, &moved) == DH_OK,
+        "receive COPY_SEND descriptor");
+  CHECK(moved != 0, "COPY_SEND produced a name");
+  CHECK(dh_send(task, moved, 0, 67, body, 1) == DH_OK, "use COPY_SEND right");
+  CHECK(dh_receive(task, receive, words, 8, &count, &remote, &local, &message_id,
+                   DH_TIMEOUT_NONE) == DH_OK,
+        "receive on copied port");
+
+  uint32_t once = 0;
+  CHECK(dh_send_port(task, second_send, 0, 68, body, 1, transfer_receive,
+                     DH_PORT_DISPOSITION_MAKE_SEND_ONCE) == DH_OK,
+        "send MAKE_SEND_ONCE descriptor");
+  CHECK(dh_receive_port(task, second_receive, words, 8, &count, &remote, &local, &message_id,
+                        DH_TIMEOUT_NONE, &once) == DH_OK,
+        "receive MAKE_SEND_ONCE descriptor");
+  CHECK(once != 0, "MAKE_SEND_ONCE produced a name");
+  CHECK(dh_send(task, once, 0, 69, body, 1) == DH_OK, "use send-once right");
+  CHECK(dh_send(task, once, 0, 70, body, 1) == DH_ERR_INVALID_NAME, "send-once consumed");
+  (void)transfer_box;
+
   CHECK(dh_selftest_blocking() == 0, "blocking self-test");
   CHECK(dh_selftest_interrupt() == 0, "interrupt self-test");
   CHECK(dh_selftest_threads() == 0, "thread self-test");

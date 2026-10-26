@@ -128,6 +128,13 @@ host.close();
 The module is Bun-only because of `bun:ffi`; constants/types can be imported without loading the
 library.
 
+## Descriptors in transit
+
+`KRN-007` supports one port-right descriptor per message. Dispositions:
+`DH_PORT_DISPOSITION_COPY_SEND` (1), `MAKE_SEND` (2), `MAKE_SEND_ONCE` (3). The receiver gets a
+task-local name; a send-once name disappears after its first send. Out-of-line memory descriptors
+remain future work.
+
 ## Port sets and notifications
 
 `KRN-006` adds receive sets over member ports and one-shot dead-name notifications. A receive on

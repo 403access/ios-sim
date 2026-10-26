@@ -40,6 +40,10 @@ extern "C" {
 #define DH_RIGHT_PORT_SET 8u
 #define DH_NOTIFY_DEAD 0x0ead0001u
 
+#define DH_PORT_DISPOSITION_COPY_SEND 1u
+#define DH_PORT_DISPOSITION_MAKE_SEND 2u
+#define DH_PORT_DISPOSITION_MAKE_SEND_ONCE 3u
+
 /* Thread states. */
 #define DH_THREAD_RUNNABLE 1u
 #define DH_THREAD_RUNNING 2u
@@ -110,6 +114,11 @@ int dh_service_lookup(uint32_t task, const char *service, uint32_t *out_name);
 int dh_send(uint32_t task, uint32_t remote, uint32_t local, int32_t message_id,
             const uint32_t *words, uint32_t count);
 
+/* Send with one port right in transit (COPY_SEND / MAKE_SEND / MAKE_SEND_ONCE). */
+int dh_send_port(uint32_t task, uint32_t remote, uint32_t local, int32_t message_id,
+                 const uint32_t *words, uint32_t count, uint32_t transfer_name,
+                 uint32_t disposition);
+
 /**
  * Receive one message. When `out_capacity` is too small, returns
  * DH_ERR_MESSAGE_TOO_LARGE without consuming the message.
@@ -117,6 +126,12 @@ int dh_send(uint32_t task, uint32_t remote, uint32_t local, int32_t message_id,
 int dh_receive(uint32_t task, uint32_t name, uint32_t *out_words, uint32_t out_capacity,
                uint32_t *out_count, uint32_t *out_remote, uint32_t *out_local,
                int32_t *out_message_id, uint32_t timeout_ms);
+
+/* Receive a message and return the transferred port right name (0 if none). */
+int dh_receive_port(uint32_t task, uint32_t name, uint32_t *out_words, uint32_t out_capacity,
+                    uint32_t *out_count, uint32_t *out_remote, uint32_t *out_local,
+                    int32_t *out_message_id, uint32_t timeout_ms,
+                    uint32_t *out_transfer_name);
 
 int dh_kernel_stats(uint32_t *out_tasks, uint32_t *out_ports, uint32_t *out_messages);
 

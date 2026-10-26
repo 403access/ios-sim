@@ -10,6 +10,8 @@ import assert from "node:assert/strict";
 import {
   DH_MAX_QUEUE_DEPTH,
   DH_NOTIFY_DEAD,
+  DH_PORT_DISPOSITION_COPY_SEND,
+  DH_PORT_DISPOSITION_MAKE_SEND_ONCE,
   DH_THREAD_RUNNABLE,
   DH_TIMEOUT_FOREVER,
   DHStatus,
@@ -72,6 +74,44 @@ try {
   const notification = host.receive(task, notify, 8, 100);
   assert.equal(notification.messageId, DH_NOTIFY_DEAD);
   assert.equal(notification.body[0], deadPort);
+
+  const transferReceive = host.createReceivePort(task, "ffi-transfer");
+  const transferPort = host.namePortId(task, receive);
+  const transferSend = host.makeSend(task, transferPort);
+  assert.equal(
+    host.sendPort(
+      task,
+      send,
+      0,
+      66,
+      Uint32Array.from([1]),
+      transferSend,
+      DH_PORT_DISPOSITION_COPY_SEND,
+    ),
+    0,
+  );
+  const copied = host.receivePort(task, receive, 8, 100);
+  assert.notEqual(copied.transferName, 0);
+  host.sendOrThrow(task, copied.transferName, 0, 67, Uint32Array.from([2]));
+  assert.deepEqual(Array.from(host.receive(task, receive, 8, 100).body), [2]);
+
+  assert.equal(
+    host.sendPort(
+      task,
+      send,
+      0,
+      68,
+      Uint32Array.from([1]),
+      transferReceive,
+      DH_PORT_DISPOSITION_MAKE_SEND_ONCE,
+    ),
+    0,
+  );
+  const once = host.receivePort(task, receive, 8, 100);
+  assert.notEqual(once.transferName, 0);
+  assert.equal(host.send(task, once.transferName, 0, 69, Uint32Array.from([3])), 0);
+  assert.deepEqual(Array.from(host.receive(task, transferReceive, 8, 100).body), [3]);
+  assert.equal(host.send(task, once.transferName, 0, 70, Uint32Array.from([4])), 3);
 
   host.selftestBlocking();
   host.selftestInterrupt();

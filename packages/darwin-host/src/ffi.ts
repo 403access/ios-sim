@@ -25,6 +25,9 @@ export const DH_RIGHT_RECEIVE = 2;
 export const DH_RIGHT_SEND_ONCE = 4;
 export const DH_RIGHT_PORT_SET = 8;
 export const DH_NOTIFY_DEAD = 0x0ead0001;
+export const DH_PORT_DISPOSITION_COPY_SEND = 1;
+export const DH_PORT_DISPOSITION_MAKE_SEND = 2;
+export const DH_PORT_DISPOSITION_MAKE_SEND_ONCE = 3;
 
 export const DH_THREAD_RUNNABLE = 1;
 export const DH_THREAD_RUNNING = 2;
@@ -126,8 +129,13 @@ const SYMBOLS = {
   dh_service_register: { args: ["u32", "cstring", "u32"], returns: "i32" },
   dh_service_lookup: { args: ["u32", "cstring", "ptr"], returns: "i32" },
   dh_send: { args: ["u32", "u32", "u32", "i32", "ptr", "u32"], returns: "i32" },
+  dh_send_port: { args: ["u32", "u32", "u32", "i32", "ptr", "u32", "u32", "u32"], returns: "i32" },
   dh_receive: {
     args: ["u32", "u32", "ptr", "u32", "ptr", "ptr", "ptr", "ptr", "u32"],
+    returns: "i32",
+  },
+  dh_receive_port: {
+    args: ["u32", "u32", "ptr", "u32", "ptr", "ptr", "ptr", "ptr", "u32", "ptr"],
     returns: "i32",
   },
   dh_kernel_stats: { args: ["ptr", "ptr", "ptr"], returns: "i32" },
@@ -279,6 +287,61 @@ export class NativeHost {
     body: Uint32Array,
   ): void {
     this.check("send", this.send(task, remote, local, messageId, body));
+  }
+
+  sendPort(
+    task: number,
+    remote: number,
+    local: number,
+    messageId: number,
+    body: Uint32Array,
+    transferName: number,
+    disposition: number,
+  ): number {
+    return this.symbols.dh_send_port!(
+      task,
+      remote,
+      local,
+      messageId,
+      ptr(body),
+      body.length,
+      transferName,
+      disposition,
+    );
+  }
+
+  receivePort(
+    task: number,
+    name: number,
+    capacity = DH_MAX_MESSAGE_WORDS,
+    timeoutMs = DH_TIMEOUT_NONE,
+  ): ReceivedMessage & { transferName: number } {
+    const words = new Uint32Array(capacity);
+    const count = new Uint32Array(1);
+    const remote = new Uint32Array(1);
+    const local = new Uint32Array(1);
+    const messageId = new Int32Array(1);
+    const transfer = new Uint32Array(1);
+    const status = this.symbols.dh_receive_port!(
+      task,
+      name,
+      ptr(words),
+      capacity,
+      ptr(count),
+      ptr(remote),
+      ptr(local),
+      ptr(messageId),
+      timeoutMs,
+      ptr(transfer),
+    );
+    return {
+      status,
+      body: words.slice(0, count[0]!),
+      messageId: messageId[0]!,
+      remoteName: remote[0]!,
+      replyName: local[0]!,
+      transferName: transfer[0]!,
+    };
   }
 
   receive(
