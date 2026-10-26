@@ -273,6 +273,16 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     limitation: "This is a clean-room API subset and software renderer, not Apple UIKit.",
   },
   {
+    id: "THR-011",
+    claim: "Tracks session identity, roles, owned ports/services, and idempotent teardown.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/runtime/session.ts",
+      "packages/darwin-compat/src/runtime/session.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/runtime/session.test.ts",
+  },
+  {
     id: "DX-004",
     claim: "Builds a SHA-256 reproduction bundle with doctor, versions, corpus, and bench data.",
     status: "implemented",

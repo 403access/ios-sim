@@ -8,3 +8,4 @@ export * from "./process-runtime.js";
 export * from "./event-loop.js";
 export * from "./clock.js";
 export * from "./jetsam.js";
+export * from "./session.js";

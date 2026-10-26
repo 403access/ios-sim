@@ -502,7 +502,8 @@ and ABI/schema versions exact) plus a workspace consistency gate. REL-006 adds a
 gate: no install hooks, no insecure sources, bounded dependency ranges, required overrides,
 lockfile presence, ignored build output, and a documented frozen install. DX-004 builds a
 tar.gz with doctor/versions/environment/corpus/bench data and a SHA-256 manifest, so another
-host can reproduce and compare. THR-011 (roles/sessions) is next.
+host can reproduce and compare. THR-011 adds session identity, roles, port/service ownership,
+and idempotent teardown callbacks. OBS-007 (optional loopback metrics) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

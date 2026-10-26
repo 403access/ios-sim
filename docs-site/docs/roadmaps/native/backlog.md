@@ -22,29 +22,28 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 77 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 78 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
 Pick from the top. A task marked with `*` needs a licensed-Mac observation window; it can be
 started by a human with host access, not by a Linux-only agent.
 
-| Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                            |
-| ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------- |
-|     1 | `THR-011` | Threads       | M    | THR-006 | Roles/sessions/contracts; job identity and teardown |
-|     2 | `OBS-007` | Observability | S    | OBS-002 | Metrics endpoint (optional); loopback-only          |
-|     3 | `DX-002`  | Developer     | S    | OBS-005 | Trace UX; filtered trace                            |
-|     4 | `QA-007`  | Quality       | S    | REL-001 | Coverage targets; ≥90% parsers                      |
+| Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                   |
+| ----: | --------- | ------------- | ---- | ------- | ------------------------------------------ |
+|     1 | `OBS-007` | Observability | S    | OBS-002 | Metrics endpoint (optional); loopback-only |
+|     2 | `DX-002`  | Developer     | S    | OBS-005 | Trace UX; filtered trace                   |
+|     3 | `QA-007`  | Quality       | S    | REL-001 | Coverage targets; ≥90% parsers             |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `THR-011` is the next task;
-`OBS-007` remains in the observability lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `OBS-007` is the next task;
+`DX-002` remains in the developer-tooling lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-46 are complete through DX-004 (substrate, loader, threads, quality, observability,
+Sessions 1-47 are complete through THR-011 (substrate, loader, threads, quality, observability,
 release, provenance, quickstart, diagnostics, claims, roadmap validation, version policy,
-supply-chain checks, and a repro bundle). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+supply-chain checks, repro bundle, and session roles). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -164,7 +163,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-008`  | kqueue/timers                  | P2       | L    | **done**  | THR-003          | Timer/source event loop, park/wake, tick tests             |
 | `THR-009`  | Clock/timebase                 | P2       | S    | **done**  | THR-003          | Realtime/monotonic, timebase conversion, timer sleep       |
 | `THR-010`  | Jetsam/memory pressure         | P2       | M    | **done**  | KRN-009          | Priority-ordered kill policy                               |
-| `THR-011`  | Roles/sessions/contracts       | P2       | M    | **next**  | THR-006          | Job identity/ports/teardown                                |
+| `THR-011`  | Roles/sessions/contracts       | P2       | M    | **done**  | THR-006          | Session identity/ports/idempotent teardown                 |
 | `THR-012`  | Concurrency stress             | P1       | M    | **done**  | THR-004          | 64 threads/processes, no leak                              |
 | `OBS-001`  | Event schema                   | P1       | S    | **done**  | A0               | Schema, redaction, NDJSON, process events                  |
 | `OBS-002`  | Runtime statistics             | P1       | S    | **done**  | A0               | Counters + `stats` command                                 |
@@ -172,7 +171,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `OBS-004`  | Trace export                   | P2       | M    | **done**  | OBS-001          | Chrome/JSON trace                                          |
 | `OBS-005`  | `trace/stats/why` CLI          | P2       | M    | **done**  | OBS-004          | `trace`/`why` + existing `stats`                           |
 | `OBS-006`  | Fault diagnostics              | P1       | M    | **done**  | OBS-001          | Fault snapshot in errors                                   |
-| `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | **ready** | OBS-002          | Loopback-only                                              |
+| `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | **next**  | OBS-002          | Loopback-only                                              |
 | `QA-001`   | Fuzz harness                   | P0       | M    | **done**  | A0               | 1M mutations, 0 crashes, corpus retained                   |
 | `QA-002`   | Differential harness           | P0       | L    | blocked   | QA-001, Mac      | ≥100 cases match                                           |
 | `QA-003`   | Generated Mach-O corpus        | P1       | M    | **done**  | A0               | 23 cases, 15 commands, 5 pointer formats                   |

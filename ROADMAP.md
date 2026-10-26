@@ -14,7 +14,7 @@ It is layered so the same document is not asked to answer every planning questio
 | L3       | [Bridge backlog](docs-site/docs/roadmaps/bridge/backlog.md)                   | Live shipping queue and next bridge task        |
 | L3       | [Native backlog](docs-site/docs/roadmaps/native/backlog.md)                   | Live status, ready queue, pick-next protocol    |
 
-**Current next tasks:** `THR-011` (roles/sessions) and `OBS-007` (optional metrics).
+**Current next tasks:** `OBS-007` (optional metrics) and `DX-002` (trace UX).
 Use separate worktrees per track.
 
 **Recently completed:** `KRN-001..005` (C11/Bun-FFI kernel boundary), `THR-001..004` (thread
