@@ -223,6 +223,10 @@ exits cleanly; the host can tear everything down without leaks.
 **Can start before KRN-G1** for opcode/parser work; initializers and `dlopen` need thread-safe
 state.
 
+**Status:** LDR-001 is implemented in `packages/darwin-compat/src/macho/legacy-fixups.ts` and
+wired into `ImageLoader` (`legacyFixups` fixtures, rebase sliding, ordinal bind resolution,
+malformed-stream errors). LDR-002 (lazy/weak binding) is next.
+
 | ID      | Task                                     | Size | Depends          | Deliverable                                        | Acceptance                                                                    |
 | ------- | ---------------------------------------- | ---- | ---------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |
 | LDR-001 | Legacy dyld rebase/bind opcodes          | M    | A0               | `LC_DYLD_INFO`/`_ONLY` decoder                     | Generated opcode fixtures match symbol targets; malformed streams fail        |

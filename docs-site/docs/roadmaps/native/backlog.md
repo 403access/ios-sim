@@ -17,12 +17,12 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009 done; LDR-001 is next.                                         |
-| A2 loader/runtime | **Partially startable.** Legacy bindings, fuzzing, diagnostics, and signing parse can proceed in parallel.  |
+| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009 done; LDR-002 is next.                                         |
+| A2 loader/runtime | **Started.** Legacy rebase/bind opcodes (LDR-001) done; fuzzing, diagnostics, and signing parse remain.     |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 43 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 44 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -31,9 +31,8 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                    |
 | ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------------------------------- |
-|     1 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                    |
+|     1 | `LDR-002` | Loader        | M    | LDR-001 | Lazy/weak binding; lazy/weak tests                                          |
 |     2 | `THR-012` | Threads       | M    | THR-004 | Concurrency stress; 64 threads/processes, no leak                           |
-|     3 | `LDR-002` | Loader        | M    | LDR-001 | Lazy/weak binding; lazy/weak tests                                          |
 |     4 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
 |     5 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                               |
 |     6 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                          |
@@ -43,25 +42,24 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LDR-001` is the next task;
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LDR-002` is the next task;
 `THR-012` remains in the thread lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-The first twelve sessions are complete (A0 substrate, kernel boundary, threads/clock). This is the
+Sessions 1-13 are complete (A0 substrate, kernel boundary, threads/clock, LDR-001). This is the
 next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
-| Session | Critical path | Parallel (independent) | Expected outcome                        |
-| ------- | ------------- | ---------------------- | --------------------------------------- |
-| 13      | `LDR-001`     | `THR-012`              | Legacy dyld opcodes; concurrency stress |
-| 14      | `LDR-002`     | `OBS-001`              | Lazy/weak binding; event schema         |
-| 15      | `LDR-003`     | `QA-001`               | Initializers; fuzz harness              |
-| 16      | `LDR-004`     | `QA-003`               | dlopen/dlsym; generated corpus          |
-| 17      | `LDR-010`     | `QA-004`               | Signature parser; benchmarks            |
-| 18      | `LDR-005`     | `OBS-002`              | Namespaces; runtime statistics          |
-| 19      | `LDR-013`     | `REL-001`              | Loader diagnostics; native CI           |
-| 20      | `RT-001`      | `LEG-001`              | ObjC runtime core; provenance ledger    |
+| Session | Critical path | Parallel (independent) | Expected outcome                       |
+| ------- | ------------- | ---------------------- | -------------------------------------- |
+| 14      | `LDR-002`     | `THR-012`              | Lazy/weak binding; concurrency stress  |
+| 15      | `LDR-003`     | `OBS-001`              | Initializers; event schema             |
+| 16      | `LDR-004`     | `QA-001`               | dlopen/dlsym; fuzz harness             |
+| 17      | `LDR-010`     | `QA-003`               | Signature parser; generated corpus     |
+| 18      | `LDR-005`     | `QA-004`               | Namespaces; benchmarks                 |
+| 19      | `LDR-013`     | `OBS-002`              | Loader diagnostics; runtime statistics |
+| 20      | `RT-001`      | `REL-001`              | ObjC runtime core; native CI           |
 
 After session 20, re-read the gate tables. Do not start A2 runtime (`RT-*`) until `LDR-004`
 exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evidence.
@@ -136,6 +134,12 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-008`  | Timers/event loop                                | `runtime/event-loop.ts`; deadline/source wakeups, scheduler integration                     |
 | `THR-009`  | Clock/timebase                                   | `runtime/clock.ts`; realtime/monotonic, timebase conversion, event-loop sleep               |
 
+### Loader — LDR-001 (done)
+
+| ID        | Task                            | Evidence                                                                         |
+| --------- | ------------------------------- | -------------------------------------------------------------------------------- |
+| `LDR-001` | Legacy dyld rebase/bind opcodes | `src/macho/legacy-fixups.ts`, `legacy-fixups.test.ts`, `loader.test.ts` fixtures |
+
 ### A1 — kernel, threads, observability, quality foundation
 
 | ID         | Task                           | Priority | Size | Status    | Depends          | Acceptance / evidence                                      |
@@ -202,34 +206,34 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 
 ### A2 — loader and runtime
 
-| ID        | Task                            | Priority | Size | Status     | Depends          | Acceptance                               |
-| --------- | ------------------------------- | -------- | ---- | ---------- | ---------------- | ---------------------------------------- |
-| `LDR-001` | Legacy dyld opcodes             | P0       | M    | **next**   | A0               | Fixtures resolve correctly               |
-| `LDR-002` | Lazy/weak binding               | P0       | M    | blocked    | LDR-001          | Lazy/weak tests                          |
-| `LDR-003` | Initializers/terminators        | P0       | M    | blocked    | LDR-002          | Once/order/failure                       |
-| `LDR-004` | dlopen/dlsym/dlclose            | P1       | M    | blocked    | LDR-003          | Load/resolve/close                       |
-| `LDR-005` | Namespaces/interposition        | P1       | L    | blocked    | LDR-004          | Collision/order                          |
-| `LDR-006` | Shared-cache parser             | P1       | L    | **ready*** | Mac              | Parse licensed cache; no bytes committed |
-| `LDR-007` | Split/subcache/slide            | P1       | L    | blocked    | LDR-006          | Resolve from cache                       |
-| `LDR-008` | Cache fixups/symbols            | P1       | L    | blocked    | LDR-007          | Differential symbols                     |
-| `LDR-009` | dyld env/closure                | P2       | M    | blocked    | LDR-004          | Closure matches                          |
-| `LDR-010` | Code-signature parser           | P1       | M    | **ready**  | A0               | Parse ad-hoc/signed                      |
-| `LDR-011` | Entitlements/policy hooks       | P1       | M    | blocked    | LDR-010          | Entitlements visible                     |
-| `LDR-012` | Fileset/bundle/dSYM metadata    | P3       | S    | **ready**  | A0               | Fixture parse                            |
-| `LDR-013` | Loader diagnostics              | P1       | S    | **ready**  | A0               | Actionable report                        |
-| `LDR-014` | Differential loader suite       | P1       | M    | blocked    | LDR-005/008, Mac | ≥50 cases match                          |
-| `RT-001`  | ObjC runtime core               | P0       | L    | blocked    | LDR-004          | Class/selector/method tests              |
-| `RT-002`  | Message send/cache              | P0       | L    | blocked    | RT-001           | Dispatch matrix                          |
-| `RT-003`  | Ivars/properties/ARC            | P0       | L    | blocked    | RT-002           | ARC fixture                              |
-| `RT-004`  | Categories/protocols/exceptions | P1       | M    | blocked    | RT-002           | Override/unwind                          |
-| `RT-005`  | Blocks/associations             | P1       | M    | blocked    | RT-003           | Lifetime tests                           |
-| `RT-006`  | Foundation strings/collections  | P1       | L    | blocked    | RT-003           | 100-case conformance                     |
-| `RT-007`  | Foundation files/URL/JSON/plist | P1       | L    | blocked    | RT-006           | Jail round-trip                          |
-| `RT-008`  | CF bridging/run loop            | P1       | L    | blocked    | RT-006           | Bridge/run loop                          |
-| `RT-009`  | Swift runtime/metadata          | P1       | L    | blocked    | RT-002           | Swift fixture runs                       |
-| `RT-010`  | libSystem/libc/malloc/pthread   | P1       | L    | blocked    | THR-004          | C fixture passes                         |
-| `RT-011`  | Runtime conformance             | P1       | M    | blocked    | RT-007           | 200 assertions                           |
-| `RT-012`  | Runtime performance             | P2       | M    | blocked    | RT-011           | Budgets met                              |
+| ID        | Task                            | Priority | Size | Status     | Depends          | Acceptance                                           |
+| --------- | ------------------------------- | -------- | ---- | ---------- | ---------------- | ---------------------------------------------------- |
+| `LDR-001` | Legacy dyld opcodes             | P0       | M    | **done**   | A0               | Rebase/bind fixtures resolve; malformed streams fail |
+| `LDR-002` | Lazy/weak binding               | P0       | M    | **next**   | LDR-001          | Lazy/weak tests                                      |
+| `LDR-003` | Initializers/terminators        | P0       | M    | blocked    | LDR-002          | Once/order/failure                                   |
+| `LDR-004` | dlopen/dlsym/dlclose            | P1       | M    | blocked    | LDR-003          | Load/resolve/close                                   |
+| `LDR-005` | Namespaces/interposition        | P1       | L    | blocked    | LDR-004          | Collision/order                                      |
+| `LDR-006` | Shared-cache parser             | P1       | L    | **ready*** | Mac              | Parse licensed cache; no bytes committed             |
+| `LDR-007` | Split/subcache/slide            | P1       | L    | blocked    | LDR-006          | Resolve from cache                                   |
+| `LDR-008` | Cache fixups/symbols            | P1       | L    | blocked    | LDR-007          | Differential symbols                                 |
+| `LDR-009` | dyld env/closure                | P2       | M    | blocked    | LDR-004          | Closure matches                                      |
+| `LDR-010` | Code-signature parser           | P1       | M    | **ready**  | A0               | Parse ad-hoc/signed                                  |
+| `LDR-011` | Entitlements/policy hooks       | P1       | M    | blocked    | LDR-010          | Entitlements visible                                 |
+| `LDR-012` | Fileset/bundle/dSYM metadata    | P3       | S    | **ready**  | A0               | Fixture parse                                        |
+| `LDR-013` | Loader diagnostics              | P1       | S    | **ready**  | A0               | Actionable report                                    |
+| `LDR-014` | Differential loader suite       | P1       | M    | blocked    | LDR-005/008, Mac | ≥50 cases match                                      |
+| `RT-001`  | ObjC runtime core               | P0       | L    | blocked    | LDR-004          | Class/selector/method tests                          |
+| `RT-002`  | Message send/cache              | P0       | L    | blocked    | RT-001           | Dispatch matrix                                      |
+| `RT-003`  | Ivars/properties/ARC            | P0       | L    | blocked    | RT-002           | ARC fixture                                          |
+| `RT-004`  | Categories/protocols/exceptions | P1       | M    | blocked    | RT-002           | Override/unwind                                      |
+| `RT-005`  | Blocks/associations             | P1       | M    | blocked    | RT-003           | Lifetime tests                                       |
+| `RT-006`  | Foundation strings/collections  | P1       | L    | blocked    | RT-003           | 100-case conformance                                 |
+| `RT-007`  | Foundation files/URL/JSON/plist | P1       | L    | blocked    | RT-006           | Jail round-trip                                      |
+| `RT-008`  | CF bridging/run loop            | P1       | L    | blocked    | RT-006           | Bridge/run loop                                      |
+| `RT-009`  | Swift runtime/metadata          | P1       | L    | blocked    | RT-002           | Swift fixture runs                                   |
+| `RT-010`  | libSystem/libc/malloc/pthread   | P1       | L    | blocked    | THR-004          | C fixture passes                                     |
+| `RT-011`  | Runtime conformance             | P1       | M    | blocked    | RT-007           | 200 assertions                                       |
+| `RT-012`  | Runtime performance             | P2       | M    | blocked    | RT-011           | Budgets met                                          |
 
 ### A3–A7 — system, graphics, UI, security, storage
 

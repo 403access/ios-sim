@@ -104,7 +104,7 @@ code, or performance is worse than a VM alternative.
 
 **Gate:** LDR-G1 and RT-G1. **Tasks:** `LDR-001..014`, `RT-001..012`.
 
-- Real `dyld` semantics: legacy bind opcodes, lazy stubs, initializers/terminators, `dlopen`,
+- Real `dyld` semantics: lazy/weak binding, initializers/terminators, `dlopen`,
   weak coalescing, two-level namespaces.
 - Shared-cache reader and mapping, including split caches and chained fixups in the cache.
 - Code-signature parsing and an ad-hoc validation policy; entitlement evaluation hooks.

@@ -7,6 +7,8 @@ import {
   buildDependentProgram,
   buildHello,
   buildHelperDylib,
+  buildLegacyDependentProgram,
+  buildLegacyRebaseProgram,
   buildMachPingProgram,
   HELLO_DATA_BASE,
 } from "../testing/fixtures.js";
@@ -66,6 +68,47 @@ describe("dyld loader and runtime", () => {
     const result = runtime.run("/hello", { stdout: out });
     expect(result.exitStatus).toBe(7);
     expect(out.text()).toBe("helper!\n");
+  });
+
+  it("binds legacy LC_DYLD_INFO opcodes to a dependency and calls through the pointer", () => {
+    const provider = new MapFileProvider(
+      new Map([
+        ["/hello", buildLegacyDependentProgram().bytes],
+        ["/lib/libhelper.dylib", buildHelperDylib().bytes],
+      ]),
+    );
+    const loader = new ImageLoader({ provider });
+    const program = loader.load("/hello");
+    expect(program.stats.binds).toBe(1);
+    expect(program.stats.rebases).toBe(0);
+    const pointer = program.memory.read(BigInt(HELLO_DATA_BASE), 8);
+    expect(pointer).toBe(program.images[1]?.exports.get("_helper"));
+
+    const runtime = new DarwinRuntime({ provider, rootDir: root() });
+    const out = new CaptureSink();
+    const result = runtime.run("/hello", { stdout: out });
+    expect(result.exitStatus).toBe(7);
+    expect(out.text()).toBe("helper!\n");
+  });
+
+  it("slides legacy rebase pointers by the chosen image slide", () => {
+    const bytes = buildLegacyRebaseProgram().bytes;
+    const provider = new MapFileProvider(
+      new Map([
+        ["/first", bytes],
+        ["/second", bytes],
+      ]),
+    );
+    const loader = new ImageLoader({ provider });
+    const first = loader.load("/first");
+    const second = loader.load("/second");
+    expect(first.main.slide).toBe(0n);
+    expect(second.main.slide).toBe(0x1_0000_0000n);
+    expect(second.stats.rebases).toBe(2);
+    const firstPointer = first.memory.read(first.main.base + 0x4100n, 8);
+    const secondPointer = second.memory.read(second.main.base + 0x4100n, 8);
+    expect(firstPointer).toBe(first.main.base + 0x1800n);
+    expect(secondPointer).toBe(second.main.base + 0x1800n);
   });
 
   it("reports a missing dependency with a stable code", () => {

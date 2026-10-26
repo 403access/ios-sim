@@ -70,7 +70,8 @@ single commit.
   sets/dead-name notifications (`KRN-006`), port descriptors in transit (`KRN-007`), and shared
   memory objects/mappings (`KRN-009`), Mach-trap parity (`KRN-010`), per-task quotas
   (`KRN-011`), a 16-thread/1M-message stress (`KRN-012`), and timer/source event wakeups
-  (`THR-008`), and clock/timebase (`THR-009`).
+  (`THR-008`), clock/timebase (`THR-009`), and legacy `LC_DYLD_INFO` rebase/bind opcodes
+  (`LDR-001`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,

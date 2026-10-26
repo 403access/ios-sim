@@ -80,6 +80,47 @@ export function buildDependentProgram() {
 }
 
 /**
+ * Same call-through-`__DATA` shape as `buildDependentProgram`, but the import
+ * is encoded with legacy `LC_DYLD_INFO_ONLY` bind opcodes (LDR-001).
+ */
+export function buildLegacyDependentProgram() {
+  const text = words(
+    adrp(10, HELLO_DATA_BASE, HELLO_TEXT_BASE),
+    addImm(10, 10, HELLO_DATA_BASE & 0xfff),
+    ldrUnsigned(9, 10, 0, 3),
+    blr(9),
+    movz(0, 7),
+    movz(16, 1),
+    svc(0x80),
+  );
+  return buildMachO({
+    text,
+    data: new Uint8Array(0x4000),
+    dependencies: [{ name: "/lib/libhelper.dylib" }],
+    legacyFixups: [{ kind: "bind", offset: 0, symbol: "_helper", ordinal: 1 }],
+    symbols: [{ name: "_start", value: HELLO_TEXT_BASE }],
+    exports: [{ name: "_start", address: HELLO_TEXT_BASE }],
+  });
+}
+
+/**
+ * Executable with a legacy rebase pointer already pointing into `__TEXT`.
+ * Loading it must slide the pointer by the image slide.
+ */
+export function buildLegacyRebaseProgram() {
+  const data = new Uint8Array(0x4000);
+  new DataView(data.buffer).setBigUint64(0x100, BigInt(HELLO_TEXT_BASE + 0x800), true);
+  const text = words(movz(0, 0), movz(16, 1), svc(0x80));
+  return buildMachO({
+    text,
+    data,
+    legacyFixups: [{ kind: "rebase", offset: 0x100 }],
+    symbols: [{ name: "_start", value: HELLO_TEXT_BASE }],
+    exports: [{ name: "_start", address: HELLO_TEXT_BASE }],
+  });
+}
+
+/**
  * Mach bootstrap ping: create a reply port, send a 4-byte message to the
  * bootstrap port, receive the reply, and exit 0 only when the reply body is
  * exactly 0xbeef.

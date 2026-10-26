@@ -7,9 +7,11 @@
  * symbol-table fallback, chained binds/rebases (including arm64e pointer
  * formats), and `LC_MAIN`/`LC_UNIXTHREAD` entry selection.
  *
- * Not implemented: the dyld shared cache, legacy dyld opcode bindings, lazy
- * binding stubs, initializers, `dlopen`, weak symbol coalescing, and code
- * signing. Each has a stable error code instead of silent success.
+ * Implemented since LDR-001: legacy `LC_DYLD_INFO` rebase/bind opcodes.
+ *
+ * Not implemented: the dyld shared cache, lazy binding stubs and weak-bind
+ * coalescing (LDR-002), initializers, `dlopen`, and code signing. Each has a
+ * stable error code instead of silent success.
  */
 
 import { readFileSync } from "node:fs";
@@ -25,6 +27,7 @@ import {
   MH_EXECUTE,
 } from "../macho/constants.js";
 import type { ExportEntry } from "../macho/exports-trie.js";
+import { parseLegacyBinds, parseLegacyRebases } from "../macho/legacy-fixups.js";
 import type { MachOImage } from "../macho/types.js";
 import { VirtualMemory } from "./vm.js";
 
@@ -245,7 +248,7 @@ export class ImageLoader {
       loaded.dependencies[dylib.ordinal - 1] = this.loadImage(resolved, context);
     }
 
-    applyFixups(loaded, context);
+    applyFixups(loaded, context, slice);
     context.stats.images += 1;
     return loaded;
   }
@@ -302,18 +305,10 @@ function mapSegments(
   }
 }
 
-function applyFixups(loaded: LoadedImage, context: LoadContext): void {
+function applyFixups(loaded: LoadedImage, context: LoadContext, slice: Uint8Array): void {
   const fixups = loaded.image.chainedFixups;
   if (!fixups) {
-    if (
-      (loaded.image.dyldInfo?.bindSize ?? 0) > 0 ||
-      (loaded.image.dyldInfo?.lazyBindSize ?? 0) > 0
-    ) {
-      throw new LoaderError(
-        "legacy_bindings_unimplemented",
-        `${loaded.path} uses legacy dyld opcode bindings; only chained fixups are implemented`,
-      );
-    }
+    applyLegacyFixups(loaded, context, slice);
     return;
   }
 
@@ -341,6 +336,85 @@ function applyFixups(loaded: LoadedImage, context: LoadContext): void {
     }
     context.stats.fixups += 1;
   }
+}
+
+function applyLegacyFixups(loaded: LoadedImage, context: LoadContext, slice: Uint8Array): void {
+  const info = loaded.image.dyldInfo;
+  if (!info) return;
+  if ((info.lazyBindSize ?? 0) > 0) {
+    throw new LoaderError(
+      "legacy_lazy_bindings_unimplemented",
+      `${loaded.path} uses lazy dyld bindings; LDR-002 implements lazy stubs`,
+    );
+  }
+  if ((info.weakBindSize ?? 0) > 0) {
+    throw new LoaderError(
+      "legacy_weak_bindings_unimplemented",
+      `${loaded.path} uses weak dyld bindings; LDR-002 implements weak coalescing`,
+    );
+  }
+  const segments = loaded.image.segments.map((segment) => ({
+    index: segment.index,
+    vmAddress: segment.vmAddress,
+    vmSize: segment.vmSize,
+  }));
+  const rebases =
+    (info.rebaseSize ?? 0) > 0
+      ? parseLegacyRebases(slice, info.rebaseOffset, info.rebaseSize, segments)
+      : [];
+  const binds =
+    (info.bindSize ?? 0) > 0
+      ? parseLegacyBinds(slice, info.bindOffset, info.bindSize, segments)
+      : [];
+
+  for (const rebase of rebases) {
+    const address = legacyAddress(loaded, rebase.segmentIndex, rebase.segmentOffset);
+    const current = context.memory.read(address, 8);
+    const preferredLow = legacyPreferredLow(loaded);
+    const preferredHigh = legacyPreferredHigh(loaded);
+    const value =
+      current >= preferredLow && current < preferredHigh ? current + loaded.slide : current;
+    context.memory.write(address, 8, BigInt.asUintN(64, value));
+    context.stats.rebases += 1;
+    context.stats.fixups += 1;
+  }
+
+  for (const bind of binds) {
+    const address = legacyAddress(loaded, bind.segmentIndex, bind.segmentOffset);
+    const target = resolveSymbol(loaded, bind.symbol, bind.ordinal, bind.weak, context);
+    context.memory.write(address, 8, BigInt.asUintN(64, target + bind.addend));
+    context.stats.binds += 1;
+    context.stats.fixups += 1;
+  }
+}
+
+function legacyAddress(loaded: LoadedImage, segmentIndex: number, offset: number): bigint {
+  const segment = loaded.image.segments.find((candidate) => candidate.index === segmentIndex);
+  if (!segment) {
+    throw new LoaderError(
+      "legacy_fixup_bad_segment",
+      `${loaded.path} rebases segment ${segmentIndex}, which is missing`,
+    );
+  }
+  return loaded.base + BigInt(segment.vmAddress - loaded.image.preferredBase) + BigInt(offset);
+}
+
+function legacyPreferredLow(loaded: LoadedImage): bigint {
+  let low = Number.MAX_SAFE_INTEGER;
+  for (const segment of loaded.image.segments) {
+    if (segment.name === "__PAGEZERO" || segment.vmSize === 0) continue;
+    low = Math.min(low, segment.vmAddress);
+  }
+  return BigInt(low);
+}
+
+function legacyPreferredHigh(loaded: LoadedImage): bigint {
+  let high = 0;
+  for (const segment of loaded.image.segments) {
+    if (segment.name === "__PAGEZERO" || segment.vmSize === 0) continue;
+    high = Math.max(high, segment.vmAddress + segment.vmSize);
+  }
+  return BigInt(high);
 }
 
 function rebaseValue(
@@ -377,39 +451,55 @@ function bindValue(
   const imported = loaded.image.chainedFixups?.imports[fixup.ordinal - 1];
   if (!imported)
     throw new LoaderError("fixup_import_missing", `bind ${fixup.symbol} has no import entry`);
-  const ordinal = imported.ordinal;
+  const target = resolveSymbol(
+    loaded,
+    fixup.symbol,
+    imported.ordinal,
+    fixup.weak || imported.weak,
+    context,
+  );
+  return BigInt.asUintN(64, target + fixup.addend);
+}
+
+function resolveSymbol(
+  loaded: LoadedImage,
+  symbol: string,
+  ordinal: number,
+  weak: boolean,
+  context: LoadContext,
+): bigint {
   let target: bigint | null = null;
 
   if (ordinal === 0) {
-    target = lookupExport(loaded, fixup.symbol, new Set());
+    target = lookupExport(loaded, symbol, new Set());
   } else if (ordinal === -1) {
     const main = context.order[0];
-    target = main ? lookupExport(main, fixup.symbol, new Set()) : null;
+    target = main ? lookupExport(main, symbol, new Set()) : null;
   } else if (ordinal === -2 || ordinal === -3) {
     const main = context.order[0];
-    target = main ? lookupFlat(main, fixup.symbol) : null;
+    target = main ? lookupFlat(main, symbol) : null;
   } else if (ordinal > 0) {
     const dependency = loaded.dependencies[ordinal - 1];
-    target = dependency ? lookupExport(dependency, fixup.symbol, new Set()) : null;
+    target = dependency ? lookupExport(dependency, symbol, new Set()) : null;
   } else {
     throw new LoaderError(
       "unsupported_import_ordinal",
-      `import ordinal ${ordinal} for ${fixup.symbol} is not supported`,
+      `import ordinal ${ordinal} for ${symbol} is not supported`,
     );
   }
 
   if (target === null) {
-    target = context.externalSymbols.get(fixup.symbol) ?? null;
+    target = context.externalSymbols.get(symbol) ?? null;
   }
   if (target === null) {
-    if (fixup.weak || imported.weak || ordinal === -3) return 0n;
+    if (weak || ordinal === -3) return 0n;
     throw new LoaderError(
       "symbol_not_found",
-      `${loaded.path} needs ${fixup.symbol} from ordinal ${ordinal}, but it is not exported`,
-      { path: loaded.path, symbol: fixup.symbol, ordinal },
+      `${loaded.path} needs ${symbol} from ordinal ${ordinal}, but it is not exported`,
+      { path: loaded.path, symbol, ordinal },
     );
   }
-  return BigInt.asUintN(64, target + fixup.addend);
+  return target;
 }
 
 function lookupExport(image: LoadedImage, name: string, visited: Set<string>): bigint | null {

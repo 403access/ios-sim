@@ -120,8 +120,15 @@ Supported load command: `LC_DYLD_CHAINED_FIXUPS` with header version 0, imports 
 `PTR_64` (2), `PTR_64_OFFSET` (6), `ARM64E` (1), `ARM64E_USERLAND` (9), `ARM64E_USERLAND24` (12).
 
 The loader applies each operation to the mapped image at `slide + segment offset`. Multi-start
-chains and unsupported pointer formats are hard errors. Legacy `LC_DYLD_INFO` bind opcodes are
-not implemented; an image that needs them fails with `legacy_bindings_unimplemented`.
+chains and unsupported pointer formats are hard errors.
+
+Legacy `LC_DYLD_INFO`/`LC_DYLD_INFO_ONLY` rebase and bind opcode streams are decoded by
+`src/macho/legacy-fixups.ts` and applied at load time (LDR-001). The decoder validates stream
+bounds, ULEB/SLEB encoding, segment references, and symbol names. Rebase opcodes mark locations;
+the existing pointer is slid only when it points inside the image. Bind opcodes resolve through
+their dependency ordinal exactly like chained binds. Lazy-bind and weak-bind streams fail with
+`legacy_lazy_bindings_unimplemented` / `legacy_weak_bindings_unimplemented`; dyld3 threaded binds
+fail with `legacy_threaded_bind_unimplemented` until LDR-002.
 
 ## MIG-lite
 
@@ -196,5 +203,5 @@ plain `KEY=VALUE` are not implemented.
 
 Errors are `CompatError` subclasses with a stable `code`. Examples: `memory_fault`,
 `unsupported_instruction`, `unsupported_syscall`, `path_escape`, `dependency_not_found`,
-`symbol_not_found`, `legacy_bindings_unimplemented`, `instruction_limit`, `deadline`,
+`symbol_not_found`, `legacy_fixups_*`, `legacy_threaded_bind_unimplemented`, `instruction_limit`, `deadline`,
 `xpc_truncated`, `plist_duplicate_key`. The CLI prints the code; tests assert on it.
