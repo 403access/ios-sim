@@ -186,7 +186,11 @@ signals, spawn/exec, timers, and teardown.
 **Depends on:** KRN-G1. THR-001/002 can start once KRN-003 exists.
 
 **Status:** THR-001 is implemented in `packages/darwin-host` (thread lifecycle objects and thread
-ports, C + FFI tests). THR-002+ remain; guest CPU scheduling is not wired yet.
+ports, C + FFI tests). THR-002 is implemented as a cooperative guest CPU scheduler in
+`packages/darwin-compat/src/runtime/scheduler.ts` (round-robin, block/unblock, budgets). THR-003
+is implemented as `runtime/blocking.ts` (park/wake/timeout/interrupt tests), and THR-003a wires
+it into `DarwinSyscallKernel` with a real `mach_msg_trap` park/resume test. THR-004
+(pthread/libSystem shim) is next.
 
 | ID      | Task                               | Size | Depends          | Deliverable                                      | Acceptance                                                                     |
 | ------- | ---------------------------------- | ---- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |

@@ -24,6 +24,8 @@ export interface SyscallResult {
   readonly halt?: boolean;
   /** Set the AArch64 carry flag, matching Darwin's syscall error convention. */
   readonly error?: boolean;
+  /** The syscall parked the thread; the scheduler must rewind and retry it later. */
+  readonly blocked?: boolean;
 }
 
 export type SyscallHandler = (number: number, cpu: Arm64Cpu) => SyscallResult;

@@ -89,11 +89,12 @@ bun apps/native/src/bin.ts window                # native X11 blank window (clea
 Implemented: Mach-O parsing and chained fixups, user-space dyld with slides and dependency
 linking, an AArch64 integer interpreter, Mach rights/messages/reply ports/bootstrap services,
 MIG-lite, an XPC-style codec, a Darwin syscall subset, launchd-style plists, a native C11/Bun-FFI
-kernel boundary (tasks/ports/queues/blocking/thread objects), and a clean-room UIKit-compatible native X11 blank
-window (software renderer, no web view).
+kernel boundary (tasks/ports/queues/blocking/thread objects), a cooperative guest scheduler, and
+a clean-room UIKit-compatible native X11 blank window (software renderer, no web view).
 
-Not implemented: threads/blocking Mach receive, legacy dyld bindings, the shared cache,
-Objective-C/Swift/Foundation, Metal/IOSurface/QuartzCore, Apple UIKit/AppKit, code signing, TCC,
+Not implemented: guest syscall integration with native blocking (THR-003), legacy dyld bindings,
+the shared cache, Objective-C/Swift/Foundation, Metal/IOSurface/QuartzCore, Apple UIKit/AppKit,
+code signing, TCC,
 `launchd_sim`, CoreSimulator, SpringBoard, and APFS images. It cannot run the simulator or an
 Apple app. The [native platform roadmap](docs-site/docs/native/roadmap.md) sequences the
 remaining multi-year work, the [technical roadmap](docs-site/docs/roadmaps/native/technical.md)

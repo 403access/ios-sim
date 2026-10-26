@@ -23,11 +23,15 @@ import { isAbsolute, relative, resolve } from "node:path";
 import { CompatError, SyscallError } from "../errors.js";
 import type { Arm64Cpu, SyscallResult } from "../arm64/cpu.js";
 import type { VirtualMemory } from "../dyld/vm.js";
+import type { BlockingMachBridge } from "../runtime/blocking.js";
+import type { GuestThread } from "../runtime/scheduler.js";
 import {
   KERN_INVALID_ARGUMENT,
   KERN_MESSAGE_TOO_LARGE,
+  KERN_RECEIVE_TIMED_OUT,
   KERN_SUCCESS,
   MACH_RCV_MSG,
+  MACH_RCV_TIMEOUT,
   MACH_SEND_MSG,
   type MachKernel,
   type MachTask,
@@ -152,6 +156,7 @@ export interface SyscallKernelOptions {
   readonly stdin?: Uint8Array;
   readonly strict?: boolean;
   readonly trace?: (event: SyscallTraceEvent) => void;
+  readonly blocking?: BlockingMachBridge;
 }
 
 const MAX_IO = 64 * 1024 * 1024;
@@ -165,6 +170,7 @@ export class DarwinSyscallKernel {
   readonly mach: MachKernel;
   readonly task: MachTask;
   readonly strict: boolean;
+  readonly blocking: BlockingMachBridge | undefined;
   exitStatus: number | null = null;
   readonly unsupported = new Map<number, number>();
   private readonly trace: SyscallKernelOptions["trace"];
@@ -183,15 +189,16 @@ export class DarwinSyscallKernel {
     this.stderr = options.stderr ?? new CaptureSink();
     this.stdin = { bytes: options.stdin ?? new Uint8Array(), offset: 0 };
     this.strict = options.strict ?? true;
+    this.blocking = options.blocking;
     this.trace = options.trace;
   }
 
-  handle(number: number, cpu: Arm64Cpu): SyscallResult {
+  handle(number: number, cpu: Arm64Cpu, thread?: GuestThread): SyscallResult {
     const args: bigint[] = [];
     for (let index = 0; index < 7; index += 1) args.push(cpu.readRegister(index));
     let result: SyscallResult;
     try {
-      result = this.dispatch(number, args);
+      result = this.dispatch(number, args, thread);
     } catch (error) {
       if (error instanceof CompatError && error.code === "memory_fault") throw error;
       if (this.strict) throw error;
@@ -207,7 +214,7 @@ export class DarwinSyscallKernel {
     return result;
   }
 
-  private dispatch(number: number, args: readonly bigint[]): SyscallResult {
+  private dispatch(number: number, args: readonly bigint[], thread?: GuestThread): SyscallResult {
     switch (number) {
       case SYS_EXIT: {
         const status = Number(BigInt.asIntN(32, args[0] ?? 0n)) & 0xff;
@@ -275,7 +282,7 @@ export class DarwinSyscallKernel {
         return this.ok(this.mach.hostSelf(this.task));
       case SYS_MACH_MSG_TRAP:
       case SYS_MACH_MSG_OVERWRITE_TRAP:
-        return this.machMsg(args);
+        return this.machMsg(args, thread);
       default: {
         this.unsupported.set(number, (this.unsupported.get(number) ?? 0) + 1);
         if (this.strict) {
@@ -537,7 +544,7 @@ export class DarwinSyscallKernel {
     return this.ok(target);
   }
 
-  private machMsg(args: readonly bigint[]): SyscallResult {
+  private machMsg(args: readonly bigint[], thread?: GuestThread): SyscallResult {
     const address = args[0]!;
     const option = Number(BigInt.asIntN(32, args[1]!));
     const sendSize = Number(BigInt.asIntN(32, args[2]!));
@@ -548,11 +555,30 @@ export class DarwinSyscallKernel {
       if (sendSize < 24 || sendSize > 256 * 1024) return this.ok(KERN_INVALID_ARGUMENT);
       const bytes = this.memory.readBytes(address, sendSize);
       const message = decodeMachMessage(bytes);
-      const result = this.mach.send(this.task, message);
+      const result =
+        this.blocking && thread
+          ? this.blocking.send(
+              this.task,
+              message.header.remotePort,
+              message.header.localPort,
+              message.header.id,
+              message.body,
+            )
+          : this.mach.send(this.task, message);
       if (result !== KERN_SUCCESS) return this.ok(result);
     }
 
     if (option & MACH_RCV_MSG) {
+      if (this.blocking && thread) {
+        const timeout = (option & MACH_RCV_TIMEOUT) === 0 ? 0xffff_ffff : Number(args[5]);
+        const received = this.blocking.receive(thread, this.task, receiveName, timeout);
+        if (received.blocked) return { value: KERN_RECEIVE_TIMED_OUT, blocked: true };
+        if (received.status !== KERN_SUCCESS || !received.message) return this.ok(received.status);
+        const bytes = encodeMachMessage(received.message.header, received.message.body);
+        if (bytes.length > receiveSize) return this.ok(KERN_MESSAGE_TOO_LARGE);
+        this.memory.writeBytes(address, bytes);
+        return this.ok(KERN_SUCCESS);
+      }
       const received = this.mach.receive(this.task, receiveName);
       if (received.result !== KERN_SUCCESS || !received.message) {
         return this.ok(received.result);
