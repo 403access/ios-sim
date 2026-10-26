@@ -11,8 +11,14 @@
  */
 
 import { parseMachO } from "../packages/darwin-compat/src/macho/parse.js";
+import {
+  buildSyntheticCacheWithImage,
+  buildSyntheticSharedCache,
+  parseSharedCache,
+} from "../packages/darwin-compat/src/dyld/shared-cache.js";
 import { parsePlist } from "../packages/darwin-compat/src/plist/parse.js";
 import { decodeXpcValue } from "../packages/darwin-compat/src/xpc/codec.js";
+import { parseSwiftFields } from "../packages/darwin-compat/src/swift/metadata.js";
 import {
   runFuzz,
   type FuzzResult,
@@ -29,8 +35,23 @@ import {
   buildMachPingProgram,
 } from "../packages/darwin-compat/src/testing/fixtures.js";
 
+function swiftFieldSeed(): Uint8Array {
+  const name = new TextEncoder().encode("name\0$sSS\0");
+  const recordSize = 16;
+  const dataStart = 16 + recordSize;
+  const bytes = new Uint8Array(dataStart + name.length);
+  const view = new DataView(bytes.buffer);
+  view.setUint16(8, 1, true);
+  view.setUint16(10, recordSize, true);
+  view.setUint32(12, 1, true);
+  view.setInt32(16, dataStart - 16, true);
+  view.setInt32(20, dataStart + 5 - 20, true);
+  bytes.set(name, dataStart);
+  return bytes;
+}
+
 interface Options {
-  target: "macho" | "plist" | "xpc" | "all";
+  target: "macho" | "plist" | "xpc" | "cache" | "swift" | "all";
   iterations: number;
   seed: number;
   json: boolean;
@@ -45,7 +66,14 @@ function parseOptions(argv: readonly string[]): Options {
     else if (arg === "--seed") options.seed = Number(argv[++index]);
     else if (arg === "--target") {
       const value = argv[++index];
-      if (value !== "macho" && value !== "plist" && value !== "xpc" && value !== "all") {
+      if (
+        value !== "macho" &&
+        value !== "plist" &&
+        value !== "xpc" &&
+        value !== "cache" &&
+        value !== "swift" &&
+        value !== "all"
+      ) {
         throw new Error(`unknown target ${value}`);
       }
       options.target = value;
@@ -64,7 +92,7 @@ function parseOptions(argv: readonly string[]): Options {
 
 function printHelp(): void {
   console.log(
-    "usage: bun scripts/fuzz-darwin.ts [--target macho|plist|xpc|all] [--iterations N] [--seed N] [--json]",
+    "usage: bun scripts/fuzz-darwin.ts [--target macho|plist|xpc|cache|swift|all] [--iterations N] [--seed N] [--json]",
   );
 }
 
@@ -81,7 +109,10 @@ function machoCorpus(): Uint8Array[] {
   ];
 }
 
-const targets: Record<"macho" | "plist" | "xpc", { target: FuzzTarget; corpus: Uint8Array[] }> = {
+const targets: Record<
+  "macho" | "plist" | "xpc" | "cache" | "swift",
+  { target: FuzzTarget; corpus: Uint8Array[] }
+> = {
   macho: {
     target: {
       name: "macho",
@@ -108,6 +139,37 @@ const targets: Record<"macho" | "plist" | "xpc", { target: FuzzTarget; corpus: U
         '<plist version="1.0"><array><integer>1</integer><true/><data>AA==</data></array></plist>',
       ),
     ],
+  },
+  cache: {
+    target: {
+      name: "cache",
+      run(bytes) {
+        const cache = parseSharedCache(bytes);
+        return `ok:${cache.mappings.length}:${cache.images.length}:${cache.subCaches.length}`;
+      },
+    },
+    corpus: [
+      buildSyntheticSharedCache(),
+      buildSyntheticSharedCache({
+        imagePaths: ["/a", "/b"],
+        images: [
+          { address: 0x180001000n, modTime: 0n, inode: 1n },
+          { address: 0x180002000n, modTime: 0n, inode: 2n },
+        ],
+        subCaches: [{ uuid: "00112233-4455-6677-8899-aabbccddeeff", cacheVMOffset: 0n }],
+      }),
+      buildSyntheticCacheWithImage("/lib/x", buildHello().bytes),
+    ],
+  },
+  swift: {
+    target: {
+      name: "swift",
+      run(bytes) {
+        const fields = parseSwiftFields(bytes);
+        return `ok:${fields.length}:${fields[0]?.fields.length ?? 0}`;
+      },
+    },
+    corpus: [swiftFieldSeed()],
   },
   xpc: {
     target: {

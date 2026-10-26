@@ -384,7 +384,8 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
   },
   {
     id: "QA-001",
-    claim: "Runs deterministic outcome-guided fuzzing over Mach-O, plist, and XPC at 1M mutations.",
+    claim:
+      "Runs deterministic outcome-guided fuzzing over Mach-O, plist, XPC, cache, and Swift at 1M mutations.",
     status: "implemented",
     evidence: ["packages/darwin-compat/src/testing/fuzz.ts", "scripts/fuzz-darwin.ts"],
     command: "bun run fuzz:1m",
