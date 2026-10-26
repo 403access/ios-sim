@@ -178,6 +178,18 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-001",
+    claim: "Provides a clean-room ObjC class/selector/method registry with dispatch caches.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/objc/runtime.ts",
+      "packages/darwin-compat/src/objc/runtime.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/objc/runtime.test.ts",
+    limitation:
+      "Semantic model only; not Apple's objc_class ABI or objc_msgSend calling convention.",
+  },
+  {
     id: "QA-007",
     claim: "Enforces at least 90% aggregate statement coverage across Mach-O parsers.",
     status: "implemented",

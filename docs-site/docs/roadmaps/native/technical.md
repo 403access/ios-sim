@@ -506,7 +506,9 @@ host can reproduce and compare. THR-011 adds session identity, roles, port/servi
 and idempotent teardown callbacks. OBS-007 adds an opt-in loopback-only metrics server with
 Prometheus text, `/healthz`, and optional bearer auth. DX-002 adds type/level/pid/thread/limit
 trace filters before NDJSON/Chrome export. QA-007 adds a coverage gate: aggregate Mach-O parser
-statement coverage is 90.03% (1590/1766) and CI fails below 90%. RT-001 (ObjC runtime core) is next.
+statement coverage is 90.03% (1590/1766) and CI fails below 90%. RT-001 adds a clean-room
+class/selector/method registry with superclass lookup, per-class dispatch caches, ivars, nil
+receivers, and stable unknown-selector errors. RT-002 (message send/cache matrix) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
