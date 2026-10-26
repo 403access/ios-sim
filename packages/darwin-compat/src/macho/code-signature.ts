@@ -307,6 +307,8 @@ export interface BuildCodeSignatureOptions {
   readonly pageSize?: number;
   readonly codeLimit?: number;
   readonly includeSignature?: boolean;
+  readonly includeDerEntitlements?: boolean;
+  readonly includeRequirements?: boolean;
 }
 
 /** Build an ad-hoc embedded signature for fixtures (no real CMS). */
@@ -350,11 +352,19 @@ export function buildCodeSignature(options: BuildCodeSignatureOptions): Uint8Arr
     options.includeSignature === false
       ? null
       : blobWithMagic(CSMAGIC_BLOBWRAPPER, new Uint8Array(8));
+  const derBlob = options.includeDerEntitlements
+    ? blobWithMagic(CSMAGIC_EMBEDDED_DER_ENTITLEMENTS, Uint8Array.from([0x30, 0x00]))
+    : null;
+  const requirementsBlob = options.includeRequirements
+    ? blobWithMagic(CSMAGIC_REQUIREMENTS, Uint8Array.from([0, 0, 0, 0]))
+    : null;
 
   const blobs: Array<{ type: number; bytes: Uint8Array }> = [
     { type: CSSLOT_CODEDIRECTORY, bytes: blob },
   ];
+  if (requirementsBlob) blobs.push({ type: 2, bytes: requirementsBlob });
   if (entitlementBlob) blobs.push({ type: CSSLOT_ENTITLEMENTS, bytes: entitlementBlob });
+  if (derBlob) blobs.push({ type: CSSLOT_DER_ENTITLEMENTS, bytes: derBlob });
   if (signatureBlob) blobs.push({ type: CSSLOT_SIGNATURESLOT, bytes: signatureBlob });
 
   const headerBytes = 12 + blobs.length * 8;

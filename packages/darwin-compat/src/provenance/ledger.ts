@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "QA-007",
+    claim: "Enforces at least 90% aggregate statement coverage across Mach-O parsers.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/macho/parser-coverage.test.ts",
+      "scripts/check-coverage.ts",
+      "vitest.config.ts",
+    ],
+    command: "bun run coverage",
+  },
+  {
     id: "QA-001",
     claim: "Runs deterministic outcome-guided fuzzing over Mach-O, plist, and XPC at 1M mutations.",
     status: "implemented",

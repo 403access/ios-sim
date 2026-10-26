@@ -43,6 +43,8 @@ describe("embedded code signatures", () => {
     expect(signature.hasSignature).toBe(true);
     expect(signature.hasRequirements).toBe(false);
     expect(signature.hasDerEntitlements).toBe(false);
+    const custom = buildCodeSignature({ identifier: "com.example.custom", hashType: 99 as never });
+    expect(parseCodeSignature(custom, 0, custom.length).codeDirectory?.hashType).toBe("hash-99");
   });
 
   it("attaches the parsed signature to a Mach-O image", () => {
@@ -63,6 +65,38 @@ describe("embedded code signatures", () => {
   it("returns null when the image is unsigned", () => {
     const built = buildMachO({ text: Uint8Array.from([0x1f, 0x20, 0x03, 0xd5]) });
     expect(parseMachO(built.bytes).image.codeSignatureInfo).toBeNull();
+  });
+
+  it("recognizes requirements and DER entitlements without XML", () => {
+    const blob = buildCodeSignature({
+      identifier: "com.example.der",
+      includeDerEntitlements: true,
+      includeRequirements: true,
+      includeSignature: false,
+    });
+    const signature = parseCodeSignature(blob, 0, blob.length);
+    expect(signature.entitlements).toBeNull();
+    expect(signature.entitlementsRaw).toBeNull();
+    expect(signature.hasDerEntitlements).toBe(true);
+    expect(signature.hasRequirements).toBe(true);
+    expect(signature.hasSignature).toBe(false);
+  });
+
+  it("rejects malformed CodeDirectory offsets and slot counts", () => {
+    const blob = buildCodeSignature({ identifier: "com.example.bad" });
+    const corrupt = (offset: number, value: number): Uint8Array => {
+      const copy = blob.slice();
+      new DataView(copy.buffer).setUint32(offset, value, false);
+      return copy;
+    };
+    const cd = parseCodeSignature(blob, 0, blob.length).blobs.find(
+      (entry) => entry.type === 0,
+    )!.offset;
+    expect(() => parseCodeSignature(corrupt(cd + 20, 4), 0, blob.length)).toThrow(/identifier/);
+    expect(() => parseCodeSignature(corrupt(cd + 16, 4), 0, blob.length)).toThrow(/hash offset/);
+    expect(() => parseCodeSignature(corrupt(cd + 24, 2_000_000), 0, blob.length)).toThrow(
+      /slot count/,
+    );
   });
 
   it("rejects malformed superblobs with stable codes", () => {

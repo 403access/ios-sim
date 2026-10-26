@@ -160,6 +160,7 @@ bun run test            # unit + contract, any OS
 bun run test:linux      # Docker/OrbStack Linux E2E
 bun run test:macos      # real simulator (macOS, gated)
 bun run test:native     # native substrate tests only
+bun run coverage        # parser coverage gate (>=90%)
 bun run build:uikit     # build the native X11 UIKitLite window
 bun run test:uikit      # Linux X11 CLI/window integration (Docker)
 bun run test:kernel     # native C11 kernel boundary + Bun FFI smoke

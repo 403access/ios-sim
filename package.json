@@ -32,6 +32,8 @@
     "test:watch": "vitest",
     "test:macos": "IOS_SIM_MACOS_TESTS=1 vitest run tests/macos",
     "test:linux": "./scripts/test-linux.sh",
+    "test:coverage": "vitest run --coverage --coverage.reporter=json-summary",
+    "coverage": "bun run test:coverage && bun scripts/check-coverage.ts",
     "fuzz": "bun scripts/fuzz-darwin.ts",
     "fuzz:1m": "bun scripts/fuzz-darwin.ts --iterations 1000000",
     "corpus": "bun scripts/build-corpus.ts",
@@ -55,6 +57,7 @@
   "devDependencies": {
     "@types/node": "^24.10.0",
     "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "5.0.5",
     "tar": "^7.5.22",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5",

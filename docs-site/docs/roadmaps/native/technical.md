@@ -505,7 +505,8 @@ tar.gz with doctor/versions/environment/corpus/bench data and a SHA-256 manifest
 host can reproduce and compare. THR-011 adds session identity, roles, port/service ownership,
 and idempotent teardown callbacks. OBS-007 adds an opt-in loopback-only metrics server with
 Prometheus text, `/healthz`, and optional bearer auth. DX-002 adds type/level/pid/thread/limit
-trace filters before NDJSON/Chrome export. QA-007 (coverage targets) is next.
+trace filters before NDJSON/Chrome export. QA-007 adds a coverage gate: aggregate Mach-O parser
+statement coverage is 90.03% (1590/1766) and CI fails below 90%. RT-001 (ObjC runtime core) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
