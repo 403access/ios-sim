@@ -22,36 +22,32 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 73 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 74 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
 Pick from the top. A task marked with `*` needs a licensed-Mac observation window; it can be
 started by a human with host access, not by a Linux-only agent.
 
-| Order | ID        | Workstream    | Size | Depends     | Deliverable / acceptance                                                    |
-| ----: | --------- | ------------- | ---- | ----------- | --------------------------------------------------------------------------- |
-|     1 | `QA-003`  | Quality       | M    | A0          | Generated Mach-O corpus covering load commands/fixup formats                |
-|     2 | `QA-002`  | Quality       | L    | QA-001, Mac | Differential harness; ≥100 cases match                                      |
-|     3 | `QA-004`  | Quality       | M    | A0          | Performance baseline suite with machine metadata and budgets                |
-|     4 | `THR-010` | Threads       | M    | KRN-009     | Jetsam/memory pressure; pressure/kill policy                                |
-|     5 | `THR-011` | Threads       | M    | THR-006     | Roles/sessions/contracts; job identity and teardown                         |
-|     4 | `QA-001`  | Quality       | M    | A0          | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
-|     5 | `OBS-001` | Observability | S    | A0          | Versioned event schema with JSON output tests                               |
-|     6 | `LEG-001` | Legal         | S    | A0          | Provenance ledger for every runtime claim/artifact                          |
-|     7 | `REL-001` | Release       | S    | A0          | Native CI job on Linux; skip reasons visible                                |
-|     8 | `QA-003`  | Quality       | M    | A0          | Generated Mach-O corpus covering load commands/fixup formats                |
-|     9 | `QA-004`  | Quality       | M    | A0          | Performance baseline suite with machine metadata and budgets                |
-|    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
+| Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                            |
+| ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------- |
+|     1 | `REL-004` | Release       | S    | REL-003 | Versioning policy; mismatch fails                   |
+|     2 | `REL-006` | Release       | S    | REL-001 | Supply-chain checks; audit/lockfile                 |
+|     3 | `DX-004`  | Developer     | M    | OBS-004 | Repro bundle; reproduce on another host             |
+|     4 | `THR-011` | Threads       | M    | THR-006 | Roles/sessions/contracts; job identity and teardown |
+|     5 | `OBS-007` | Observability | S    | OBS-002 | Metrics endpoint (optional); loopback-only          |
+|     6 | `DX-002`  | Developer     | S    | OBS-005 | Trace UX; filtered trace                            |
+|     7 | `QA-007`  | Quality       | S    | REL-001 | Coverage targets; ≥90% parsers                      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `DX-006` is the next task;
-`REL-004` remains in the release lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `REL-004` is the next task;
+`REL-006` remains in the release lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-42 are complete through LEG-004 (substrate, loader, threads, quality, observability,
-release, provenance, quickstart, fault diagnostics, and claims audit). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-43 are complete through DX-006 (substrate, loader, threads, quality, observability,
+release, provenance, quickstart, diagnostics, claims, and roadmap validation). This is the next
+cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -179,21 +175,21 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `OBS-004`  | Trace export                   | P2       | M    | **done**  | OBS-001          | Chrome/JSON trace                                          |
 | `OBS-005`  | `trace/stats/why` CLI          | P2       | M    | **done**  | OBS-004          | `trace`/`why` + existing `stats`                           |
 | `OBS-006`  | Fault diagnostics              | P1       | M    | **done**  | OBS-001          | Fault snapshot in errors                                   |
-| `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | proposed  | OBS-002          | Loopback-only                                              |
+| `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | **ready** | OBS-002          | Loopback-only                                              |
 | `QA-001`   | Fuzz harness                   | P0       | M    | **done**  | A0               | 1M mutations, 0 crashes, corpus retained                   |
 | `QA-002`   | Differential harness           | P0       | L    | blocked   | QA-001, Mac      | ≥100 cases match                                           |
 | `QA-003`   | Generated Mach-O corpus        | P1       | M    | **done**  | A0               | 23 cases, 15 commands, 5 pointer formats                   |
 | `QA-004`   | Performance benchmarks         | P1       | M    | **done**  | A0               | 7 cases, metadata, budgets, all pass                       |
 | `QA-005`   | Concurrency/stress suite       | P1       | M    | **done**  | THR-012          | Mach wake, 8x8 process, interrupt tests                    |
 | `QA-006`   | Leak/resource checks           | P1       | M    | **done**  | QA-004           | Soak flat; Mach port leak found/fixed                      |
-| `QA-007`   | Coverage targets               | P2       | S    | blocked   | REL-001          | ≥90% parsers                                               |
+| `QA-007`   | Coverage targets               | P2       | S    | **ready** | REL-001          | ≥90% parsers                                               |
 | `QA-008`   | Compatibility matrix           | P2       | M    | blocked   | QA-002           | Per-cell pass/skip/fail                                    |
 | `REL-001`  | Native CI job                  | P0       | S    | **done**  | A0               | Linux native job, visible skips, fuzz/corpus/bench         |
 | `REL-002`  | Reproducible fixtures          | P1       | S    | **done**  | QA-003           | 23 SHA-256 fixtures identical                              |
 | `REL-003`  | Packaging                      | P2       | M    | **done**  | REL-001          | CLI + runtime tarballs + SHA-256 manifest                  |
-| `REL-004`  | Versioning policy              | P2       | S    | blocked   | REL-003          | Mismatch fails                                             |
+| `REL-004`  | Versioning policy              | P2       | S    | **next**  | REL-003          | Mismatch fails                                             |
 | `REL-005`  | Docs gates                     | P1       | S    | **done**  | A0               | Broken relative links fail                                 |
-| `REL-006`  | Supply-chain checks            | P2       | S    | blocked   | REL-001          | Audit/lockfile                                             |
+| `REL-006`  | Supply-chain checks            | P2       | S    | **ready** | REL-001          | Audit/lockfile                                             |
 | `REL-007`  | Maintenance calendar           | P2       | S    | blocked   | SB-008           | Quarterly runbook                                          |
 | `LEG-001`  | Provenance ledger              | P0       | S    | **done**  | A0               | 25 claims, evidence paths verified                         |
 | `LEG-002`  | Runtime legal review           | P0       | M    | blocked   | LEG-001          | Written gate                                               |
@@ -201,29 +197,29 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `LEG-004`  | Claims audit                   | P1       | S    | **done**  | A0               | Negation-aware audit gates CI                              |
 | `LEG-005`  | Kill/continue log              | P1       | S    | blocked   | gates            | Written outcomes                                           |
 | `DX-001`   | Disassembler                   | P1       | M    | **done**  | A0               | `inspect --disasm`                                         |
-| `DX-002`   | Trace UX                       | P2       | S    | blocked   | OBS-005          | Filtered trace                                             |
+| `DX-002`   | Trace UX                       | P2       | S    | **ready** | OBS-005          | Filtered trace                                             |
 | `DX-003`   | Capability doctor              | P2       | S    | **done**  | A0               | Versioned schema, JSON Schema, validator                   |
-| `DX-004`   | Repro bundle                   | P2       | M    | blocked   | OBS-004          | Reproduce on another host                                  |
+| `DX-004`   | Repro bundle                   | P2       | M    | **ready** | OBS-004          | Reproduce on another host                                  |
 | `DX-005`   | Native quickstart              | P1       | S    | **done**  | A0               | One command, visible clang skip                            |
-| `DX-006`   | Roadmap validator              | P2       | S    | **next**  | backlog          | CI catches stale IDs/status                                |
+| `DX-006`   | Roadmap validator              | P2       | S    | **done**  | backlog          | CI catches stale IDs/status                                |
 
 ### A2 — loader and runtime
 
 | ID        | Task                            | Priority | Size | Status     | Depends          | Acceptance                                           |
 | --------- | ------------------------------- | -------- | ---- | ---------- | ---------------- | ---------------------------------------------------- |
 | `LDR-001` | Legacy dyld opcodes             | P0       | M    | **done**   | A0               | Rebase/bind fixtures resolve; malformed streams fail |
-| `LDR-002` | Lazy/weak binding               | P0       | M    | **next**   | LDR-001          | Lazy/weak tests                                      |
-| `LDR-003` | Initializers/terminators        | P0       | M    | blocked    | LDR-002          | Once/order/failure                                   |
-| `LDR-004` | dlopen/dlsym/dlclose            | P1       | M    | blocked    | LDR-003          | Load/resolve/close                                   |
-| `LDR-005` | Namespaces/interposition        | P1       | L    | blocked    | LDR-004          | Collision/order                                      |
+| `LDR-002` | Lazy/weak binding               | P0       | M    | **done**   | LDR-001          | Lazy/weak tests                                      |
+| `LDR-003` | Initializers/terminators        | P0       | M    | **done**   | LDR-002          | Once/order/failure                                   |
+| `LDR-004` | dlopen/dlsym/dlclose            | P1       | M    | **done**   | LDR-003          | Load/resolve/close                                   |
+| `LDR-005` | Namespaces/interposition        | P1       | L    | **done**   | LDR-004          | Collision/order                                      |
 | `LDR-006` | Shared-cache parser             | P1       | L    | **ready*** | Mac              | Parse licensed cache; no bytes committed             |
 | `LDR-007` | Split/subcache/slide            | P1       | L    | blocked    | LDR-006          | Resolve from cache                                   |
 | `LDR-008` | Cache fixups/symbols            | P1       | L    | blocked    | LDR-007          | Differential symbols                                 |
 | `LDR-009` | dyld env/closure                | P2       | M    | blocked    | LDR-004          | Closure matches                                      |
-| `LDR-010` | Code-signature parser           | P1       | M    | **ready**  | A0               | Parse ad-hoc/signed                                  |
+| `LDR-010` | Code-signature parser           | P1       | M    | **done**   | A0               | Parse ad-hoc/signed                                  |
 | `LDR-011` | Entitlements/policy hooks       | P1       | M    | blocked    | LDR-010          | Entitlements visible                                 |
-| `LDR-012` | Fileset/bundle/dSYM metadata    | P3       | S    | **ready**  | A0               | Fixture parse                                        |
-| `LDR-013` | Loader diagnostics              | P1       | S    | **ready**  | A0               | Actionable report                                    |
+| `LDR-012` | Fileset/bundle/dSYM metadata    | P3       | S    | **done**   | A0               | Fixture parse                                        |
+| `LDR-013` | Loader diagnostics              | P1       | S    | **done**   | A0               | Actionable report                                    |
 | `LDR-014` | Differential loader suite       | P1       | M    | blocked    | LDR-005/008, Mac | ≥50 cases match                                      |
 | `RT-001`  | ObjC runtime core               | P0       | L    | blocked    | LDR-004          | Class/selector/method tests                          |
 | `RT-002`  | Message send/cache              | P0       | L    | blocked    | RT-001           | Dispatch matrix                                      |

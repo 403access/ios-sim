@@ -273,6 +273,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     limitation: "This is a clean-room API subset and software renderer, not Apple UIKit.",
   },
   {
+    id: "DX-006",
+    claim: "Validates the backlog for duplicate, stale, or unqueued task statuses.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/provenance/roadmap.ts",
+      "packages/darwin-compat/src/provenance/roadmap.test.ts",
+      "scripts/check-roadmap.ts",
+    ],
+    command: "bun run roadmap:check",
+  },
+  {
     id: "LEG-004",
     claim: "Audits documentation/source for false simulator, iOS, or Apple UIKit claims.",
     status: "implemented",

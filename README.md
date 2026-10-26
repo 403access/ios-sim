@@ -177,6 +177,7 @@ bun run docs:build
 bun run package:native   # build build/packages/*.tgz + manifest.json
 bun run provenance       # verify claims' evidence paths
 bun run claims           # no false simulator claims
+bun run roadmap:check    # backlog IDs/statuses are consistent
 bun run quickstart       # demo + optional real-clang fixture
 bun run native trace <file> --chrome  # runtime events as a Chrome trace
 bun run native why <file>             # explain loader outcome

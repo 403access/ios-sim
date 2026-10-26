@@ -496,7 +496,8 @@ fixture with a visible skip on non-macOS. OBS-006 attaches a JSON-safe fault sna
 encoding, disassembly, registers, SP/NZCV, nearby maps, images) to interpreter faults, instruction
 limits, and deadlines; CLI catches print it. LEG-004 adds a claims audit that fails on false
 simulator/iOS/UIKit wording while allowing explicit negations; CI runs it with the provenance
-check. DX-006 (roadmap validator) is next.
+check. DX-006 adds a backlog validator for duplicate ready rows, done-in-queue, missing status,
+and unknown session IDs; CI runs it. REL-004 (versioning policy) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
