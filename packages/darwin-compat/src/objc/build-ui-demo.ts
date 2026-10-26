@@ -26,6 +26,7 @@ import { S_CSTRING_LITERALS, S_REGULAR } from "../macho/constants.js";
 import {
   addImm,
   addReg,
+  and,
   adrp,
   b,
   blr,
@@ -69,6 +70,8 @@ const SELECTORS = {
   dictionary: "dictionary",
   setObjectForKey: "setObject:forKey:",
   objectForKey: "objectForKey:",
+  scheduledTimer: "scheduledTimerWithTimeInterval:target:selector:repeats:",
+  timerFired: "timerFired:",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -179,7 +182,12 @@ type SlotName =
   | "numberValue"
   | "classDictionary"
   | "dictionary"
-  | "dictionaryCount";
+  | "dictionaryCount"
+  | "classTimer"
+  | "timer"
+  | "timerFires"
+  | "timerColors"
+  | "statusView";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -226,6 +234,8 @@ interface Plan {
   readonly scrollContent: number;
   readonly scrollOffset: number;
   readonly scrollChildren: number;
+  readonly timerInterval: number;
+  readonly statusRect: number;
   readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
@@ -344,6 +354,11 @@ function planData(): Plan {
     "classDictionary",
     "dictionary",
     "dictionaryCount",
+    "classTimer",
+    "timer",
+    "timerFires",
+    "timerColors",
+    "statusView",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -395,7 +410,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 6 * 24;
+  cursor += 8 + 7 * 24;
   const appCategory = cursor;
   cursor += 48;
   const lifecycleCategory = cursor;
@@ -481,6 +496,10 @@ function planData(): Plan {
   cursor += 16;
   const scrollChildren = cursor;
   cursor += 64;
+  const statusRect = cursor;
+  cursor += 32;
+  const timerInterval = cursor;
+  cursor += 8;
   const half = cursor;
   cursor += 8;
 
@@ -588,6 +607,8 @@ function planData(): Plan {
     scrollContent,
     scrollOffset,
     scrollChildren,
+    statusRect,
+    timerInterval,
     half,
     size: cursor,
     sections,
@@ -717,6 +738,31 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
 
+  label("timerFired");
+  emitWord(stpPre(29, 30, 31, -16));
+  emitWord(stpPre(19, 20, 31, -16));
+  // UIColor *color = [timerColors objectAtIndex:(timerFires & 1)];
+  emitPointer(19, slot("timerFires"));
+  emitWord(movz(10, 1));
+  emitWord(and(2, 19, 10));
+  emitPointer(0, slot("timerColors"));
+  emitAddress(1, selector(SELECTORS.objectAtIndex));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(movReg(2, 0));
+  emitPointer(0, slot("statusView"));
+  emitWord(movReg(20, 0));
+  emitWord(movReg(0, 20));
+  emitAddress(1, selector(SELECTORS.setBackgroundColor));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitPointer(19, slot("timerFires"));
+  emitWord(addImm(19, 19, 1));
+  emitStore(19, slot("timerFires"));
+  emitWord(ldpPost(19, 20, 31, 16));
+  emitWord(ldpPost(29, 30, 31, 16));
+  emitWord(ret());
+
   label("viewDidLoad");
   emitMarker(slot("lifecycleMarker"), 1);
   emitWord(ret());
@@ -784,6 +830,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("viewDidLoad") ?? 0),
     bases.textBase + (code.labels.get("viewWillAppear") ?? 0),
     bases.textBase + (code.labels.get("viewDidAppear") ?? 0),
+    bases.textBase + (code.labels.get("timerFired") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -834,6 +881,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_lifecycleMarker",
         value: dataAddress(plan.slotOffsets.lifecycleMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_timerFires",
+        value: dataAddress(plan.slotOffsets.timerFires),
         sectionIndex: 2,
       },
       {
@@ -1449,6 +1501,64 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(addImm(0, 0, 1));
     emitStore(0, slot("numberValue"));
 
+    // UIView *status = [[UIView alloc] initWithFrame:(0,620,375,40)]; [window addSubview:status];
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.statusRect));
+    emitDouble(1, dataAddress(plan.statusRect + 8));
+    emitDouble(2, dataAddress(plan.statusRect + 16));
+    emitDouble(3, dataAddress(plan.statusRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(21, slot("statusView"));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // NSMutableArray *timerColors = [NSMutableArray array];
+    emitPointer(0, slot("classMutableArray"));
+    emitAddress(1, selector(SELECTORS.array));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("timerColors"));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.greenColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitPointer(0, slot("timerColors"));
+    emitAddress(1, selector(SELECTORS.addObject));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.orangeColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitPointer(0, slot("timerColors"));
+    emitAddress(1, selector(SELECTORS.addObject));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // [NSTimer scheduledTimerWithTimeInterval:1 target:self
+    //     selector:@selector(timerFired:) repeats:YES];
+    emitPointer(0, slot("classTimer"));
+    emitAddress(1, selector(SELECTORS.scheduledTimer));
+    emitDouble(0, dataAddress(plan.timerInterval));
+    emitPointer(2, slot("delegateSelf"));
+    emitAddress(3, selector(SELECTORS.timerFired));
+    emitWord(movz(4, 1));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("timer"));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -1610,6 +1720,7 @@ function emitData(
   viewDidLoadImp: number,
   viewWillAppearImp: number,
   viewDidAppearImp: number,
+  timerFiredImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -1661,7 +1772,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 6);
+  u32(plan.appCategoryMethods + 4, 7);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -1697,6 +1808,10 @@ function emitData(
   rebase(themeEntry, selector(SELECTORS.themeChanged));
   rebase(themeEntry + 8, selector(TYPES));
   rebase(themeEntry + 16, themeChangedImp);
+  const timerEntry = plan.appCategoryMethods + 152;
+  rebase(timerEntry, selector(SELECTORS.timerFired));
+  rebase(timerEntry + 8, selector(TYPES));
+  rebase(timerEntry + 16, timerFiredImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }
@@ -1860,6 +1975,7 @@ function emitData(
   bind(plan.slotOffsets.classMutableArray, "_OBJC_CLASS_$_NSMutableArray");
   bind(plan.slotOffsets.classNumber, "_OBJC_CLASS_$_NSNumber");
   bind(plan.slotOffsets.classDictionary, "_OBJC_CLASS_$_NSMutableDictionary");
+  bind(plan.slotOffsets.classTimer, "_OBJC_CLASS_$_NSTimer");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
@@ -1914,6 +2030,11 @@ function emitData(
   f64(plan.scrollChildren + 40, 80);
   f64(plan.scrollChildren + 48, 300);
   f64(plan.scrollChildren + 56, 120);
+  f64(plan.statusRect, 0);
+  f64(plan.statusRect + 8, 620);
+  f64(plan.statusRect + 16, 375);
+  f64(plan.statusRect + 24, 40);
+  f64(plan.timerInterval, 1);
   f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {
     const rect = plan.rectTable + index * 32;

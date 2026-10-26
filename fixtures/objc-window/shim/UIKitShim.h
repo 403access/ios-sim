@@ -170,6 +170,21 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)removeAllObjects;
 @end
 
+@interface NSTimer : NSObject
++ (NSTimer *)scheduledTimerWithTimeInterval:(double)interval
+                                     target:(id)target
+                                   selector:(SEL)selector
+                                    repeats:(BOOL)repeats;
++ (NSTimer *)timerWithTimeInterval:(double)interval
+                            target:(id)target
+                          selector:(SEL)selector
+                           repeats:(BOOL)repeats;
+- (void)invalidate;
+- (BOOL)isValid;
+- (double)timeInterval;
+- (void)fire;
+@end
+
 @interface UILabel : UIView
 - (void)setText:(id)text;
 - (id)text;

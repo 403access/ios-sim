@@ -23,6 +23,9 @@ static int gString;
 static int gCollections;
 static NSMutableArray *gColors;
 static NSMutableDictionary *gTheme;
+static NSMutableArray *gTimerColors;
+static UIView *gStatus;
+static int gTimerFires;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
@@ -125,6 +128,7 @@ static unsigned gTick;
 - (void)applicationDidBecomeActive:(id)application;
 - (void)applicationWillTerminate:(id)application;
 - (void)themeChanged:(id)notification;
+- (void)timerFired:(id)timer;
 @end
 
 @implementation AppDelegate
@@ -190,6 +194,15 @@ static unsigned gTick;
                                          selector:@selector(themeChanged:)
                                              name:"ThemeChanged"
                                            object:nil];
+  gStatus = [[UIView alloc] initWithFrame:CGRectMake(0, 620, 375, 40)];
+  [window addSubview:gStatus];
+  gTimerColors = [NSMutableArray array];
+  [gTimerColors addObject:[UIColor greenColor]];
+  [gTimerColors addObject:[UIColor orangeColor]];
+  [NSTimer scheduledTimerWithTimeInterval:1
+                                   target:self
+                                 selector:@selector(timerFired:)
+                                  repeats:YES];
   UIButton *button = [[UIButton alloc] initWithFrame:CGRectMake(20, 300, 200, 60)];
   [button addTarget:self
              action:@selector(buttonTapped:)
@@ -216,6 +229,13 @@ static unsigned gTick;
   BOOL ready = gLifecycle == 1 && gAppear == 12;
   UIColor *color = [gTheme objectForKey:"theme"];
   gView.backgroundColor = ready ? color : [UIColor blackColor];
+}
+
+- (void)timerFired:(id)timer {
+  (void)timer;
+  UIColor *color = [gTimerColors objectAtIndex:(unsigned long)(gTimerFires & 1)];
+  gStatus.backgroundColor = color;
+  gTimerFires++;
 }
 
 - (void)tick:(id)ignored {

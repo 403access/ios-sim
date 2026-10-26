@@ -248,14 +248,19 @@ The fourth argument is a C string, a documented deviation from Apple's `NSString
 3. then runs a bounded event loop: `nextEvent` (host trap) returns a record of
    `{receiver, touches, event, selector}` or zero; the stub sends that selector to the receiver
    and renders after each callback. Touch records target the hit view; tick records target the
-   application delegate (`tick:`);
+   application delegate (`tick:`); timer records target the timer's target and pass the timer in
+   `x2`;
 4. jumps to the stub with `x0 = delegate`, `x1 = selector`, `x2 = application`, `x3 = 0`.
 
 The loop is driven by the CLI's scripted `--tap x,y`, `--drag x1,y1,x2,y2[,steps]`, and
 `--tick N` events, not by a display server. Each touch step is hit-tested against the view tree
 (topmost child whose frame contains the point) and delivered to the deepest hit view. A tap
-expands to began+ended; a drag to began, interpolated moved samples, and ended; a tick is a
-`tick:` message to the delegate. The stub owns the ABI: every callback is a normal
+expands to began+ended; a drag to began, interpolated moved samples, and ended; a tick advances
+the virtual clock by `TICK_SECONDS` (0.5 s) and sends `tick:` to the delegate. Timers scheduled with
+`+scheduledTimerWithTimeInterval:target:selector:repeats:` are host-side records on that clock: a
+tick first delivers every due timer (earliest first), then the `tick:` message, so a one-second
+timer fires every second tick. Frames whose pixels are identical to the previous frame are not
+appended. The stub owns the ABI: every callback is a normal
 `blr` through `objc_msgSend`, so `+initialize`, categories, and overrides apply. When the events
 are exhausted, the stub returns zero to `main`.
 

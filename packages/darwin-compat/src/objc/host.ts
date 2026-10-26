@@ -98,6 +98,10 @@ const STRING_INSTANCE_SIZE = 16;
 const NUMBER_VALUE = 8;
 const NUMBER_INSTANCE_SIZE = 16;
 
+const TIMER_INSTANCE_SIZE = 8;
+/** Virtual seconds advanced by one `tick` input event. */
+export const TICK_SECONDS = 0.5;
+
 const CONTROLLER_VIEW = 8;
 const CONTROLLER_INSTANCE_SIZE = 16;
 
@@ -228,6 +232,18 @@ export class ObjcHost {
   private userDefaults: bigint | null = null;
   private readonly defaults = new Map<string, bigint>();
   private readonly arrays = new Map<bigint, bigint[]>();
+  private readonly timerDefs = new Map<
+    bigint,
+    { interval: number; target: bigint; selector: bigint; repeats: boolean }
+  >();
+  private readonly scheduledTimers = new Map<bigint, number>();
+  private readonly pendingTimerCalls: Array<{
+    instance: bigint;
+    target: bigint;
+    selector: bigint;
+  }> = [];
+  private clock = 0;
+  private tickAdvanced = false;
   private readonly dictionaries = new Map<bigint, Map<string, bigint>>();
   private readonly notificationPage: bigint;
   private notificationCursor: bigint;
@@ -1229,6 +1245,70 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(mutableDictionary);
+
+    const timer = this.defineClass({
+      name: "NSTimer",
+      superclass: "NSObject",
+      instanceSize: TIMER_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "invalidate",
+          types: "v16@0:8",
+          run: (_cpu, receiver) => {
+            this.scheduledTimers.delete(receiver);
+          },
+        },
+        {
+          selector: "isValid",
+          types: "B16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.scheduledTimers.has(receiver) ? 1n : 0n),
+        },
+        {
+          selector: "timeInterval",
+          types: "d16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeVectorDouble(0, this.timerDefs.get(receiver)?.interval ?? 0),
+        },
+        {
+          selector: "fire",
+          types: "v16@0:8",
+          run: (_cpu, receiver) => {
+            const definition = this.timerDefs.get(receiver);
+            if (definition) {
+              this.pendingTimerCalls.push({
+                instance: receiver,
+                target: definition.target,
+                selector: definition.selector,
+              });
+            }
+          },
+        },
+      ],
+      classMethods: [
+        {
+          selector: "scheduledTimerWithTimeInterval:target:selector:repeats:",
+          types: "@48@0:8d16@24:32B40",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "scheduledTimerWithTimeInterval: is not a class");
+            }
+            cpu.writeRegister(0, this.addTimer(cpu, true));
+          },
+        },
+        {
+          selector: "timerWithTimeInterval:target:selector:repeats:",
+          types: "@48@0:8d16@24:32B40",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "timerWithTimeInterval: is not a class");
+            }
+            cpu.writeRegister(0, this.addTimer(cpu, false));
+          },
+        },
+      ],
+    });
+    this.registerClass(timer);
 
     const defaults = this.defineClass({
       name: "NSUserDefaults",
@@ -2356,6 +2436,47 @@ export class ObjcHost {
     return instance;
   }
 
+  /** Create an NSTimer; scheduling starts it on the virtual clock. */
+  private addTimer(cpu: Arm64Cpu, schedule: boolean): bigint {
+    const klass = this.classes.get("NSTimer");
+    if (!klass) throw new ObjcError("internal_error", "NSTimer is missing");
+    const interval = Math.max(0, cpu.readVectorDouble(0));
+    const instance = this.allocateInstance(klass);
+    this.timerDefs.set(instance, {
+      interval,
+      target: cpu.readRegister(2),
+      selector: cpu.readRegister(3),
+      repeats: cpu.readRegister(4) !== 0n,
+    });
+    if (schedule) this.scheduledTimers.set(instance, this.clock + interval);
+    return instance;
+  }
+
+  /** Queue every timer that is due on the virtual clock, earliest first. */
+  private collectDueTimers(): void {
+    const due = [...this.scheduledTimers.entries()]
+      .filter(([, fireAt]) => fireAt <= this.clock + 1e-9)
+      .sort((left, right) => left[1] - right[1] || (left[0] < right[0] ? -1 : 1));
+    for (const [instance, fireAt] of due) {
+      const definition = this.timerDefs.get(instance);
+      if (!definition) {
+        this.scheduledTimers.delete(instance);
+        continue;
+      }
+      this.pendingTimerCalls.push({
+        instance,
+        target: definition.target,
+        selector: definition.selector,
+      });
+      if (definition.repeats) {
+        const step = definition.interval > 0 ? definition.interval : TICK_SECONDS;
+        this.scheduledTimers.set(instance, fireAt + step);
+      } else {
+        this.scheduledTimers.delete(instance);
+      }
+    }
+  }
+
   /** Dictionaries also live in host memory, keyed by their string value. */
   private dictionaryOf(instance: bigint): Map<string, bigint> {
     const map = this.dictionaries.get(instance);
@@ -2711,8 +2832,20 @@ export class ObjcHost {
   /** Prepare the next touch callback and return `{view, touches, event, selector}`. */
   private nextEvent(_cpu: Arm64Cpu): SyscallResult {
     const step = this.touchScript[this.eventIndex];
+    if (!step && this.pendingTimerCalls.length === 0) return { value: 0n };
+    if (this.pendingTimerCalls.length > 0)
+      return this.dispatchTimerCall(this.pendingTimerCalls.shift()!);
     if (!step) return { value: 0n };
+    if (step.kind === "tick" && !this.tickAdvanced) {
+      this.tickAdvanced = true;
+      this.clock += TICK_SECONDS;
+      this.collectDueTimers();
+      if (this.pendingTimerCalls.length > 0) {
+        return this.dispatchTimerCall(this.pendingTimerCalls.shift()!);
+      }
+    }
     this.eventIndex += 1;
+    if (step.kind === "tick") this.tickAdvanced = false;
 
     let receiver: bigint | null;
     if (step.kind === "tick") {
@@ -2742,6 +2875,20 @@ export class ObjcHost {
       this.memory.write(record + 16n, 8, uiEvent);
     }
     this.memory.write(record + 24n, 8, this.internString(step.selector));
+    return { value: record };
+  }
+
+  /** Build the event record that makes the loop send a timer callback. */
+  private dispatchTimerCall(call: {
+    instance: bigint;
+    target: bigint;
+    selector: bigint;
+  }): SyscallResult {
+    const record = this.memory.allocate(32, { tag: "objc-timer-event" });
+    this.memory.write(record, 8, call.target);
+    this.memory.write(record + 8n, 8, call.instance);
+    this.memory.write(record + 16n, 8, 0n);
+    this.memory.write(record + 24n, 8, call.selector);
     return { value: record };
   }
 

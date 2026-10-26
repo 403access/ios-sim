@@ -52,7 +52,7 @@ describe.skipIf(!available)("real clang ObjC app", () => {
       {
         label: "ticks",
         events: [{ kind: "tick" }, { kind: "tick" }, { kind: "tick" }, { kind: "tick" }],
-        frameCount: 5,
+        frameCount: 7,
       },
     ];
 

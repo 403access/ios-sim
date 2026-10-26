@@ -186,25 +186,39 @@ describe("ObjC UIKit demo", () => {
     ).toBe(1n);
   });
 
-  it("moves the view on ticks", () => {
+  it("moves the view on ticks and fires timers on the virtual clock", () => {
     const result = runDemo([
       { kind: "tick" },
       { kind: "tick" },
       { kind: "tick" },
       { kind: "tick" },
     ]);
-    expect(result.frames).toHaveLength(5);
+    // Launch, four ticks, and two one-second timer fires (one per two ticks).
+    expect(result.frames).toHaveLength(7);
     const redAt = (frameIndex: number, x: number, y: number): boolean => {
       const frame = result.frames[frameIndex]!;
       const offset = (y * frame.width + x) * 4;
       return frame.pixels[offset] === 255 && frame.pixels[offset + 1] === 0;
     };
     expect(redAt(0, 30, 30)).toBe(true);
-    expect(redAt(1, 30, 30)).toBe(false);
     expect(redAt(1, 70, 30)).toBe(true);
-    expect(redAt(2, 110, 30)).toBe(true);
-    expect(redAt(3, 150, 30)).toBe(true);
-    expect(redAt(4, 30, 30)).toBe(true);
+    // frames 2 and 5 are timer fires: the view stays put, the status strip changes.
+    expect(redAt(2, 70, 30)).toBe(true);
+    expect(redAt(3, 110, 30)).toBe(true);
+    expect(redAt(4, 150, 30)).toBe(true);
+    expect(redAt(5, 150, 30)).toBe(true);
+    expect(redAt(6, 30, 30)).toBe(true);
+
+    const status = (frameIndex: number): number[] => {
+      const frame = result.frames[frameIndex]!;
+      const offset = (630 * frame.width + 5) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    expect(status(1)).toEqual([255, 255, 255]);
+    expect(status(2)).toEqual([0, 255, 0]);
+    expect(status(4)).toEqual([0, 255, 0]);
+    expect(status(5)).toEqual([255, 128, 0]);
+    expect(result.program.memory.read(result.program.resolveExport("_timerFires")!, 8)).toBe(2n);
   });
 
   it("produces a deterministic frame digest", () => {
