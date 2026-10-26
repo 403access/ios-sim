@@ -25,6 +25,7 @@
     "dev:host": "bun run --cwd apps/host dev",
     "dev:docs": "bun run --cwd docs-site start",
     "docs:build": "bun run --cwd docs-site build",
+    "docs:check": "bun scripts/check-docs-links.ts",
     "ios-sim": "bun apps/cli/dist/bin.js",
     "ios-sim-host": "bun apps/host/dist/bin.js",
     "test": "vitest run",

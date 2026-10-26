@@ -14,6 +14,9 @@ bun run typecheck
 echo "== unit + contract =="
 bun run test
 
+echo "== docs links =="
+bun run docs:check
+
 echo "== docs =="
 bun run docs:build
 
