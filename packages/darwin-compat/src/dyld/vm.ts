@@ -97,7 +97,8 @@ export class VirtualMemory {
         const pageEnd = pageStart + BigInt(this.pageSize);
         const mappingEnd = address + BigInt(size);
         const to = pageEnd < mappingEnd ? pageEnd : mappingEnd;
-        const length = Number(to - from);
+        // `to` is absolute; the slice starts at `pageStart + from`.
+        const length = Number(to - (pageStart + from));
         if (length > 0) {
           const sourceOffset = Number(pageStart + from - address);
           data.set(options.bytes.subarray(sourceOffset, sourceOffset + length), Number(from));
