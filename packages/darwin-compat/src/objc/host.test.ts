@@ -53,6 +53,14 @@ describe("ObjC UIKit demo", () => {
     expect(result.program.memory.read(result.program.resolveExport("_lifecycleMarker")!, 8)).toBe(
       1n,
     );
+    expect(result.program.memory.read(result.program.resolveExport("_willAppearMarker")!, 8)).toBe(
+      1n,
+    );
+    expect(result.program.memory.read(result.program.resolveExport("_didAppearMarker")!, 8)).toBe(
+      1n,
+    );
+    // viewDidLoad ran before viewDidAppear: the latter copies its marker.
+    expect(result.program.memory.read(result.program.resolveExport("_appearOrder")!, 8)).toBe(1n);
     expect(result.objcStats.defaultsStores).toBe(2);
     expect(result.objcStats.defaultsReads).toBe(2);
     expect(result.program.memory.read(result.program.resolveExport("_terminateMarker")!, 8)).toBe(

@@ -146,6 +146,8 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 @interface UIViewController : NSObject
 - (UIView *)view;
 - (void)setView:(UIView *)view;
+- (void)viewWillAppear:(BOOL)animated;
+- (void)viewDidAppear:(BOOL)animated;
 @end
 
 // The last argument is a C string in this shim. Apple's API takes NSString.

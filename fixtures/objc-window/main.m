@@ -18,14 +18,25 @@ static int gBaseInit;
 static int gTapInit;
 static int gInitOrder;
 static int gLifecycle;
+static int gAppear;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
+- (void)viewWillAppear:(BOOL)animated;
+- (void)viewDidAppear:(BOOL)animated;
 @end
 
 @implementation UIViewController (Lifecycle)
 - (void)viewDidLoad {
   gLifecycle = 1;
+}
+- (void)viewWillAppear:(BOOL)animated {
+  (void)animated;
+  gAppear = gAppear * 10 + 1;
+}
+- (void)viewDidAppear:(BOOL)animated {
+  (void)animated;
+  gAppear = gAppear * 10 + 2;
 }
 @end
 
@@ -151,7 +162,7 @@ static unsigned gTick;
   scrollBlue.backgroundColor = [UIColor blueColor];
   [scroll addSubview:scrollBlue];
   UIViewController *controller = [[UIViewController alloc] init];
-  (void)[controller view];
+  [window setRootViewController:controller];
   UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(20, 400, 300, 40)];
   [label setText:"HELLO 42"];
   [label setTextColor:[UIColor blackColor]];
@@ -183,7 +194,9 @@ static unsigned gTick;
 
 - (void)themeChanged:(id)notification {
   (void)notification;
-  gView.backgroundColor = [UIColor purpleColor];
+  // load before appearance, and the two appearance callbacks in order.
+  BOOL ready = gLifecycle == 1 && gAppear == 12;
+  gView.backgroundColor = ready ? [UIColor purpleColor] : [UIColor blackColor];
 }
 
 - (void)tick:(id)ignored {

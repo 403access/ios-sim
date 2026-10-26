@@ -68,6 +68,7 @@ started.
 - [x] `NSNotificationCenter` registration and multi-observer posting
 - [x] `NSUserDefaults` bool/integer storage with counters
 - [x] `UIViewController -viewDidLoad` once, via a category or subclass
+- [x] `UIViewController -viewWillAppear:`/`-viewDidAppear:` when the root view is shown
 - [x] `UILabel` with a 3×5 bitmap font (left/centre/right alignment)
 - [~] Real event source, timers, display link, text, a live window
 - [~] Run loop, input, text, CoreAnimation, a live host window (headless one-shot frame only)

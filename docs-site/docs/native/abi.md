@@ -199,7 +199,7 @@ These are original metadata with host IMP trampolines, not Apple classes:
 | `NSObject`         | `-init`, `-dealloc`, `-class`, `-self`, `-isKindOfClass:`, `-respondsToSelector:`, `-retain`, `-release`, `-autorelease`, `-retainCount`, `+alloc`, `+new`    |
 | `UIView`           | `-init`, `-initWithFrame:`, `-setFrame:`, `-frame`, `-setBackgroundColor:`, `-backgroundColor`, `-addSubview:`, `-setHidden:`, `-isHidden`, `-layoutSubviews` |
 | `UIWindow`         | `-initWithFrame:`, `-makeKeyAndVisible`, `-setRootViewController:`, `-rootViewController`                                                                     |
-| `UIViewController` | `-init`, `-view`, `-setView:`, `-loadView`                                                                                                                    |
+| `UIViewController` | `-init`, `-view`, `-setView:`, `-loadView`; lifecycle callbacks below                                                                                         |
 | `UIColor`          | `+redColor`, `+whiteColor`, `+blackColor`, `+clearColor`, `+colorWithRed:green:blue:alpha:`                                                                   |
 | `UIApplication`    | `+sharedApplication`, `-setDelegate:`, `-delegate`                                                                                                            |
 
@@ -212,7 +212,14 @@ hidden byte at 48, clips-to-bounds byte at 49, alpha double at 56, instance size
 and hit-testing accumulate origins down the tree, so a child inside a container lands at
 `container.origin + child.origin`. `clipsToBounds` intersects a view's clip with its frame for
 child painting and hit-testing; it is off by default. `UIScrollView` always clips and subtracts
-its content offset from child painting and hit-testing origins. Defaults keys are C strings and live in memory for the process; stores/reads are counted in
+its content offset from child painting and hit-testing origins. The root view controller's callbacks fire like this: creating its view (implicitly or via
+`-view`) sends `-viewDidLoad` once; adding it to a visible window sends `-viewWillAppear:`
+then `-viewDidAppear:` once. Queued callbacks are coalesced per controller and run from one
+generated guest stub, so the message that triggered them still returns normally. The root
+controller's view sits at the bottom of the window's subview stack; anything added later stays
+on top for painting and hit-testing.
+
+Defaults keys are C strings and live in memory for the process; stores/reads are counted in
 `objcStats`. Notification names are C strings;
 a post builds a small guest stub that sends the selector to every matching observer before
 returning to the poster. The renderer multiplies a view's alpha by its parent's and

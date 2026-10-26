@@ -55,6 +55,7 @@ const SELECTORS = {
   alloc: "alloc",
   init: "init",
   view: "view",
+  setRootViewController: "setRootViewController:",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -105,6 +106,8 @@ const SELECTORS = {
   setInteger: "setInteger:forKey:",
   integerForKey: "integerForKey:",
   viewDidLoad: "viewDidLoad",
+  viewWillAppear: "viewWillAppear:",
+  viewDidAppear: "viewDidAppear:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -148,7 +151,10 @@ type SlotName =
   | "defaultsMarker"
   | "defaultsInt"
   | "classController"
-  | "lifecycleMarker";
+  | "lifecycleMarker"
+  | "willAppearMarker"
+  | "didAppearMarker"
+  | "appearOrder";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -298,6 +304,9 @@ function planData(): Plan {
     "defaultsInt",
     "classController",
     "lifecycleMarker",
+    "willAppearMarker",
+    "didAppearMarker",
+    "appearOrder",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -354,7 +363,7 @@ function planData(): Plan {
   const lifecycleCategory = cursor;
   cursor += 48;
   const lifecycleMethods = cursor;
-  cursor += 8 + 24;
+  cursor += 8 + 3 * 24;
 
   const tapRo = cursor;
   cursor += 72;
@@ -490,7 +499,7 @@ function planData(): Plan {
     {
       name: "__const",
       offset: windowRect,
-      size: 64 + 4 * 32 + 32 + 32 + 64 + 32 + 32 + 64 + 64 + 8,
+      size: cursor - windowRect,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -674,6 +683,16 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitMarker(slot("lifecycleMarker"), 1);
   emitWord(ret());
 
+  label("viewWillAppear");
+  emitMarker(slot("willAppearMarker"), 1);
+  emitWord(ret());
+
+  label("viewDidAppear");
+  emitPointer(0, slot("lifecycleMarker"));
+  emitStore(0, slot("appearOrder"));
+  emitMarker(slot("didAppearMarker"), 1);
+  emitWord(ret());
+
   label("themeChanged");
   emitWord(stpPre(29, 30, 31, -16));
   emitWord(stpPre(19, 20, 31, -16));
@@ -723,6 +742,8 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("appTerminate") ?? 0),
     bases.textBase + (code.labels.get("themeChanged") ?? 0),
     bases.textBase + (code.labels.get("viewDidLoad") ?? 0),
+    bases.textBase + (code.labels.get("viewWillAppear") ?? 0),
+    bases.textBase + (code.labels.get("viewDidAppear") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -773,6 +794,21 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_lifecycleMarker",
         value: dataAddress(plan.slotOffsets.lifecycleMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_willAppearMarker",
+        value: dataAddress(plan.slotOffsets.willAppearMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_didAppearMarker",
+        value: dataAddress(plan.slotOffsets.didAppearMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_appearOrder",
+        value: dataAddress(plan.slotOffsets.appearOrder),
         sectionIndex: 2,
       },
       {
@@ -1243,6 +1279,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitAddress(1, selector(SELECTORS.view));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.setRootViewController));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
 
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
@@ -1403,6 +1444,8 @@ function emitData(
   appTerminateImp: number,
   themeChangedImp: number,
   viewDidLoadImp: number,
+  viewWillAppearImp: number,
+  viewDidAppearImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -1501,11 +1544,17 @@ function emitData(
   bind(plan.lifecycleCategory + 8, "_OBJC_CLASS_$_UIViewController");
   rebase(plan.lifecycleCategory + 16, address(plan.lifecycleMethods));
   u32(plan.lifecycleMethods, 24);
-  u32(plan.lifecycleMethods + 4, 1);
+  u32(plan.lifecycleMethods + 4, 3);
   const lifecycleEntry = plan.lifecycleMethods + 8;
   rebase(lifecycleEntry, selector(SELECTORS.viewDidLoad));
   rebase(lifecycleEntry + 8, selector(TYPES));
   rebase(lifecycleEntry + 16, viewDidLoadImp);
+  rebase(lifecycleEntry + 24, selector(SELECTORS.viewWillAppear));
+  rebase(lifecycleEntry + 32, selector(TYPES));
+  rebase(lifecycleEntry + 40, viewWillAppearImp);
+  rebase(lifecycleEntry + 48, selector(SELECTORS.viewDidAppear));
+  rebase(lifecycleEntry + 56, selector(TYPES));
+  rebase(lifecycleEntry + 64, viewDidAppearImp);
 
   rebase(plan.appRo + 24, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
   rebase(plan.appRo + 32, address(plan.appEmptyMethods));

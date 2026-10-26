@@ -226,6 +226,9 @@ export class ObjcHost {
   private readonly lifecyclePage: bigint;
   private lifecycleCursor: bigint;
   private readonly loadedControllers = new Set<bigint>();
+  private readonly appearedControllers = new Set<bigint>();
+  private readonly pendingLifecycle = new Map<bigint, { view: bigint; selectors: string[] }>();
+  private controllerDepth = 0;
   private readonly deallocPage: bigint;
   private deallocCursor: bigint;
   private readonly autoreleasePools: bigint[][] = [];
@@ -843,10 +846,14 @@ export class ObjcHost {
         {
           selector: "makeKeyAndVisible",
           types: "v16@0:8",
-          run: (_cpu, receiver) => {
+          run: (cpu, receiver) => {
             this.keyWindow = receiver;
             if (!this.windows.includes(receiver)) this.windows.push(receiver);
+            this.controllerDepth += 1;
+            this.requestAppearance(this.memory.read(receiver + BigInt(CONTROLLER_VIEW), 8));
+            this.controllerDepth -= 1;
             this.present();
+            this.flushLifecycle(this.memory.read(receiver + BigInt(CONTROLLER_VIEW), 8), cpu);
           },
         },
         {
@@ -854,9 +861,13 @@ export class ObjcHost {
           types: "v24@0:8@16",
           run: (cpu, receiver) => {
             const controller = cpu.readRegister(2);
+            this.controllerDepth += 1;
             this.memory.write(receiver + BigInt(CONTROLLER_VIEW), 8, controller);
-            const child = this.controllerView(controller, cpu);
-            if (child !== 0n) this.addSubview(receiver, child);
+            const child = this.controllerView(controller);
+            if (child !== 0n) this.addSubview(receiver, child, 0);
+            if (this.windows.includes(receiver)) this.requestAppearance(controller);
+            this.controllerDepth -= 1;
+            this.flushLifecycle(controller, cpu);
           },
         },
         {
@@ -1199,7 +1210,13 @@ export class ObjcHost {
         {
           selector: "view",
           types: "@16@0:8",
-          run: (cpu, receiver) => cpu.writeRegister(0, this.controllerView(receiver, cpu)),
+          run: (cpu, receiver) => {
+            this.controllerDepth += 1;
+            const view = this.controllerView(receiver);
+            this.controllerDepth -= 1;
+            cpu.writeRegister(0, view);
+            this.flushLifecycle(receiver, cpu);
+          },
         },
         {
           selector: "setView:",
@@ -2059,18 +2076,19 @@ export class ObjcHost {
     return view.getFloat64(0, true);
   }
 
-  private addSubview(parent: bigint, child: bigint): void {
+  private addSubview(parent: bigint, child: bigint, index?: number): void {
     if (child === 0n) return;
     const list = this.children.get(parent) ?? [];
     if (list.includes(child)) return;
     if (list.length >= MAX_CHILDREN) {
       throw new ObjcError("view_limit", `a view already has ${MAX_CHILDREN} subviews`);
     }
-    list.push(child);
+    if (index === undefined || index >= list.length) list.push(child);
+    else list.splice(Math.max(0, index), 0, child);
     this.children.set(parent, list);
   }
 
-  private controllerView(controller: bigint, cpu: Arm64Cpu): bigint {
+  private controllerView(controller: bigint): bigint {
     if (controller === 0n) return 0n;
     const existing = this.memory.read(controller + BigInt(CONTROLLER_VIEW), 8);
     if (existing !== 0n) return existing;
@@ -2079,43 +2097,88 @@ export class ObjcHost {
     const view = this.allocateInstance(klass);
     this.writeRect(view, { x: 0, y: 0, width: this.width, height: this.height });
     this.memory.write(controller + BigInt(CONTROLLER_VIEW), 8, view);
-    this.scheduleViewDidLoad(controller, view, cpu);
+    if (!this.loadedControllers.has(controller))
+      this.queueLifecycle(controller, view, "viewDidLoad");
     return view;
   }
 
-  /** Send -viewDidLoad once after the controller creates its view. */
-  private scheduleViewDidLoad(controller: bigint, view: bigint, cpu: Arm64Cpu): void {
-    if (this.loadedControllers.has(controller)) return;
-    const method = this.resolve(controller, "viewDidLoad");
-    if (!method || this.hostMethods.has(method.imp)) return;
-    this.loadedControllers.add(controller);
+  /**
+   * Queue a lifecycle callback. Callbacks are coalesced per controller and
+   * sent in order by a single generated guest stub, so a caller that triggers
+   * several of them in one message (create view, add it to a visible window)
+   * still resumes normally afterwards.
+   */
+  private queueLifecycle(controller: bigint, view: bigint, selector: string): void {
+    const pending = this.pendingLifecycle.get(controller) ?? { view, selectors: [] };
+    pending.view = view;
+    if (!pending.selectors.includes(selector)) pending.selectors.push(selector);
+    this.pendingLifecycle.set(controller, pending);
+  }
+
+  /** Mark a controller as appeared once its view is in a visible window. */
+  private requestAppearance(controller: bigint): void {
+    if (controller === 0n || this.appearedControllers.has(controller)) return;
+    const view = this.memory.read(controller + BigInt(CONTROLLER_VIEW), 8);
+    if (view === 0n) return;
+    this.appearedControllers.add(controller);
+    this.queueLifecycle(controller, view, "viewWillAppear:");
+    this.queueLifecycle(controller, view, "viewDidAppear:");
+  }
+
+  /**
+   * Build one guest stub that calls the queued lifecycle selectors with the
+   * controller's view in x0, restores the caller's stack, and returns the view.
+   * The host method that queued them returns a plain value; the CPU resumes at
+   * this stub and comes back to the guest caller after the callbacks run.
+   */
+  private flushLifecycle(controller: bigint, cpu: Arm64Cpu): void {
+    if (this.controllerDepth > 0) return;
+    const pending = this.pendingLifecycle.get(controller);
+    if (!pending) return;
+    this.pendingLifecycle.delete(controller);
+    for (const selector of pending.selectors) {
+      if (selector === "viewDidLoad") this.loadedControllers.add(controller);
+    }
+    const messageSend = this.symbols.get("_objc_msgSend");
+    if (!messageSend) throw new ObjcError("internal_error", "objc_msgSend is not registered");
+    const calls: Array<{ receiver: bigint; selector: bigint; imp: bigint }> = [];
+    for (const name of pending.selectors) {
+      const method = this.resolve(controller, name);
+      if (!method || this.hostMethods.has(method.imp)) continue;
+      calls.push({ receiver: controller, selector: this.internString(name), imp: method.imp });
+    }
+    if (calls.length === 0) return;
     const address = this.lifecycleCursor;
-    this.lifecycleCursor += 128n;
-    if (this.lifecycleCursor > this.lifecyclePage + 0x1000n) {
+    const code: number[] = [stpPre(29, 30, 31, -16)];
+    const literals: bigint[] = [];
+    const refs: Array<{ index: number; register: number; slot: number }> = [];
+    const addLiteral = (register: number, value: bigint): void => {
+      refs.push({ index: code.length, register, slot: literals.length });
+      literals.push(value);
+      code.push(0);
+    };
+    for (const call of calls) {
+      addLiteral(0, call.receiver);
+      addLiteral(1, call.selector);
+      addLiteral(16, call.imp);
+      code.push(blr(16));
+    }
+    addLiteral(0, pending.view);
+    code.push(ldpPost(29, 30, 31, 16), ret());
+    const literalStart = code.length * 4;
+    for (const ref of refs) {
+      code[ref.index] = ldrLiteral(ref.register, literalStart + ref.slot * 8 - ref.index * 4);
+    }
+    const size = BigInt(literalStart + literals.length * 8);
+    if (this.lifecycleCursor + size > this.lifecyclePage + 0x1000n) {
       throw new ObjcError("stub_limit", "the lifecycle stub page overflowed");
     }
-    const selector = this.internString("viewDidLoad");
-    const code: number[] = [
-      stpPre(29, 30, 31, -16),
-      ldrLiteral(0, 0),
-      ldrLiteral(1, 0),
-      ldrLiteral(16, 0),
-      blr(16),
-      ldrLiteral(0, 0),
-      ldpPost(29, 30, 31, 16),
-      ret(),
-    ];
-    const literalStart = 32;
-    code[1] = ldrLiteral(0, literalStart - 1 * 4);
-    code[2] = ldrLiteral(1, literalStart + 8 - 2 * 4);
-    code[3] = ldrLiteral(16, literalStart + 16 - 3 * 4);
-    code[5] = ldrLiteral(0, literalStart + 24 - 5 * 4);
+    this.lifecycleCursor += size;
     code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
-    this.memory.write(address + 32n, 8, controller);
-    this.memory.write(address + 40n, 8, selector);
-    this.memory.write(address + 48n, 8, method.imp);
-    this.memory.write(address + 56n, 8, view);
-    cpu.writeRegister(0, view);
+    literals.forEach((value, index) =>
+      this.memory.write(address + BigInt(literalStart + index * 8), 8, value),
+    );
+    cpu.writeRegister(0, pending.view);
     cpu.pc = address;
   }
 
