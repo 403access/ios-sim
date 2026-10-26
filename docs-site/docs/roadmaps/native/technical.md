@@ -513,7 +513,9 @@ cache hit/miss stats, cache invalidation, and a forwarding hook. RT-003 adds syn
 strong/weak ivars, retain/release, autorelease pools, and dealloc zeroing. RT-004 adds category
 method overriding, inherited protocol conformance, required-method checks, and semantic exception
 unwinding through thrown ObjcErrors. RT-005 adds block copy/retain/release lifetime and
-retain/copy/assign associated objects tied to dealloc. RT-006 (Foundation containers) is next.
+retain/copy/assign associated objects tied to dealloc. RT-006 adds clean-room
+NSString/NSArray/NSDictionary containers with 100-operation conformance tests and stable bounds
+errors. RT-007 (Foundation files/URL/JSON/plist) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

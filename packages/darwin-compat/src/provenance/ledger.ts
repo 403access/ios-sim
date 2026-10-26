@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-006",
+    claim: "Provides clean-room NSString/NSArray/NSDictionary containers with conformance tests.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/foundation/collections.ts",
+      "packages/darwin-compat/src/foundation/conformance.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/foundation/conformance.test.ts",
+    limitation: "Semantic containers; not Apple class clusters or toll-free bridging.",
+  },
+  {
     id: "RT-005",
     claim: "Models block retain/copy/release lifetime and retain/copy/assign associations.",
     status: "implemented",

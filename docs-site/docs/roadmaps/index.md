@@ -93,7 +93,7 @@ single commit.
   trace export (`DX-002`), a 90% parser coverage gate (`QA-007`), and a clean-room ObjC
   class/selector/method core (`RT-001`), a dispatch/cache matrix (`RT-002`), and ARC/property
   ownership (`RT-003`), category/protocol dispatch (`RT-004`), and block/association lifetimes
-  (`RT-005`).
+  (`RT-005`), and Foundation container conformance (`RT-006`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,
