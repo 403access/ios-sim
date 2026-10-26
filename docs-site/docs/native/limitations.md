@@ -6,7 +6,9 @@ description: The honest boundary between the implemented substrate and a simulat
 
 # Limitations and gates
 
-The layers on this branch are real, but they are the **foundation**, not the building. This page
+The layers on this branch are real, but they are the **foundation**, not the building.
+[From shim apps to unmodified .ipa](../plans/ipa-readiness.md) turns each gap into a measured
+milestone; this page remains the per-area boundary. This page
 exists so no reader can mistake the substrate for a working iOS Simulator.
 
 ## Status by area

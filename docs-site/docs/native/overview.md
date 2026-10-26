@@ -18,7 +18,9 @@ afterwards.
 `ios-sim-native run` executes self-contained arm64 Mach-O images that use the implemented syscall,
 Mach, and Objective-C subset. It can render a frame from an Objective-C application built against
 the repository's clean-room UIKit shim. It cannot run an Apple simulator runtime, `simctl`, or an
-unmodified Apple app. The shipping workflow remains the remote Mac bridge on `main`.
+unmodified Apple app. The shipping workflow remains the remote Mac bridge on `main`. See
+[From shim apps to unmodified .ipa](../plans/ipa-readiness.md) for what a stock binary would
+require and the measured first milestone.
 :::
 
 ## Proof, not a promise

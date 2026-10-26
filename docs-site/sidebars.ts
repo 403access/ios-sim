@@ -39,6 +39,7 @@ const sidebars: SidebarsConfig = {
         "plans/testing-strategy",
         "plans/roadmap",
         "plans/native-poc-todo",
+        "plans/ipa-readiness",
       ],
     },
     {
@@ -75,6 +76,7 @@ const sidebars: SidebarsConfig = {
         "adr/token-auth",
         "adr/native-research-track",
         "adr/host-objc-runtime",
+        "adr/ios-binary-compatibility",
       ],
     },
   ],

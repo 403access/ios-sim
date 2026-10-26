@@ -32,3 +32,6 @@ fixtures/darwin-hello/build/
 
 # Objective-C fixture build output
 fixtures/objc-window/build/
+
+# Stock-SDK symbol spike output
+fixtures/ios-app/build/
