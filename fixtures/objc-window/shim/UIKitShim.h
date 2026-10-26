@@ -111,6 +111,30 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
   return size;
 }
 
+@interface UIGestureRecognizer : NSObject
+- (id)initWithTarget:(id)target action:(SEL)action;
+- (void)setEnabled:(BOOL)enabled;
+- (BOOL)isEnabled;
+- (long)state;
+- (CGPoint)locationInView:(UIView *)view;
+@end
+
+@interface UITapGestureRecognizer : UIGestureRecognizer
+- (void)setNumberOfTapsRequired:(unsigned long)count;
+- (unsigned long)numberOfTapsRequired;
+@end
+
+@interface UIPanGestureRecognizer : UIGestureRecognizer
+- (CGPoint)translationInView:(UIView *)view;
+- (void)setTranslation:(CGPoint)translation inView:(UIView *)view;
+@end
+
+@interface UIView (Gestures)
+- (void)addGestureRecognizer:(UIGestureRecognizer *)recognizer;
+- (void)removeGestureRecognizer:(UIGestureRecognizer *)recognizer;
+- (id)gestureRecognizers;
+@end
+
 @interface UIScrollView : UIView
 - (void)setContentOffset:(CGPoint)offset;
 - (void)setContentSize:(CGSize)size;
@@ -203,6 +227,12 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (BOOL)isValid;
 - (double)timeInterval;
 - (void)fire;
+@end
+
+@interface UIView (Gestures)
+- (void)addGestureRecognizer:(UIGestureRecognizer *)recognizer;
+- (void)removeGestureRecognizer:(UIGestureRecognizer *)recognizer;
+- (id)gestureRecognizers;
 @end
 
 @interface UILabel : UIView

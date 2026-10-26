@@ -61,6 +61,9 @@ const SELECTORS = {
   utf8String: "UTF8String",
   mainBundle: "mainBundle",
   pathForResource: "pathForResource:ofType:",
+  initWithTargetAction: "initWithTarget:action:",
+  addGestureRecognizer: "addGestureRecognizer:",
+  gestureTapped: "gestureTapped:",
   text: "text",
   length: "length",
   isEqualToString: "isEqualToString:",
@@ -219,7 +222,11 @@ type SlotName =
   | "bundle"
   | "bundleFound"
   | "bundlePathText"
-  | "bundleMissing";
+  | "bundleMissing"
+  | "classTapGesture"
+  | "tapGesture"
+  | "gestureMarker"
+  | "label";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -415,6 +422,10 @@ function planData(): Plan {
     "bundleFound",
     "bundlePathText",
     "bundleMissing",
+    "classTapGesture",
+    "tapGesture",
+    "gestureMarker",
+    "label",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -450,6 +461,7 @@ function planData(): Plan {
     "assets/icon",
     "png",
     "nope",
+    "TAPPED",
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
@@ -472,7 +484,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 10 * 24;
+  cursor += 8 + 11 * 24;
   const appCategory = cursor;
   cursor += 48;
   const lifecycleCategory = cursor;
@@ -841,6 +853,21 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
 
+  label("gestureTapped");
+  emitWord(stpPre(29, 30, 31, -16));
+  emitWord(stpPre(19, 20, 31, -16));
+  emitPointer(19, slot("gestureMarker"));
+  emitWord(addImm(19, 19, 1));
+  emitStore(19, slot("gestureMarker"));
+  emitPointer(0, slot("label"));
+  emitAddress(1, selector(SELECTORS.setText));
+  emitAddress(2, dataAddress(plan.stringOffsets.TAPPED!));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(ldpPost(19, 20, 31, 16));
+  emitWord(ldpPost(29, 30, 31, 16));
+  emitWord(ret());
+
   label("delayedTick");
   emitMarker(slot("delayedMarker"), 1);
   emitWord(ret());
@@ -965,6 +992,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("switchChanged") ?? 0),
     bases.textBase + (code.labels.get("sliderChanged") ?? 0),
     bases.textBase + (code.labels.get("delayedTick") ?? 0),
+    bases.textBase + (code.labels.get("gestureTapped") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -1020,6 +1048,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_userInfoValue",
         value: dataAddress(plan.slotOffsets.userInfoValue),
+        sectionIndex: 2,
+      },
+      {
+        name: "_gestureMarker",
+        value: dataAddress(plan.slotOffsets.gestureMarker),
         sectionIndex: 2,
       },
       {
@@ -1522,6 +1555,27 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UIGestureRecognizer *tap = [[UITapGestureRecognizer alloc]
+    //     initWithTarget:self action:@selector(gestureTapped:)];
+    // [picture addGestureRecognizer:tap];
+    emitPointer(0, slot("classTapGesture"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithTargetAction));
+    emitPointer(2, slot("delegateSelf"));
+    emitAddress(3, selector(SELECTORS.gestureTapped));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(21, slot("tapGesture"));
+    emitPointer(0, slot("imageView"));
+    emitAddress(1, selector(SELECTORS.addGestureRecognizer));
+    emitPointer(2, slot("tapGesture"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // [UIView beginAnimations:nil context:0];
     // [UIView setAnimationDuration:2]; [picture setAlpha:0.25];
     // [UIView commitAnimations];
@@ -1613,6 +1667,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(movReg(2, 21));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
+    emitStore(21, slot("label"));
 
     // UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:(20,470,300,80)];
     emitPointer(0, slot("classScroll"));
@@ -2101,6 +2156,7 @@ function emitData(
   switchChangedImp: number,
   sliderChangedImp: number,
   delayedTickImp: number,
+  gestureTappedImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -2125,6 +2181,7 @@ function emitData(
     "assets/icon",
     "png",
     "nope",
+    "TAPPED",
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
@@ -2158,7 +2215,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 10);
+  u32(plan.appCategoryMethods + 4, 11);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -2210,6 +2267,10 @@ function emitData(
   rebase(delayedEntry, selector(SELECTORS.delayedTick));
   rebase(delayedEntry + 8, selector(TYPES));
   rebase(delayedEntry + 16, delayedTickImp);
+  const gestureEntry = plan.appCategoryMethods + 248;
+  rebase(gestureEntry, selector(SELECTORS.gestureTapped));
+  rebase(gestureEntry + 8, selector(TYPES));
+  rebase(gestureEntry + 16, gestureTappedImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }
@@ -2377,6 +2438,7 @@ function emitData(
   bind(plan.slotOffsets.classSwitch, "_OBJC_CLASS_$_UISwitch");
   bind(plan.slotOffsets.classSlider, "_OBJC_CLASS_$_UISlider");
   bind(plan.slotOffsets.classBundle, "_OBJC_CLASS_$_NSBundle");
+  bind(plan.slotOffsets.classTapGesture, "_OBJC_CLASS_$_UITapGestureRecognizer");
   bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
   bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));

@@ -81,7 +81,8 @@ started.
 - [x] Responder forwarding: unhandled touches travel up to the superview
 - [x] `UIScrollView` drag-to-scroll with clamping to content size
 - [x] `NSBundle` resource lookup through the runtime root
-- [ ] Gesture recognisers and the view-controller responder step
+- [x] Tap and pan gesture recognisers (fire on touches that reach the default handler)
+- [ ] Simultaneous recognition, gesture dependencies, and the view-controller responder step
 - [x] `UIViewController -viewDidLoad` once, via a category or subclass
 - [x] `UIViewController -viewWillAppear:`/`-viewDidAppear:` when the root view is shown
 - [x] `UILabel` with a 3×5 bitmap font (left/centre/right alignment)

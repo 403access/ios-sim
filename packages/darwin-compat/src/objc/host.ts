@@ -102,6 +102,14 @@ const NUMBER_INSTANCE_SIZE = 16;
 
 const DEFAULT_ANIMATION_SECONDS = 0.25;
 
+const GESTURE_STATE_POSSIBLE = 0;
+const GESTURE_STATE_BEGAN = 1;
+const GESTURE_STATE_CHANGED = 2;
+const GESTURE_STATE_ENDED = 3;
+const GESTURE_STATE_CANCELLED = 4;
+const GESTURE_INSTANCE_SIZE = 24;
+const TAP_SLOP = 10;
+
 const IMAGE_WIDTH = 8;
 const IMAGE_HEIGHT = 16;
 const IMAGE_INSTANCE_SIZE = 24;
@@ -324,6 +332,23 @@ export class ObjcHost {
   private loadsPrepared = false;
   private readonly children = new Map<bigint, bigint[]>();
   private readonly superviews = new Map<bigint, bigint>();
+  private readonly gestures = new Map<bigint, bigint[]>();
+  private readonly gestureDefs = new Map<
+    bigint,
+    {
+      kind: "tap" | "pan";
+      target: bigint;
+      action: bigint;
+      enabled: boolean;
+      taps: number;
+      startX: number;
+      startY: number;
+      translationX: number;
+      translationY: number;
+      moved: boolean;
+      state: number;
+    }
+  >();
   private readonly scrollDrags = new Map<
     bigint,
     { x: number; y: number; offsetX: number; offsetY: number }
@@ -942,26 +967,74 @@ export class ObjcHost {
           run: (cpu, receiver) =>
             cpu.writeRegister(0, this.memory.read(receiver + BigInt(VIEW_HIDDEN), 1)),
         },
+        {
+          selector: "addGestureRecognizer:",
+          types: "v24@0:8@16",
+          run: (cpu, receiver) => {
+            const gesture = cpu.readRegister(2);
+            if (gesture === 0n) return;
+            const list = this.gestures.get(receiver) ?? [];
+            if (!list.includes(gesture)) list.push(gesture);
+            this.gestures.set(receiver, list);
+          },
+        },
+        {
+          selector: "removeGestureRecognizer:",
+          types: "v24@0:8@16",
+          run: (cpu, receiver) => {
+            const gesture = cpu.readRegister(2);
+            this.gestures.set(
+              receiver,
+              (this.gestures.get(receiver) ?? []).filter((entry) => entry !== gesture),
+            );
+          },
+        },
+        {
+          selector: "gestureRecognizers",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const list = this.gestures.get(receiver) ?? [];
+            // A real NSArray would be correct; the array shim only holds
+            // objects, so alloc a mutable array and fill it host-side.
+            const klass = this.classes.get("NSMutableArray");
+            if (!klass) return;
+            const array = this.allocateInstance(klass);
+            this.arrays.set(array, [...list]);
+            cpu.writeRegister(0, array);
+          },
+        },
         { selector: "layoutSubviews", types: "v16@0:8", run: () => undefined },
         {
           selector: "touchesBegan:withEvent:",
           types: "v32@0:8@16@24",
-          run: (cpu, receiver) => this.forwardTouch(cpu, receiver, "touchesBegan:withEvent:"),
+          run: (cpu, receiver) => {
+            const fired = this.feedGestures(cpu, receiver, "began");
+            return fired ?? this.forwardTouch(cpu, receiver, "touchesBegan:withEvent:");
+          },
         },
         {
           selector: "touchesMoved:withEvent:",
           types: "v32@0:8@16@24",
-          run: (cpu, receiver) => this.forwardTouch(cpu, receiver, "touchesMoved:withEvent:"),
+          run: (cpu, receiver) => {
+            const fired = this.feedGestures(cpu, receiver, "moved");
+            return fired ?? this.forwardTouch(cpu, receiver, "touchesMoved:withEvent:");
+          },
         },
         {
           selector: "touchesEnded:withEvent:",
           types: "v32@0:8@16@24",
-          run: (cpu, receiver) => this.forwardTouch(cpu, receiver, "touchesEnded:withEvent:"),
+          run: (cpu, receiver) => {
+            const fired = this.feedGestures(cpu, receiver, "ended");
+            return fired ?? this.forwardTouch(cpu, receiver, "touchesEnded:withEvent:");
+          },
         },
         {
           selector: "touchesCancelled:withEvent:",
           types: "v32@0:8@16@24",
-          run: (cpu, receiver) => this.forwardTouch(cpu, receiver, "touchesCancelled:withEvent:"),
+          run: (cpu, receiver) => {
+            const fired = this.feedGestures(cpu, receiver, "cancelled");
+            return fired ?? this.forwardTouch(cpu, receiver, "touchesCancelled:withEvent:");
+          },
         },
       ],
       classMethods: [
@@ -1899,6 +1972,127 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(scroll);
+
+    const gesture = this.defineClass({
+      name: "UIGestureRecognizer",
+      superclass: "NSObject",
+      instanceSize: GESTURE_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "initWithTarget:action:",
+          types: "@32@0:8@16:24",
+          run: (cpu, receiver) => {
+            const definition = this.gestureDefs.get(receiver);
+            if (definition) {
+              definition.target = cpu.readRegister(2);
+              definition.action = cpu.readRegister(3);
+            }
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "setEnabled:",
+          types: "v20@0:8B16",
+          run: (cpu, receiver) => {
+            const definition = this.gestureDefs.get(receiver);
+            if (definition) definition.enabled = cpu.readRegister(2) !== 0n;
+          },
+        },
+        {
+          selector: "isEnabled",
+          types: "B16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.gestureDefs.get(receiver)?.enabled === false ? 0n : 1n),
+        },
+        {
+          selector: "state",
+          types: "q16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, BigInt(this.gestureDefs.get(receiver)?.state ?? 0)),
+        },
+        {
+          selector: "locationInView:",
+          types: "{CGPoint=dd}24@0:8@16",
+          run: (cpu, receiver) => {
+            const definition = this.gestureDefs.get(receiver);
+            if (!definition) return;
+            cpu.writeVectorDouble(0, definition.startX + definition.translationX);
+            cpu.writeVectorDouble(1, definition.startY + definition.translationY);
+          },
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(gesture);
+
+    const tapGesture = this.defineClass({
+      name: "UITapGestureRecognizer",
+      superclass: "UIGestureRecognizer",
+      instanceSize: GESTURE_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "initWithTarget:action:",
+          types: "@32@0:8@16:24",
+          run: (cpu, receiver) => {
+            this.defineGesture(receiver, "tap", cpu.readRegister(2), cpu.readRegister(3));
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "setNumberOfTapsRequired:",
+          types: "v24@0:8Q16",
+          run: (cpu, receiver) => {
+            const definition = this.gestureDefs.get(receiver);
+            if (definition) definition.taps = Math.max(1, Number(cpu.readRegister(2)));
+          },
+        },
+        {
+          selector: "numberOfTapsRequired",
+          types: "Q16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, BigInt(this.gestureDefs.get(receiver)?.taps ?? 1)),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(tapGesture);
+
+    const panGesture = this.defineClass({
+      name: "UIPanGestureRecognizer",
+      superclass: "UIGestureRecognizer",
+      instanceSize: GESTURE_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "initWithTarget:action:",
+          types: "@32@0:8@16:24",
+          run: (cpu, receiver) => {
+            this.defineGesture(receiver, "pan", cpu.readRegister(2), cpu.readRegister(3));
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "translationInView:",
+          types: "{CGPoint=dd}24@0:8@16",
+          run: (cpu, receiver) => {
+            const definition = this.gestureDefs.get(receiver);
+            cpu.writeVectorDouble(0, definition?.translationX ?? 0);
+            cpu.writeVectorDouble(1, definition?.translationY ?? 0);
+          },
+        },
+        {
+          selector: "setTranslation:inView:",
+          types: "v36@0:8{CGPoint=dd}16@32",
+          run: (cpu, receiver) => {
+            const definition = this.gestureDefs.get(receiver);
+            if (!definition) return;
+            definition.translationX = cpu.readVectorDouble(0);
+            definition.translationY = cpu.readVectorDouble(1);
+          },
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(panGesture);
 
     const image = this.defineClass({
       name: "UIImage",
@@ -3143,6 +3337,99 @@ export class ObjcHost {
     else list.splice(Math.max(0, index), 0, child);
     this.children.set(parent, list);
     this.superviews.set(child, parent);
+  }
+
+  private defineGesture(
+    receiver: bigint,
+    kind: "tap" | "pan",
+    target: bigint,
+    action: bigint,
+  ): void {
+    this.gestureDefs.set(receiver, {
+      kind,
+      target,
+      action,
+      enabled: true,
+      taps: 1,
+      startX: 0,
+      startY: 0,
+      translationX: 0,
+      translationY: 0,
+      moved: false,
+      state: GESTURE_STATE_POSSIBLE,
+    });
+  }
+
+  /**
+   * Feed a touch phase to the recognisers attached to this view and report
+   * whether one fired. Recognisers only see touches that reach the view's
+   * default touch implementation, i.e. those not consumed by a guest handler.
+   */
+  private feedGestures(
+    cpu: Arm64Cpu,
+    view: bigint,
+    phase: "began" | "moved" | "ended" | "cancelled",
+  ): SyscallResult | null {
+    const list = this.gestures.get(view);
+    if (!list || list.length === 0) return null;
+    const point = this.touchPoint(cpu);
+    if (point === null) return null;
+    for (const recognizer of list) {
+      const definition = this.gestureDefs.get(recognizer);
+      if (!definition || !definition.enabled) continue;
+      if (definition.kind === "tap") {
+        if (phase === "began") {
+          definition.startX = point.x;
+          definition.startY = point.y;
+          definition.moved = false;
+          definition.state = GESTURE_STATE_BEGAN;
+        } else if (phase === "moved") {
+          if (Math.hypot(point.x - definition.startX, point.y - definition.startY) > TAP_SLOP) {
+            definition.moved = true;
+            definition.state = GESTURE_STATE_CANCELLED;
+          }
+        } else if (phase === "ended" && !definition.moved) {
+          definition.state = GESTURE_STATE_ENDED;
+          return this.sendGestureAction(cpu, recognizer, definition);
+        } else if (phase === "cancelled") {
+          definition.state = GESTURE_STATE_CANCELLED;
+        }
+      } else {
+        if (phase === "began") {
+          definition.startX = point.x;
+          definition.startY = point.y;
+          definition.translationX = 0;
+          definition.translationY = 0;
+          definition.state = GESTURE_STATE_BEGAN;
+        } else if (phase === "moved") {
+          definition.translationX = point.x - definition.startX;
+          definition.translationY = point.y - definition.startY;
+          definition.state = GESTURE_STATE_CHANGED;
+          return this.sendGestureAction(cpu, recognizer, definition);
+        } else if (phase === "ended") {
+          definition.translationX = point.x - definition.startX;
+          definition.translationY = point.y - definition.startY;
+          definition.state = GESTURE_STATE_ENDED;
+          return this.sendGestureAction(cpu, recognizer, definition);
+        } else if (phase === "cancelled") {
+          definition.state = GESTURE_STATE_CANCELLED;
+        }
+      }
+    }
+    return null;
+  }
+
+  private sendGestureAction(
+    cpu: Arm64Cpu,
+    recognizer: bigint,
+    definition: { target: bigint; action: bigint },
+  ): SyscallResult {
+    const calls = [
+      { receiver: definition.target, selector: definition.action, argument: recognizer },
+    ];
+    const stub = this.emitCallStub(this.callbackPool, calls, 0n);
+    if (stub !== null) cpu.pc = stub;
+    return { value: 0n };
   }
 
   /** UIKit's default: an unhandled touch moves up the responder chain. */

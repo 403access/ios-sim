@@ -247,8 +247,15 @@ content with the finger (`offset = startOffset - delta`), clamped to `contentSiz
 
 Unhandled touches follow the responder chain: `UIView`'s default `touchesBegan:/Moved:/Ended:/Cancelled:`
 forward to the superview, so a drag that starts on a plain child reaches a scroll view above it.
-Only the superview step exists — there is no view-controller responder step, no gesture recognisers,
-and a view that handles a touch does not forward it. The root view controller's callbacks fire like this: creating its view (implicitly or via
+Only the superview step exists — there is no view-controller responder step, and a view that handles
+a touch does not forward it.
+
+Gesture recognisers attach with `-addGestureRecognizer:` and observe the touches that reach the
+view's default touch implementation: taps fire on touch-up within a 10-point slop, pans fire on
+every move with `translation = point - start`. A guest `touchesBegan:` override that consumes the
+touch prevents the recognisers on that view and its ancestors from seeing it, there is no
+simultaneous-recognition arbitration, no failure requirements, and no gesture state machine beyond
+possible/began/changed/ended/cancelled. The root view controller's callbacks fire like this: creating its view (implicitly or via
 `-view`) sends `-viewDidLoad` once; adding it to a visible window sends `-viewWillAppear:`
 then `-viewDidAppear:` once. Queued callbacks are coalesced per controller and run from one
 generated guest stub, so the message that triggered them still returns normally. The root

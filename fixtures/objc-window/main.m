@@ -31,6 +31,8 @@ static int gSliderChanges;
 static UISlider *gSlider;
 static int gDelayed;
 static int gBundle;
+static int gGesture;
+static UILabel *gLabel;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
@@ -137,6 +139,7 @@ static unsigned gTick;
 - (void)switchChanged:(id)sender;
 - (void)sliderChanged:(id)sender;
 - (void)delayedTick:(id)object;
+- (void)gestureTapped:(id)recognizer;
 @end
 
 @implementation AppDelegate
@@ -184,6 +187,7 @@ static unsigned gTick;
   UIViewController *controller = [[UIViewController alloc] init];
   [window setRootViewController:controller];
   UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(20, 400, 300, 40)];
+  gLabel = label;
   gColors = [NSMutableArray array];
   [gColors addObject:[UIColor redColor]];
   [gColors addObject:[UIColor purpleColor]];
@@ -238,6 +242,10 @@ static unsigned gTick;
   UIImageView *picture = [[UIImageView alloc] initWithImage:icon];
   [picture setFrame:CGRectMake(250, 140, 80, 80)];
   [window addSubview:picture];
+  UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc]
+      initWithTarget:self
+              action:@selector(gestureTapped:)];
+  [picture addGestureRecognizer:tap];
   [UIView beginAnimations:nil context:0];
   [UIView setAnimationDuration:2];
   [picture setAlpha:0.25];
@@ -279,6 +287,12 @@ static unsigned gTick;
 - (void)switchChanged:(id)sender {
   (void)sender;
   gSwitchChanges++;
+}
+
+- (void)gestureTapped:(id)recognizer {
+  (void)recognizer;
+  gGesture = 1;
+  [gLabel setText:[NSString stringWithUTF8String:"TAPPED"]];
 }
 
 - (void)delayedTick:(id)object {

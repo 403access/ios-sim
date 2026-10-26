@@ -206,6 +206,18 @@ describe("ObjC UIKit demo", () => {
     expect(inkInRows(254, 259)).toBe(0);
   });
 
+  it("fires a tap gesture recogniser on an unhandled touch", () => {
+    const result = runDemo([{ x: 260, y: 150 }]);
+    expect(result.program.memory.read(result.program.resolveExport("_gestureMarker")!, 8)).toBe(1n);
+
+    // A touch consumed by a guest handler (the nested TapView) does not reach
+    // the responder chain, so recognisers on ancestors do not see it.
+    const consumed = runDemo([{ x: 40, y: 160 }]);
+    expect(consumed.program.memory.read(consumed.program.resolveExport("_gestureMarker")!, 8)).toBe(
+      0n,
+    );
+  });
+
   it("exposes mainBundle resources through NSBundle", () => {
     const result = runDemo();
     const found = result.program.memory.read(result.program.resolveExport("_bundleFound")!, 8);
