@@ -464,7 +464,10 @@ Mach-O 0 crashes / 371 outcomes, plist 0 crashes / 19 outcomes, XPC 0 crashes / 
 run exposed and fixed a non-`CompatError` UTF-8 failure in the XPC codec. QA-003 generates 23
 Mach-O corpus cases (16 valid, 7 invalid) covering 15 load commands, all five chained pointer
 formats, legacy streams, signatures, filesets, fat headers, and expected error codes;
-`bun run corpus` materializes them under `build/corpus`. QA-004 (benchmarks) is next.
+`bun run corpus` materializes them under `build/corpus`. QA-004 adds `bun run bench`: machine
+metadata plus per-case budgets for Mach-O parse, chained parse, loader load, signature parse, XPC
+round-trip, VM map/read, and 64-thread scheduling. On an Apple M3/8-core, Bun 1.4.4, every case
+finished in 3-66 ms against a 3-5 s budget. OBS-001 (event schema) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
