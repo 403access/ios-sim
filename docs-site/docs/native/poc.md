@@ -30,8 +30,11 @@ prove the ABI and the pipeline. The page states that everywhere the word "UIKit"
 
 - SpringBoard, `launchd_sim`, CoreSimulator, the dyld shared cache, Apple binaries.
 - Real UIKit, Foundation, Metal, IOSurface, CoreAnimation.
-- Threads, run loops, touch input, text and fonts.
-- ARC-correct memory management (retain/release are no-ops; the process is short-lived).
+- Threads, a real run loop with external event sources, gesture recognisers, multitouch.
+- Core Animation, CoreGraphics, CoreText, Metal, and host windows. The shim has a scripted event
+  loop, a 3x5 bitmap font, and a software framebuffer instead.
+- Exact ARC: retain/release update refcounts, pools drain, and weak slots zero, but zero-count
+  objects are never reclaimed (the process is short-lived).
 
 ## Architecture
 
@@ -77,9 +80,11 @@ is recorded in ADR 0007.
 | P0 FP/SIMD   | clang-shaped code using doubles for `CGRect` executes                | implemented | `arm64/cpu.test.ts` vector/FP cases                    |
 | P1 metadata  | class list, absolute + relative method lists, selectors, ivars size  | implemented | `objc/host.test.ts`, `tests/native/objc-clang.test.ts` |
 | P1 dispatch  | `objc_msgSend`/`objc_msgSendSuper2`, `+alloc`, host + guest IMPs     | implemented | guest `+alloc` override test, clang app                |
-| P1 lifecycle | retain/release/autorelease pools are explicit no-ops, documented     | implemented | `abi.md`, `limitations.md`                             |
+| P1 lifecycle | refcounts, autorelease pools, weak zeroing, guest `-dealloc`         | implemented | `abi.md`, `limitations.md`                             |
 | P2 shim      | `UIApplicationMain` → delegate callback → window/view/colour         | implemented | `objc/host.test.ts`                                    |
 | P2 frame     | deterministic PNG frame, bounded frames, no host graphics dependency | implemented | `ui/framebuffer.test.ts`, `uikit-demo`                 |
+| P2 input     | taps, drags, ticks, control actions, timers, legacy animations       | implemented | `objc/host.test.ts`                                    |
+| P2 text      | 3x5 bitmap labels, wrapping, line limits; PNG images from resources  | implemented | `objc/host.test.ts`, `ui/png.test.ts`                  |
 | P3 compiler  | clang-built ObjC app renders the same frame (macOS-gated)            | implemented | `tests/native/objc-clang.test.ts`                      |
 
 "implemented" means tested in this repository and reproducible with the commands below. It does
@@ -96,7 +101,8 @@ frame 375x667 sha256=<deterministic>
 The digest is not pinned as a constant: it changes whenever the fixtures change. Instead the
 hermetic test asserts pixel properties and the gated clang test asserts that the two independent
 producers (this repository's writer and Apple clang) produce the **same** digest sequence for
-taps, drags, ticks, the button, and nested views. A change in either path breaks the equality,
+taps, drags, ticks, the button, the switch, the slider, and nested views, including timer fires and
+the animation timeline during ticks. A change in either path breaks the equality,
 which is the point.
 
 With `--tap 30,30` the same app renders three frames: red, blue after `touchesBegan:`, green after
