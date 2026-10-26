@@ -69,8 +69,9 @@ macOS-gated test runs compiler output end to end.
 - **The run loop is scripted and headless.** `UIApplicationMain` runs the delegate callback, then
   a bounded loop over CLI-supplied taps, rendering after each callback. There is no real event
   source, display link, timers, multitouch, gesture recognisers, or host window.
-- **ARC is elided, not implemented.** `objc_retain`/`release`/`autorelease` are no-ops and
-  autorelease pools are markers. Objects live until the process exits; the PoC is short-lived.
+- **ARC is approximated, not implemented.** Retain/release update a refcount and autorelease
+  pools drain on pop, but zero-count objects are not reclaimed, `-dealloc` is not called, and weak
+  references are not zeroed. Objects live until the process exits; the PoC is short-lived.
 - **Selectors are C strings.** The shim follows the modern direct-selector convention; a selector
   registered as an opaque `objc_selector` struct is not supported.
 - **Classes are realised eagerly.** `+load`, categories, `+initialize`, and protocol conformance

@@ -66,6 +66,14 @@ export interface ProcessResult {
   readonly objcClasses: readonly string[];
   readonly objcCategories: readonly string[];
   readonly objcProtocols: readonly string[];
+  readonly objcStats: Readonly<{
+    allocations: number;
+    retains: number;
+    releases: number;
+    autoreleases: number;
+    poolPushes: number;
+    poolPops: number;
+  }>;
 }
 
 export interface CreateProcessOptions extends ProcessOptions {
@@ -258,6 +266,14 @@ export class DarwinProcess {
       objcClasses: this.objc ? [...this.objc.classes.keys()] : [],
       objcCategories: this.objc?.categories ?? [],
       objcProtocols: this.objc?.protocolSummary() ?? [],
+      objcStats: this.objc?.stats ?? {
+        allocations: 0,
+        retains: 0,
+        releases: 0,
+        autoreleases: 0,
+        poolPushes: 0,
+        poolPops: 0,
+      },
     };
   }
 }

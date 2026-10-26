@@ -147,6 +147,14 @@ export class ObjcHost {
   readonly symbols = new Map<string, bigint>();
   readonly classes = new Map<string, ObjcClass>();
   readonly categories: string[] = [];
+  readonly stats = {
+    allocations: 0,
+    retains: 0,
+    releases: 0,
+    autoreleases: 0,
+    poolPushes: 0,
+    poolPops: 0,
+  };
   readonly frames: CapturedFrame[] = [];
   readonly width: number;
   readonly height: number;
@@ -170,6 +178,8 @@ export class ObjcHost {
   private readonly selectors = new Map<string, bigint>();
   private readonly instances = new Map<bigint, ObjcClass>();
   private readonly initialized = new Set<bigint>();
+  private readonly refcounts = new Map<bigint, number>();
+  private readonly autoreleasePools: bigint[][] = [];
   private readonly initializeStubs = new Map<bigint, bigint>();
   private readonly initializePage: bigint;
   private readonly loadStubPage: bigint;
@@ -317,13 +327,33 @@ export class ObjcHost {
     this.registerSymbol("_objc_msgSend_fpret", (cpu) => this.messageSend(cpu));
     this.registerSymbol("_objc_msgSend_stret", (cpu) => this.messageSend(cpu));
 
+    this.registerSymbol("_objc_retain", (cpu) => {
+      this.retainObject(cpu.readRegister(0));
+      return { value: cpu.readRegister(0) };
+    });
+    this.registerSymbol("_objc_retainAutorelease", (cpu) => {
+      const object = cpu.readRegister(0);
+      this.retainObject(object);
+      this.autoreleaseObject(object);
+      return { value: object };
+    });
+    this.registerSymbol("_objc_retainAutoreleasedReturnValue", (cpu) => {
+      this.retainObject(cpu.readRegister(0));
+      return { value: cpu.readRegister(0) };
+    });
+    this.registerSymbol("_objc_autoreleaseReturnValue", (cpu) => {
+      this.autoreleaseObject(cpu.readRegister(0));
+      return { value: cpu.readRegister(0) };
+    });
+    this.registerSymbol("_objc_autorelease", (cpu) => {
+      this.autoreleaseObject(cpu.readRegister(0));
+      return { value: cpu.readRegister(0) };
+    });
+    this.registerSymbol("_objc_release", (cpu) => {
+      this.releaseObject(cpu.readRegister(0));
+      return { value: 0n };
+    });
     for (const name of [
-      "_objc_retain",
-      "_objc_release",
-      "_objc_autorelease",
-      "_objc_retainAutorelease",
-      "_objc_retainAutoreleasedReturnValue",
-      "_objc_autoreleaseReturnValue",
       "_objc_unsafeClaimAutoreleasedReturnValue",
       "_objc_retainBlock",
       "_objc_opt_self",
@@ -331,14 +361,30 @@ export class ObjcHost {
       this.registerSymbol(name, (cpu) => ({ value: cpu.readRegister(0) }));
     }
 
-    this.registerSymbol("_objc_autoreleasePoolPush", () => ({ value: 1n }));
-    this.registerSymbol("_objc_autoreleasePoolPop", () => ({ value: 0n }));
+    this.registerSymbol("_objc_autoreleasePoolPush", () => {
+      this.autoreleasePools.push([]);
+      this.stats.poolPushes += 1;
+      return { value: BigInt(this.autoreleasePools.length) };
+    });
+    this.registerSymbol("_objc_autoreleasePoolPop", () => {
+      const pool = this.autoreleasePools.pop();
+      if (pool) {
+        this.stats.poolPops += 1;
+        for (const object of pool) this.releaseObject(object);
+      }
+      return { value: 0n };
+    });
     this.registerSymbol("_objc_sync_enter", () => ({ value: 0n }));
     this.registerSymbol("_objc_sync_exit", () => ({ value: 0n }));
 
     this.registerSymbol("_objc_storeStrong", (cpu) => {
-      this.memory.write(cpu.readRegister(0), 8, cpu.readRegister(1));
-      return { value: cpu.readRegister(1) };
+      const location = cpu.readRegister(0);
+      const value = cpu.readRegister(1);
+      const previous = this.memory.read(location, 8);
+      if (previous !== 0n) this.releaseObject(previous);
+      if (value !== 0n) this.retainObject(value);
+      this.memory.write(location, 8, value);
+      return { value };
     });
     this.registerSymbol("_objc_storeWeak", (cpu) => {
       this.memory.write(cpu.readRegister(0), 8, cpu.readRegister(1));
@@ -422,10 +468,32 @@ export class ObjcHost {
               this.resolve(receiver, this.readCString(cpu.readRegister(2))) ? 1n : 0n,
             ),
         },
-        { selector: "retain", types: "@16@0:8", run: self },
-        { selector: "release", types: "v16@0:8", run: () => undefined },
-        { selector: "autorelease", types: "@16@0:8", run: self },
-        { selector: "retainCount", types: "Q16@0:8", run: (cpu) => cpu.writeRegister(0, 1n) },
+        {
+          selector: "retain",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            this.retainObject(receiver);
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "release",
+          types: "v16@0:8",
+          run: (_cpu, receiver) => this.releaseObject(receiver),
+        },
+        {
+          selector: "autorelease",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            this.autoreleaseObject(receiver);
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "retainCount",
+          types: "Q16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, BigInt(this.refcounts.get(receiver) ?? 1)),
+        },
         {
           selector: "conformsToProtocol:",
           types: "c24@0:8^{objc_protocol=}16",
@@ -985,6 +1053,8 @@ export class ObjcHost {
     const address = this.memory.allocate(size, { tag: "objc-instance", protection: 3 });
     this.memory.write(address, 8, klass.address);
     this.instances.set(address, klass);
+    this.refcounts.set(address, 1);
+    this.stats.allocations += 1;
     return address;
   }
 
@@ -1076,6 +1146,34 @@ export class ObjcHost {
       current = this.byAddress.get(current.superclass);
     }
     return false;
+  }
+
+  private retainObject(object: bigint): void {
+    if (!this.instances.has(object)) return;
+    this.refcounts.set(object, (this.refcounts.get(object) ?? 1) + 1);
+    this.stats.retains += 1;
+  }
+
+  private releaseObject(object: bigint): void {
+    if (!this.instances.has(object)) return;
+    const count = (this.refcounts.get(object) ?? 1) - 1;
+    this.stats.releases += 1;
+    if (count <= 0) {
+      // The object is logically dead. Its guest memory is not reclaimed and
+      // -dealloc is not called; the PoC process is short-lived and the docs
+      // state this limitation.
+      this.refcounts.delete(object);
+      return;
+    }
+    this.refcounts.set(object, count);
+  }
+
+  private autoreleaseObject(object: bigint): void {
+    if (!this.instances.has(object)) return;
+    this.stats.autoreleases += 1;
+    const pool = this.autoreleasePools.at(-1);
+    if (pool) pool.push(object);
+    else this.releaseObject(object);
   }
 
   private conformsToProtocol(receiver: bigint, protocol: bigint): boolean {

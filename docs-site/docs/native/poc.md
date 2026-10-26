@@ -114,7 +114,8 @@ bun apps/native/src/bin.ts uikit-demo --drag 30,30,60,60,3 --out-dir /tmp/drag
 
 # optional: the same pipeline with clang output (macOS + Xcode)
 ./scripts/build-objc-fixture.sh
-bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --objc --out /tmp/clang.png
+bun apps/native/src/bin.ts inspect fixtures/objc-window/build/ObjcWindow --objc
+bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --tap 30,30 --out-dir /tmp/clang
 ```
 
 ### Why the clang build needs stubs
@@ -131,6 +132,12 @@ Both export nothing. Every ObjC symbol the app imports (`objc_msgSend`, `objc_al
 `_OBJC_CLASS_$_UIView`, …) is resolved by `ObjcHost.symbols`. The fixture links with
 `-fixup_chains` and `-no_fixup_chains` variants; both run through the same loader and render the
 same frames. The legacy variant exercises the classic `LC_DYLD_INFO` opcode path.
+
+A caveat from the stub link: ld64 cannot see `UIView`'s layout, so the clang fixture's
+`instanceSize` is its own ivar size (1) and the ivar offset is a symbol address rather than 8.
+The class metadata is still parsed and conformance still works, but only the generated fixture
+has compiler-resolved layout. The gated test therefore asserts metadata presence and frame
+equality, not ivar offsets. A real app linked against a real UIKit would have both.
 
 ## Reading the evidence
 

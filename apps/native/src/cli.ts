@@ -20,7 +20,9 @@ import {
   encodePng,
   encodePpm,
   formatInspectReport,
+  formatObjcInspection,
   inspectMachO,
+  inspectObjc,
   parseLaunchdManifest,
   type InspectReport,
   type ProcessResult,
@@ -55,12 +57,18 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .command("inspect")
     .description("parse a Mach-O and print segments, dependencies, exports, and fixups")
     .argument("<file>", "Mach-O file")
+    .option("--objc", "include Objective-C classes, categories, protocols, and ivars")
     .option("--json", "print JSON")
-    .action((file: string, options: { json?: boolean }) => {
+    .action((file: string, options: { objc?: boolean; json?: boolean }) => {
       const bytes = readFileSync(file);
       const report = inspectMachO(bytes, file);
-      if (options.json) io.stdout(`${JSON.stringify(report, null, 2)}\n`);
-      else io.stdout(`${formatInspectReport(report)}\n`);
+      const objc = options.objc ? inspectObjc(bytes, file) : null;
+      if (options.json) {
+        io.stdout(`${JSON.stringify(objc ? { ...report, objc } : report, null, 2)}\n`);
+      } else {
+        io.stdout(`${formatInspectReport(report)}\n`);
+        if (objc) io.stdout(`${formatObjcInspection(objc)}\n`);
+      }
     });
 
   program
@@ -381,6 +389,7 @@ function runJson(result: ProcessResult) {
     objcClasses: result.objcClasses,
     objcCategories: result.objcCategories,
     objcProtocols: result.objcProtocols,
+    objcStats: result.objcStats,
     frames: result.frames.map((frame) => ({
       width: frame.width,
       height: frame.height,
@@ -425,7 +434,7 @@ function doctorReport() {
       "XPC-style typed codec and request/reply over Mach",
       "Darwin syscall subset with a jailed file layer and anonymous mmap",
       "launchd-style plist jobs, MachServices, RunAtLoad, bounded KeepAlive",
-      "Objective-C 2 metadata, dispatch, protocols, categories, and a host UIKit shim",
+      "Objective-C 2 metadata, dispatch, protocols, categories, refcounts, and a host UIKit shim",
       "deterministic PNG/PPM frame capture, scripted taps, and touch callbacks",
       "generated arm64 fixture program executed end-to-end on Linux/macOS",
     ],

@@ -20,7 +20,6 @@
 - (void)touchesBegan:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;
-  _pressed = YES;
   if ([self conformsToProtocol:@protocol(Tappable)]) {
     self.backgroundColor = [UIColor blueColor];
   } else {
@@ -35,7 +34,6 @@
 - (void)touchesEnded:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;
-  _pressed = NO;
   self.backgroundColor = [UIColor greenColor];
 }
 @end

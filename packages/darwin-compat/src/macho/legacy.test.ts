@@ -74,6 +74,32 @@ describe("legacy dyld fixups", () => {
     ]);
   });
 
+  it("parses each lazy-bind program", () => {
+    const bytes = new Uint8Array(64);
+    bytes.set(
+      stream([
+        0x71,
+        0x00,
+        0x40,
+        ...ascii("a"),
+        0x90,
+        0x00,
+        0x71,
+        0x08,
+        0x40,
+        ...ascii("b"),
+        0x90,
+        0x00,
+      ]),
+      0,
+    );
+    const fixups = parseLegacyFixups(bytes, image({ lazyBindOffset: 0, lazyBindSize: 16 }));
+    expect(fixups.binds.map((bind) => [bind.symbol, bind.offset])).toEqual([
+      ["a", 0],
+      ["b", 8],
+    ]);
+  });
+
   it("rejects the threaded-bind opcode with a named error", () => {
     const bytes = new Uint8Array(8);
     bytes.set(stream([0xd0, 0x01, 0x00, 0x00, 0x00]), 0);

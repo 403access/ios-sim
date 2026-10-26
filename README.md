@@ -79,6 +79,7 @@ bun run --cwd packages/darwin-compat build
 bun apps/native/src/bin.ts doctor
 bun apps/native/src/bin.ts demo                 # generated arm64 Mach-O, exit 42
 bun apps/native/src/bin.ts inspect <macho>      # segments, imports, fixups, exports
+bun apps/native/src/bin.ts inspect <macho> --objc  # ObjC classes/categories/protocols/ivars
 bun apps/native/src/bin.ts run <macho>          # jailed, budgeted execution
 bun apps/native/src/bin.ts launchd <plist>      # launchd-style jobs
 bun apps/native/src/bin.ts uikit-demo --out frame.png

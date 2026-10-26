@@ -66,9 +66,9 @@ export function parseLegacyFixups(bytes: Uint8Array, image: MachOImage): LegacyF
   if (!info) return { rebases: [], binds: [] };
   const rebases = parseRebases(bytes, info.rebaseOffset, info.rebaseSize);
   const binds = [
-    ...parseBinds(bytes, info.bindOffset, info.bindSize),
-    ...parseBinds(bytes, info.weakBindOffset, info.weakBindSize),
-    ...parseBinds(bytes, info.lazyBindOffset, info.lazyBindSize),
+    ...parseBinds(bytes, info.bindOffset, info.bindSize, false),
+    ...parseBinds(bytes, info.weakBindOffset, info.weakBindSize, false),
+    ...parseBinds(bytes, info.lazyBindOffset, info.lazyBindSize, true),
   ];
   return { rebases, binds };
 }
@@ -78,7 +78,7 @@ function parseRebases(bytes: Uint8Array, offset: number, size: number): LegacyRe
   const stream = new Cursor(bytes, offset, size, "rebase");
   const rebases: LegacyRebase[] = [];
   let segmentIndex = 0;
-  let segmentOffset = 0;
+  let segmentOffset = 0n;
   let operations = 0;
   while (!stream.done) {
     const byte = stream.u8();
@@ -94,35 +94,35 @@ function parseRebases(bytes: Uint8Array, offset: number, size: number): LegacyRe
         break;
       case REBASE_SET_SEGMENT_AND_OFFSET_ULEB:
         segmentIndex = immediate;
-        segmentOffset = Number(stream.uleb());
+        segmentOffset = stream.uleb();
         break;
       case REBASE_ADD_ADDR_ULEB:
-        segmentOffset += Number(stream.uleb());
+        segmentOffset += BigInt.asIntN(64, stream.uleb());
         break;
       case REBASE_ADD_ADDR_IMM_SCALED:
-        segmentOffset += immediate * 8;
+        segmentOffset += BigInt(immediate * 8);
         break;
       case REBASE_DO_REBASE_IMM_TIMES:
-        rebaseMany(rebases, segmentIndex, segmentOffset, immediate, 0);
-        segmentOffset += immediate * 8;
+        rebaseMany(rebases, segmentIndex, segmentOffset, immediate);
+        segmentOffset += BigInt(immediate * 8);
         break;
       case REBASE_DO_REBASE_ULEB_TIMES: {
         const count = Number(stream.uleb());
-        rebaseMany(rebases, segmentIndex, segmentOffset, count, 0);
-        segmentOffset += count * 8;
+        rebaseMany(rebases, segmentIndex, segmentOffset, count);
+        segmentOffset += BigInt(count * 8);
         break;
       }
       case REBASE_DO_REBASE_ADD_ADDR_ULEB: {
-        rebases.push({ segmentIndex, offset: segmentOffset });
-        segmentOffset += 8 + Number(stream.uleb());
+        rebases.push({ segmentIndex, offset: toOffset(segmentOffset, "rebase") });
+        segmentOffset += 8n + BigInt.asIntN(64, stream.uleb());
         break;
       }
       case REBASE_DO_REBASE_ULEB_TIMES_SKIPPING_ULEB: {
         const count = Number(stream.uleb());
-        const skip = Number(stream.uleb());
+        const skip = BigInt.asIntN(64, stream.uleb());
         for (let index = 0; index < count; index += 1) {
-          rebases.push({ segmentIndex, offset: segmentOffset });
-          segmentOffset += 8 + skip;
+          rebases.push({ segmentIndex, offset: toOffset(segmentOffset, "rebase") });
+          segmentOffset += 8n + skip;
         }
         break;
       }
@@ -139,24 +139,23 @@ function parseRebases(bytes: Uint8Array, offset: number, size: number): LegacyRe
 function rebaseMany(
   rebases: LegacyRebase[],
   segmentIndex: number,
-  start: number,
+  start: bigint,
   count: number,
-  skip: number,
 ): void {
   if (count > MAX_OPERATIONS) {
     throw new MachOError("bad_legacy_rebase", `rebase count ${count} is implausible`);
   }
   for (let index = 0; index < count; index += 1) {
-    rebases.push({ segmentIndex, offset: start + index * (8 + skip) });
+    rebases.push({ segmentIndex, offset: toOffset(start + BigInt(index * 8), "rebase") });
   }
 }
 
-function parseBinds(bytes: Uint8Array, offset: number, size: number): LegacyBind[] {
+function parseBinds(bytes: Uint8Array, offset: number, size: number, lazy: boolean): LegacyBind[] {
   if (size === 0) return [];
   const stream = new Cursor(bytes, offset, size, "bind");
   const binds: LegacyBind[] = [];
   let segmentIndex = 0;
-  let segmentOffset = 0;
+  let segmentOffset = 0n;
   let ordinal = 0;
   let symbol = "";
   let addend = 0n;
@@ -167,7 +166,14 @@ function parseBinds(bytes: Uint8Array, offset: number, size: number): LegacyBind
     if (symbol.length === 0) {
       throw new MachOError("bad_legacy_bind", "bind opcode without a symbol");
     }
-    binds.push({ segmentIndex, offset: segmentOffset, symbol, ordinal, addend, weak });
+    binds.push({
+      segmentIndex,
+      offset: toOffset(segmentOffset, "bind"),
+      symbol,
+      ordinal,
+      addend,
+      weak,
+    });
   };
 
   while (!stream.done) {
@@ -179,7 +185,14 @@ function parseBinds(bytes: Uint8Array, offset: number, size: number): LegacyBind
     }
     switch (opcode) {
       case BIND_DONE:
-        return binds;
+        if (!lazy) return binds;
+        // A lazy stream is a sequence of independent programs, each ending in
+        // DONE; the next program follows immediately.
+        ordinal = 0;
+        symbol = "";
+        addend = 0n;
+        weak = false;
+        break;
       case BIND_SET_DYLIB_ORDINAL_IMM:
         ordinal = immediate;
         break;
@@ -200,32 +213,32 @@ function parseBinds(bytes: Uint8Array, offset: number, size: number): LegacyBind
         break;
       case BIND_SET_SEGMENT_AND_OFFSET_ULEB:
         segmentIndex = immediate;
-        segmentOffset = Number(stream.uleb());
+        segmentOffset = stream.uleb();
         break;
       case BIND_ADD_ADDR_ULEB:
-        segmentOffset += Number(stream.uleb());
+        segmentOffset += BigInt.asIntN(64, stream.uleb());
         break;
       case BIND_DO_BIND:
         bindOne();
-        segmentOffset += 8;
+        segmentOffset += 8n;
         break;
       case BIND_DO_BIND_ADD_ADDR_ULEB:
         bindOne();
-        segmentOffset += 8 + Number(stream.uleb());
+        segmentOffset += 8n + BigInt.asIntN(64, stream.uleb());
         break;
       case BIND_DO_BIND_ADD_ADDR_IMM_SCALED:
         bindOne();
-        segmentOffset += 8 + immediate * 8;
+        segmentOffset += BigInt(8 + immediate * 8);
         break;
       case BIND_DO_BIND_ULEB_TIMES_SKIPPING_ULEB: {
         const count = Number(stream.uleb());
-        const skip = Number(stream.uleb());
+        const skip = BigInt.asIntN(64, stream.uleb());
         if (count > MAX_OPERATIONS) {
           throw new MachOError("bad_legacy_bind", `bind count ${count} is implausible`);
         }
         for (let index = 0; index < count; index += 1) {
           bindOne();
-          segmentOffset += 8 + skip;
+          segmentOffset += 8n + skip;
         }
         break;
       }
@@ -242,6 +255,16 @@ function parseBinds(bytes: Uint8Array, offset: number, size: number): LegacyBind
     }
   }
   return binds;
+}
+
+function toOffset(value: bigint, what: string): number {
+  if (value < 0n || value > 0x7fff_ffffn) {
+    throw new MachOError(
+      "bad_legacy_fixup",
+      `${what} offset ${value.toString()} is outside a mappable segment`,
+    );
+  }
+  return Number(value);
 }
 
 class Cursor {

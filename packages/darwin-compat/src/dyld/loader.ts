@@ -88,6 +88,10 @@ export interface LoaderOptions {
   readonly extraRpaths?: readonly string[];
   readonly maxImages?: number;
   readonly externalSymbols?: ReadonlyMap<string, bigint>;
+  /** Inspection mode: do not attempt to load LC_LOAD_DYLIB dependencies. */
+  readonly skipDependencies?: boolean;
+  /** Inspection mode: bind unresolved imports to zero instead of failing. */
+  readonly missingSymbols?: "error" | "zero";
 }
 
 interface LoadContext {
@@ -98,6 +102,8 @@ interface LoadContext {
   readonly executablePath: string;
   readonly maxImages: number;
   readonly externalSymbols: ReadonlyMap<string, bigint>;
+  readonly skipDependencies: boolean;
+  readonly missingSymbols: "error" | "zero";
   readonly cache: Map<string, LoadedImage>;
   readonly order: LoadedImage[];
   readonly stats: LoadStats;
@@ -180,7 +186,14 @@ function legacyBindTarget(
   if (target !== null) return target;
   // The lazy-bind trampoline is never called because every lazy pointer is
   // resolved eagerly. Binding it to zero is enough and avoids a fake symbol.
-  if (bind.weak || bind.ordinal === -3 || bind.symbol === "dyld_stub_binder") return 0n;
+  if (
+    bind.weak ||
+    bind.ordinal === -3 ||
+    bind.symbol === "dyld_stub_binder" ||
+    context.missingSymbols === "zero"
+  ) {
+    return 0n;
+  }
   throw new LoaderError(
     "symbol_not_found",
     `${loaded.path} needs ${bind.symbol} from ordinal ${bind.ordinal}, but it is not exported`,
@@ -195,6 +208,8 @@ export class ImageLoader {
   private readonly extraRpaths: readonly string[];
   private readonly maxImages: number;
   private readonly externalSymbols: ReadonlyMap<string, bigint>;
+  private readonly skipDependencies: boolean;
+  private readonly missingSymbols: "error" | "zero";
   private readonly cache = new Map<string, LoadedImage>();
   private readonly order: LoadedImage[] = [];
   private readonly stats: LoadStats = { images: 0, fixups: 0, binds: 0, rebases: 0, cacheHits: 0 };
@@ -206,6 +221,8 @@ export class ImageLoader {
     this.extraRpaths = options.extraRpaths ?? [];
     this.maxImages = Math.min(options.maxImages ?? MAX_IMAGES, MAX_IMAGES);
     this.externalSymbols = options.externalSymbols ?? new Map();
+    this.skipDependencies = options.skipDependencies ?? false;
+    this.missingSymbols = options.missingSymbols ?? "error";
   }
 
   get memoryView(): VirtualMemory {
@@ -222,6 +239,8 @@ export class ImageLoader {
       executablePath,
       maxImages: this.maxImages,
       externalSymbols: this.externalSymbols,
+      skipDependencies: this.skipDependencies,
+      missingSymbols: this.missingSymbols,
       cache: this.cache,
       order: this.order,
       stats: this.stats,
@@ -313,7 +332,7 @@ export class ImageLoader {
     context.order.push(loaded);
 
     for (const dylib of image.dylibs) {
-      if (dylib.kind === "id") continue;
+      if (dylib.kind === "id" || context.skipDependencies) continue;
       const resolved = resolveDependency(path, dylib.name, image.rpaths, context);
       if (!resolved) {
         if (dylib.kind === "weak") {
@@ -485,7 +504,9 @@ function bindValue(
     target = context.externalSymbols.get(fixup.symbol) ?? null;
   }
   if (target === null) {
-    if (fixup.weak || imported.weak || ordinal === -3) return 0n;
+    if (fixup.weak || imported.weak || ordinal === -3 || context.missingSymbols === "zero") {
+      return 0n;
+    }
     throw new LoaderError(
       "symbol_not_found",
       `${loaded.path} needs ${fixup.symbol} from ordinal ${ordinal}, but it is not exported`,

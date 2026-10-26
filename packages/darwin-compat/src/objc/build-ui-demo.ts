@@ -59,6 +59,9 @@ const SELECTORS = {
   purpleColor: "purpleColor",
   yellowColor: "yellowColor",
   conformsToProtocol: "conformsToProtocol:",
+  retain: "retain",
+  release: "release",
+  autorelease: "autorelease",
   touchesBegan: "touchesBegan:withEvent:",
   touchesMoved: "touchesMoved:withEvent:",
   touchesEnded: "touchesEnded:withEvent:",
@@ -549,6 +552,15 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(stpPre(29, 30, 31, -16));
     emitWord(stpPre(19, 20, 31, -16));
     emitWord(movReg(19, 0));
+    // Exercise retain/release bookkeeping without changing the colour.
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.retain));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.autorelease));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
     // if ([self conformsToProtocol:@protocol(Tappable)]) blue else purple
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.conformsToProtocol));

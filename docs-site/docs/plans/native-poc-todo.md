@@ -38,7 +38,7 @@ started.
 - [x] Categories (`__objc_catlist`) merged into classes
 - [x] Absolute and relative ivar lists parsed and exposed
 - [x] Protocol lists, inherited protocols, and `conformsToProtocol:`
-- [x] Runtime entry points: retain/release/autorelease, storeStrong, opt_self, sel_registerName
+- [x] Runtime entry points: retain/release refcounts, autorelease pools, storeStrong, opt_self, sel_registerName
 - [x] Guest IMP tail call preserves arguments and return address
 - [~] Associated objects and weak references (absent, documented)
 
@@ -68,6 +68,11 @@ started.
   digest (macOS + Xcode only; prints its skip reason elsewhere).
 - `bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --out clang.png` →
   same digest, exit 0.
+
+## Tooling
+
+- [x] `inspect --objc` reports classes, categories, protocols, ivars, fixup format
+- [x] `objcStats` in the process result and CLI JSON
 
 ## Documentation
 
