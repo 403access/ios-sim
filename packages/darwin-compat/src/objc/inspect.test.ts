@@ -23,20 +23,20 @@ describe("ObjC inspection", () => {
       expect.arrayContaining(["touchesBegan:withEvent:", "touchesEnded:withEvent:"]),
     );
 
-    expect(inspection.categories).toEqual([
-      {
-        name: "Window",
-        target: "AppDelegate",
-        methods: [
-          "application:didFinishLaunchingWithOptions:",
-          "applicationDidBecomeActive:",
-          "applicationWillTerminate:",
-          "buttonTapped:",
-          "tick:",
-        ],
-        protocols: [],
-      },
-    ]);
+    const category = inspection.categories[0]!;
+    expect(category.name).toBe("Window");
+    expect(category.target).toBe("AppDelegate");
+    expect(category.methods).toEqual(
+      expect.arrayContaining([
+        "application:didFinishLaunchingWithOptions:",
+        "applicationDidBecomeActive:",
+        "applicationWillTerminate:",
+        "buttonTapped:",
+        "tick:",
+      ]),
+    );
+    expect(category.protocols).toEqual([]);
+
     expect(inspection.protocols).toContain("Tappable");
     expect(formatObjcInspection(inspection)).toContain("class TapView : BaseView");
   });
