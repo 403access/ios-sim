@@ -178,6 +178,16 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-011",
+    claim: "Runs 200 deterministic runtime conformance cases across ObjC, Foundation, ARC, and CF.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/conformance/suite.ts",
+      "packages/darwin-compat/src/conformance/suite.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/conformance/suite.test.ts",
+  },
+  {
     id: "RT-010",
     claim: "Provides a guest first-fit heap and mem/str helpers for a future libSystem.",
     status: "partial",

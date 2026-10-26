@@ -30,6 +30,7 @@ export * from "./objc/index.js";
 export * from "./foundation/index.js";
 export * from "./swift/index.js";
 export * from "./libc/index.js";
+export * from "./conformance/index.js";
 export * from "./observability/index.js";
 export * from "./capabilities.js";
 export * from "./provenance/ledger.js";
