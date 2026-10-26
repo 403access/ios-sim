@@ -55,7 +55,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-26 · layers, NSData, gestures",
+  updated: "2026-10-26 · formatting, layers, NSData",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -173,6 +173,7 @@ export const architecture: Architecture = {
       chips: [
         { label: "NSString", state: "done" },
         { label: "NSData", state: "done" },
+        { label: "formatting", state: "done" },
         { label: "collections", state: "done" },
         { label: "timers", state: "done" },
         { label: "bundle", state: "done" },
@@ -182,7 +183,7 @@ export const architecture: Architecture = {
       shipped: [
         "NSString, NSNumber, NSArray/NSMutableArray, NSDictionary/NSMutableDictionary",
         "NSUserDefaults, notifications with userInfo, NSTimer, delayed perform",
-        "NSBundle, NSLog, NSData, a PNG decoder behind UIImage",
+        "NSBundle, formatted NSLog, NSData, a PNG decoder behind UIImage",
       ],
       open: [
         "NSDate, NSURL, NSError, NSFileManager",
@@ -313,6 +314,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "0d18a9e", text: "stringWithFormat + formatted NSLog (stack varargs)" },
     { hash: "754f212", text: "CALayer corner radius on view backgrounds" },
     { hash: "22dc12a", text: "NSData + UIImage imageWithData, data-backed images" },
     { hash: "fd7f190", text: "Block literals bind; block-based view animations" },
