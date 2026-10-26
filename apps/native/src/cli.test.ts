@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -60,6 +60,38 @@ describe("ios-sim-native CLI", () => {
     expect(await main(["run", file, "--json"], runIo)).toBe(42);
     const run = JSON.parse(runIo.out.join(""));
     expect(run.stdout).toBe("hello from darwin\n");
+  });
+
+  it("runs an executable inside a .app bundle directory", async () => {
+    const directory = temp();
+    const app = join(directory, "Demo.app");
+    mkdirSync(app);
+    writeFileSync(
+      join(app, "Info.plist"),
+      `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>Demo</string>
+<key>CFBundleIdentifier</key><string>dev.example.demo</string>
+<key>CFBundleName</key><string>Demo</string>
+</dict></plist>`,
+    );
+    writeFileSync(join(app, "Demo"), buildDemoProgram().bytes);
+
+    const io = capture();
+    expect(await main(["run", app, "--json"], io)).toBe(42);
+    const result = JSON.parse(io.out.join(""));
+    expect(result.stdout).toBe("hello from darwin\n");
+    expect(result.bundle.identifier).toBe("dev.example.demo");
+    expect(result.bundle.executable).toBe(join(app, "Demo"));
+  });
+
+  it("rejects a .app bundle without Info.plist", async () => {
+    const directory = temp();
+    const app = join(directory, "Broken.app");
+    mkdirSync(app);
+    const io = capture();
+    expect(await main(["run", app], io)).toBe(1);
+    expect(io.err.join("")).toMatch(/Info\.plist/);
   });
 
   it("runs the generated ObjC UIKit demo and writes a frame", async () => {

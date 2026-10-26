@@ -129,6 +129,10 @@ bun scripts/make-fixture-image.ts
 bun apps/native/src/bin.ts inspect fixtures/objc-window/build/ObjcWindow --objc
 bun apps/native/src/bin.ts inspect fixtures/objc-window/build/ObjcWindowLegacy --json
 bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --tap 30,30 --out-dir /tmp/clang
+
+# a directory argument is treated as an app bundle:
+# run <dir> reads Info.plist, launches CFBundleExecutable, and jails to <dir>
+bun apps/native/src/bin.ts run /path/to/Demo.app --json
 ```
 
 ### Why the clang build needs stubs

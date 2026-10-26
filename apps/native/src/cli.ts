@@ -15,8 +15,12 @@ import {
   Launchd,
   MapFileProvider,
   buildDemoProgram,
+  appBundleLabel,
   buildUIKitDemo,
   describeUIKitDemo,
+  isAppBundlePath,
+  readAppBundle,
+  type AppBundle,
   encodePng,
   encodePpm,
   formatInspectReport,
@@ -75,7 +79,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
   program
     .command("run")
     .description("load and execute an arm64 Mach-O inside the compatibility layer")
-    .argument("<file>", "Mach-O executable")
+    .argument("<path>", "Mach-O executable or .app bundle directory")
     .option("--arg <value...>", "argument(s) passed to the process")
     .option("--env <pair...>", "environment entries as KEY=VALUE")
     .option("--stdin <text>", "bytes available on file descriptor 0")
@@ -92,9 +96,16 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .option("--drag <x1,y1,x2,y2[,steps]>", "scripted drag (repeatable)", collectDrag, [])
     .option("--tick <count>", "send N ticks to the application delegate", parseInteger, 0)
     .option("--json", "print JSON result")
-    .action((file: string, options: RunOptions) => {
-      const absolute = resolve(file);
-      const root = options.root ? resolve(options.root) : dirname(absolute);
+    .action((path: string, options: RunOptions) => {
+      const requested = resolve(path);
+      const bundle = isAppBundlePath(requested) ? readAppBundle(requested) : null;
+      if (bundle && !options.json) io.stderr(`bundle: ${appBundleLabel(bundle)}\n`);
+      const absolute = bundle ? bundle.executable : requested;
+      const root = options.root
+        ? resolve(options.root)
+        : bundle
+          ? bundle.bundlePath
+          : dirname(absolute);
       const environment = parseEnvironment(options.env ?? []);
       const stdout = new CaptureSink();
       const stderr = new CaptureSink();
@@ -105,7 +116,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
         strictSyscalls: options.strictSyscalls,
       });
       const result = runtime.run(absolute, {
-        argv: [absolute, ...(options.arg ?? [])],
+        argv: [bundle ? bundle.bundlePath : absolute, ...(options.arg ?? [])],
         env: environment,
         stdin: options.stdin ? new TextEncoder().encode(options.stdin) : undefined,
         stdout,
@@ -126,7 +137,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
       });
       writeFrames(result.frames, options);
       if (options.json) {
-        io.stdout(`${JSON.stringify(runJson(result), null, 2)}\n`);
+        io.stdout(`${JSON.stringify({ ...runJson(result), bundle }, null, 2)}\n`);
       } else {
         io.stdout(new TextDecoder().decode(result.stdout));
         io.stderr(new TextDecoder().decode(result.stderr));
