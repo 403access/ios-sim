@@ -182,10 +182,15 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (const char *)UTF8String;
 - (unsigned long)length;
 - (BOOL)isEqualToString:(NSString *)other;
+- (id)dataUsingEncoding:(unsigned long)encoding;
 @end
 
 // Text accepts an NSString or a bare C string; the host reads either.
 // Resource names are C strings in this shim; Apple's API takes NSString.
+@interface NSJSONSerialization : NSObject
++ (id)JSONObjectWithData:(id)data options:(unsigned long)options error:(id *)error;
+@end
+
 @interface NSBundle : NSObject
 + (NSBundle *)mainBundle;
 - (NSString *)bundlePath;

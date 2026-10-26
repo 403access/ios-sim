@@ -1442,6 +1442,15 @@ export class ObjcHost {
           run: (cpu, receiver) => cpu.writeRegister(0, receiver),
         },
         {
+          selector: "dataUsingEncoding:",
+          types: "@24@0:8Q16",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(
+              0,
+              this.newData(new TextEncoder().encode(this.stringValue(receiver))),
+            ),
+        },
+        {
           selector: "integerValue",
           types: "q16@0:8",
           run: (cpu, receiver) => {
@@ -1486,6 +1495,15 @@ export class ObjcHost {
       superclass: "NSObject",
       instanceSize: NUMBER_INSTANCE_SIZE,
       methods: [
+        {
+          selector: "dataUsingEncoding:",
+          types: "@24@0:8Q16",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(
+              0,
+              this.newData(new TextEncoder().encode(this.stringValue(receiver))),
+            ),
+        },
         {
           selector: "integerValue",
           types: "q16@0:8",
@@ -1840,6 +1858,40 @@ export class ObjcHost {
       ],
     });
     this.registerClass(bundle);
+
+    const json = this.defineClass({
+      name: "NSJSONSerialization",
+      superclass: "NSObject",
+      instanceSize: 8,
+      methods: [],
+      classMethods: [
+        {
+          selector: "JSONObjectWithData:options:error:",
+          types: "@40@0:8@16Q24^@32",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "JSONObjectWithData: is not a class");
+            }
+            const data = cpu.readRegister(2);
+            if (data === 0n) {
+              cpu.writeRegister(0, 0n);
+              return;
+            }
+            const pointer = this.memory.read(data + 8n, 8);
+            const length = Number(this.memory.read(data + 16n, 8));
+            let parsed: unknown;
+            try {
+              const text = new TextDecoder().decode(this.memory.readBytes(pointer, length));
+              parsed = JSON.parse(text);
+            } catch {
+              parsed = undefined;
+            }
+            cpu.writeRegister(0, parsed === undefined ? 0n : this.fromJson(parsed));
+          },
+        },
+      ],
+    });
+    this.registerClass(json);
 
     const defaults = this.defineClass({
       name: "NSUserDefaults",
@@ -3597,6 +3649,38 @@ export class ObjcHost {
         argument: call.argument,
       });
     }
+  }
+
+  /** Convert a parsed JSON value into shim objects (numbers truncate to 64-bit). */
+  private fromJson(value: unknown): bigint {
+    if (value === null || value === undefined) return 0n;
+    if (typeof value === "string") return this.newString(this.internString(value));
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? this.newNumber(BigInt(Math.trunc(value))) : 0n;
+    }
+    if (typeof value === "boolean") return this.newNumber(value ? 1n : 0n);
+    if (Array.isArray(value)) {
+      const klass = this.classes.get("NSMutableArray");
+      if (!klass) throw new ObjcError("internal_error", "NSMutableArray is missing");
+      const instance = this.allocateInstance(klass);
+      this.arrays.set(
+        instance,
+        value.map((item) => this.fromJson(item)),
+      );
+      return instance;
+    }
+    if (typeof value === "object") {
+      const klass = this.classes.get("NSMutableDictionary");
+      if (!klass) throw new ObjcError("internal_error", "NSMutableDictionary is missing");
+      const instance = this.allocateInstance(klass);
+      const map = new Map<string, bigint>();
+      for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+        map.set(key, this.fromJson(entry));
+      }
+      this.dictionaries.set(instance, map);
+      return instance;
+    }
+    return 0n;
   }
 
   /** Dictionaries also live in host memory, keyed by their string value. */

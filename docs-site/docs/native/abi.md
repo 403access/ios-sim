@@ -289,6 +289,12 @@ hierarchy) and resolves `pathForResource:ofType:` through the same loader as `UI
 nil when the file is absent. Resource names are C strings, matching the shim's other name-taking
 APIs.
 
+`-dataUsingEncoding:` returns the receiver's UTF-8 bytes as `NSData` (the encoding argument is
+ignored). `NSJSONSerialization` parses a data object into shim objects: dictionaries keep string
+keys, arrays keep their elements, strings become `NSString`, numbers truncate to 64-bit
+`NSNumber`s, booleans become 1/0, and `null` becomes nil. Parse failures return nil and never fill
+an error object; `options` is ignored.
+
 `+stringWithFormat:` and `NSLog` share one small formatter: `%@` (NSString or C string), `%s`,
 `%d`/`%i`/`%u`, `%ld`/`%lu`/`%lld`/`%llu`, and `%%`. On Apple arm64, variadic arguments are passed on
 the stack rather than in x-registers; the shim reads them from the caller's SP, which is what the

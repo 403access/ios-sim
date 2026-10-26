@@ -238,13 +238,19 @@ static unsigned gTick;
   NSBundle *bundle = [NSBundle mainBundle];
   NSString *iconPath = [bundle pathForResource:"assets/icon" ofType:"png"];
   NSString *missingPath = [bundle pathForResource:"nope" ofType:"png"];
+  NSString *jsonText =
+      [NSString stringWithUTF8String:"{\"count\":3,\"items\":[\"a\",\"b\"]}"];
+  NSData *jsonData = [jsonText dataUsingEncoding:4];
+  NSDictionary *parsed = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:0];
+  BOOL jsonOK = [[parsed objectForKey:"count"] intValue] == 3 &&
+                [[parsed objectForKey:"items"] count] == 2;
   NSString *formatted = [NSString stringWithFormat:"%s-%d", "OK", 7];
   BOOL formatOK = [formatted isEqualToString:[NSString stringWithUTF8String:"OK-7"]];
   NSData *data = [NSData dataWithContentsOfFile:iconPath];
   UIImage *named = [UIImage imageNamed:"assets/icon.png"];
   UIImage *icon = [UIImage imageWithData:data];
   if (iconPath != nil && missingPath == nil && named != nil && icon != nil &&
-      [data length] > 0 && formatOK) {
+      [data length] > 0 && formatOK && jsonOK) {
     gBundle = 1;
   }
   UIImageView *picture = [[UIImageView alloc] initWithImage:icon];

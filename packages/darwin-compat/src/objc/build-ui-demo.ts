@@ -94,6 +94,8 @@ const SELECTORS = {
   initWithItems: "initWithItems:",
   selectedSegmentIndex: "selectedSegmentIndex",
   segmentChanged: "segmentChanged:",
+  dataUsingEncoding: "dataUsingEncoding:",
+  jsonObjectWithData: "JSONObjectWithData:options:error:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
   beginAnimations: "beginAnimations:context:",
@@ -246,7 +248,15 @@ type SlotName =
   | "classSegmented"
   | "segmentItems"
   | "segmented"
-  | "segmentIndex";
+  | "segmentIndex"
+  | "classJson"
+  | "jsonString"
+  | "jsonData"
+  | "jsonObject"
+  | "jsonCount"
+  | "jsonItems"
+  | "jsonValue"
+  | "jsonItemsValue";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -459,6 +469,14 @@ function planData(): Plan {
     "segmentItems",
     "segmented",
     "segmentIndex",
+    "classJson",
+    "jsonString",
+    "jsonData",
+    "jsonObject",
+    "jsonCount",
+    "jsonItems",
+    "jsonValue",
+    "jsonItemsValue",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -500,6 +518,8 @@ function planData(): Plan {
     "OK-7",
     "ONE",
     "TWO",
+    "items",
+    '{"count":3,"items":["a","b"]}',
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
@@ -1114,6 +1134,16 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       {
+        name: "_jsonValue",
+        value: dataAddress(plan.slotOffsets.jsonValue),
+        sectionIndex: 2,
+      },
+      {
+        name: "_jsonItemsValue",
+        value: dataAddress(plan.slotOffsets.jsonItemsValue),
+        sectionIndex: 2,
+      },
+      {
         name: "_segmentIndex",
         value: dataAddress(plan.slotOffsets.segmentIndex),
         sectionIndex: 2,
@@ -1604,6 +1634,55 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
     emitStore(0, slot("formatMarker"));
+
+    // NSDictionary *parsed = [NSJSONSerialization
+    //     JSONObjectWithData:[[NSString stringWithUTF8String:json] dataUsingEncoding:4]
+    //                options:0 error:0];
+    emitPointer(0, slot("classString"));
+    emitAddress(1, selector(SELECTORS.stringWithUTF8String));
+    emitAddress(2, dataAddress(plan.stringOffsets['{"count":3,"items":["a","b"]}']!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("jsonString"));
+    emitWord(movReg(0, 0));
+    emitPointer(0, slot("jsonString"));
+    emitAddress(1, selector(SELECTORS.dataUsingEncoding));
+    emitWord(movz(2, 4));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("jsonData"));
+    emitPointer(0, slot("classJson"));
+    emitAddress(1, selector(SELECTORS.jsonObjectWithData));
+    emitPointer(2, slot("jsonData"));
+    emitWord(movz(3, 0));
+    emitWord(movz(4, 0));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("jsonObject"));
+    // [[parsed objectForKey:"count"] intValue]
+    emitPointer(0, slot("jsonObject"));
+    emitAddress(1, selector(SELECTORS.objectForKey));
+    emitAddress(2, dataAddress(plan.stringOffsets.count!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("jsonCount"));
+    emitPointer(0, slot("jsonCount"));
+    emitAddress(1, selector(SELECTORS.intValue));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("jsonValue"));
+    // [[parsed objectForKey:"items"] count]
+    emitPointer(0, slot("jsonObject"));
+    emitAddress(1, selector(SELECTORS.objectForKey));
+    emitAddress(2, dataAddress(plan.stringOffsets.items!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("jsonItems"));
+    emitPointer(0, slot("jsonItems"));
+    emitAddress(1, selector(SELECTORS.count));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("jsonItemsValue"));
 
     // NSData *data = [NSData dataWithContentsOfFile:found];
     // UIImage *fromData = [UIImage imageWithData:data];
@@ -2381,6 +2460,8 @@ function emitData(
     "OK-7",
     "ONE",
     "TWO",
+    "items",
+    '{"count":3,"items":["a","b"]}',
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
@@ -2643,6 +2724,7 @@ function emitData(
   bind(plan.slotOffsets.classBundle, "_OBJC_CLASS_$_NSBundle");
   bind(plan.slotOffsets.classData, "_OBJC_CLASS_$_NSData");
   bind(plan.slotOffsets.classSegmented, "_OBJC_CLASS_$_UISegmentedControl");
+  bind(plan.slotOffsets.classJson, "_OBJC_CLASS_$_NSJSONSerialization");
   bind(plan.slotOffsets.classTapGesture, "_OBJC_CLASS_$_UITapGestureRecognizer");
   bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
   bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");

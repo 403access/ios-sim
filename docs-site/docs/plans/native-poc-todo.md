@@ -83,6 +83,7 @@ started.
 - [x] `NSBundle` resource lookup through the runtime root
 - [x] `NSData` (file/bytes) and `+[UIImage imageWithData:]`
 - [x] `+[NSString stringWithFormat:]` and formatted `NSLog` (stack-passed varargs)
+- [x] `NSJSONSerialization` + `-[NSString dataUsingEncoding:]`
 - [~] `CALayer` corner radius on view backgrounds (masks/opacity stored, no transforms)
 - [x] `UISegmentedControl` selection, rendering, and value-changed actions
 - [x] Tap and pan gesture recognisers (fire on touches that reach the default handler)
