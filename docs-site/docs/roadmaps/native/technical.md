@@ -469,7 +469,9 @@ metadata plus per-case budgets for Mach-O parse, chained parse, loader load, sig
 round-trip, VM map/read, and 64-thread scheduling. On an Apple M3/8-core, Bun 1.4.4, every case
 finished in 3-66 ms against a 3-5 s budget. OBS-001 adds schema-v1 runtime events with JSON-safe
 values, redaction, NDJSON round-trip, and process start/exit emission. OBS-002 adds monotonic
-runtime counters and `ios-sim-native stats` text/JSON output. REL-001 (native CI) is next.
+runtime counters and `ios-sim-native stats` text/JSON output. REL-001 adds a dedicated Linux native-substrate CI job
+that runs native tests, the gated clang test (printing its skip reason), the generated corpus, a
+100k-per-target fuzz pass, and a scaled benchmark. QA-005 (broader concurrency suite) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

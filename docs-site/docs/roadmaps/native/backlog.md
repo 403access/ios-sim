@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 57 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 58 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -45,13 +45,14 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `REL-001` is the next task;
-`QA-005` remains in the quality lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `QA-005` is the next task;
+`QA-006` remains in the quality lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-26 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
-THR-012 stress, fuzzing, corpus, benchmarks, events, and statistics). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-27 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
+THR-012 stress, fuzzing, corpus, benchmarks, events, statistics, and native CI). This is the next
+cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -184,11 +185,11 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `QA-002`   | Differential harness           | P0       | L    | blocked   | QA-001, Mac      | ≥100 cases match                                           |
 | `QA-003`   | Generated Mach-O corpus        | P1       | M    | **done**  | A0               | 23 cases, 15 commands, 5 pointer formats                   |
 | `QA-004`   | Performance benchmarks         | P1       | M    | **done**  | A0               | 7 cases, metadata, budgets, all pass                       |
-| `QA-005`   | Concurrency/stress suite       | P1       | M    | **ready** | THR-012          | No deadlock/leak                                           |
+| `QA-005`   | Concurrency/stress suite       | P1       | M    | **next**  | THR-012          | No deadlock/leak                                           |
 | `QA-006`   | Leak/resource checks           | P1       | M    | **ready** | QA-004           | 24h soak flat                                              |
 | `QA-007`   | Coverage targets               | P2       | S    | blocked   | REL-001          | ≥90% parsers                                               |
 | `QA-008`   | Compatibility matrix           | P2       | M    | blocked   | QA-002           | Per-cell pass/skip/fail                                    |
-| `REL-001`  | Native CI job                  | P0       | S    | **next**  | A0               | PR job, visible skips                                      |
+| `REL-001`  | Native CI job                  | P0       | S    | **done**  | A0               | Linux native job, visible skips, fuzz/corpus/bench         |
 | `REL-002`  | Reproducible fixtures          | P1       | S    | blocked   | QA-003           | Byte-identical builds                                      |
 | `REL-003`  | Packaging                      | P2       | M    | blocked   | REL-001          | Install artifact                                           |
 | `REL-004`  | Versioning policy              | P2       | S    | blocked   | REL-003          | Mismatch fails                                             |

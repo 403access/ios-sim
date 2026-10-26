@@ -77,7 +77,8 @@ single commit.
   actionable loader diagnostics (`LDR-013`), bundle/fileset/dSYM metadata (`LDR-012`), and
   64-thread/64-process stress (`THR-012`), and a 1M-mutation deterministic fuzz harness
   (`QA-001`), a generated 23-case Mach-O corpus (`QA-003`), and a budgeted performance baseline
-  (`QA-004`), versioned runtime events (`OBS-001`), and runtime statistics (`OBS-002`).
+  (`QA-004`), versioned runtime events (`OBS-001`), runtime statistics (`OBS-002`), and a
+  dedicated Linux native CI job (`REL-001`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,
