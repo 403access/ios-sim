@@ -183,7 +183,9 @@ Recognised runtime entry points: `objc_retain`, `objc_release`, `objc_autoreleas
 `objc_sync_enter/exit`. Retain/release update a host-side refcount (objects start at 1; convenience
 constructors return autoreleased objects), and autorelease pools are real stacks drained on pop. Objects are never reclaimed and `-dealloc` is
 not called; the PoC process is short-lived and the docs state the limitation. Counts are exposed
-as `objcStats` in the process result and CLI JSON.
+as `objcStats` in the process result and CLI JSON: allocations, retains, releases,
+autoreleases, pool pushes/pops, associations, weak stores/loads/zeroings, and message
+dispatch totals split into host and guest IMPs.
 
 ### Shim classes
 

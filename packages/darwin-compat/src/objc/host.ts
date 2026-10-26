@@ -163,6 +163,9 @@ export class ObjcHost {
     weakStores: 0,
     weakLoads: 0,
     weakZeroings: 0,
+    messages: 0,
+    hostDispatches: 0,
+    guestDispatches: 0,
   };
   readonly frames: CapturedFrame[] = [];
   readonly width: number;
@@ -1145,6 +1148,7 @@ export class ObjcHost {
       return { value: 0n };
     }
     if (this.ensureInitialized(cpu)) return { value: receiver };
+    this.stats.messages += 1;
     const selector = this.readCString(cpu.readRegister(1));
     const method = this.resolve(receiver, selector);
     if (!method) {
@@ -1163,6 +1167,7 @@ export class ObjcHost {
     if (this.ensureInitialized(cpu)) return { value: receiver };
     // objc_msgSendSuper2 passes the class containing the method, not the
     // superclass; lookup starts at that class's superclass.
+    this.stats.messages += 1;
     const container = this.byAddress.get(this.memory.read(superPointer + 8n, 8));
     const start = container ? this.byAddress.get(container.superclass) : undefined;
     const selector = this.readCString(cpu.readRegister(1));
@@ -1181,12 +1186,16 @@ export class ObjcHost {
 
   private invoke(method: ObjcMethod, cpu: Arm64Cpu): SyscallResult {
     const host = this.hostMethods.get(method.imp);
-    if (host) return host(cpu);
+    if (host) {
+      this.stats.hostDispatches += 1;
+      return host(cpu);
+    }
     if (method.imp === 0n) {
       throw new ObjcError("bad_objc_metadata", `method ${method.selector} has a null IMP`);
     }
     // Guest IMP: tail-call it with the argument registers untouched. The
     // return address already points at the caller of objc_msgSend.
+    this.stats.guestDispatches += 1;
     cpu.pc = method.imp;
     return { value: cpu.readRegister(0) };
   }

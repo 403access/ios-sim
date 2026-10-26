@@ -116,6 +116,7 @@ bun apps/native/src/bin.ts uikit-demo --tick 4 --out-dir /tmp/ticks
 # optional: the same pipeline with clang output (macOS + Xcode)
 ./scripts/build-objc-fixture.sh
 bun apps/native/src/bin.ts inspect fixtures/objc-window/build/ObjcWindow --objc
+bun apps/native/src/bin.ts inspect fixtures/objc-window/build/ObjcWindowLegacy --json
 bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --tap 30,30 --out-dir /tmp/clang
 ```
 

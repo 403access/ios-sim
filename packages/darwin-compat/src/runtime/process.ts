@@ -77,6 +77,9 @@ export interface ProcessResult {
     weakStores: number;
     weakLoads: number;
     weakZeroings: number;
+    messages: number;
+    hostDispatches: number;
+    guestDispatches: number;
   }>;
 }
 
@@ -281,6 +284,9 @@ export class DarwinProcess {
         weakStores: 0,
         weakLoads: 0,
         weakZeroings: 0,
+        messages: 0,
+        hostDispatches: 0,
+        guestDispatches: 0,
       },
     };
   }

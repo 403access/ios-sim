@@ -76,7 +76,8 @@ started.
 ## Tooling
 
 - [x] `inspect --objc` reports classes, categories, protocols, ivars, fixup format
-- [x] `objcStats` in the process result and CLI JSON
+- [x] `objcStats` in the process result and CLI JSON (host/guest dispatch split)
+- [x] `inspect` lists legacy `LC_DYLD_INFO` imports as well as chained imports
 
 ## Documentation
 

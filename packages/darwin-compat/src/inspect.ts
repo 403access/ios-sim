@@ -7,6 +7,7 @@
  */
 
 import { parseMachO, platformName } from "./macho/parse.js";
+import { parseLegacyFixups, type LegacyFixups } from "./macho/legacy.js";
 import type { MachOImage } from "./macho/types.js";
 
 export interface InspectReport {
@@ -64,6 +65,18 @@ export interface InspectReport {
 
 export function inspectMachO(bytes: Uint8Array, file = "<memory>"): InspectReport {
   const { image } = parseMachO(bytes);
+  const slice = bytes.subarray(image.sliceOffset, image.sliceOffset + image.byteLength);
+  let legacy: LegacyFixups | null = null;
+  let legacyWarning: string | null = null;
+  if (!image.chainedFixups && image.dyldInfo) {
+    try {
+      legacy = parseLegacyFixups(slice, image);
+    } catch (error) {
+      legacyWarning = `legacy fixups could not be decoded: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
+    }
+  }
   const entryVm = computeEntry(image);
   const warnings: string[] = [];
   if (image.encryptionInfo && image.encryptionInfo.cryptId !== 0) {
@@ -121,23 +134,32 @@ export function inspectMachO(bytes: Uint8Array, file = "<memory>"): InspectRepor
       name: dylib.name,
     })),
     rpaths: image.rpaths,
-    imports:
-      image.chainedFixups?.imports.map((entry) => ({
-        name: entry.name,
-        ordinal: entry.ordinal,
-        weak: entry.weak,
-      })) ?? [],
+    imports: image.chainedFixups
+      ? image.chainedFixups.imports.map((entry) => ({
+          name: entry.name,
+          ordinal: entry.ordinal,
+          weak: entry.weak,
+        }))
+      : uniqueLegacyImports(legacy),
     fixups: {
-      binds:
-        image.chainedFixups?.fixups
-          .filter((fixup) => fixup.kind === "bind")
-          .map((fixup) => ({
-            symbol: fixup.symbol,
-            segment: fixup.segmentIndex,
-            location: hex(fixup.location),
-            addend: fixup.addend.toString(),
-          })) ?? [],
-      rebases: image.chainedFixups?.fixups.filter((fixup) => fixup.kind === "rebase").length ?? 0,
+      binds: image.chainedFixups
+        ? image.chainedFixups.fixups
+            .filter((fixup) => fixup.kind === "bind")
+            .map((fixup) => ({
+              symbol: fixup.symbol,
+              segment: fixup.segmentIndex,
+              location: hex(fixup.location),
+              addend: fixup.addend.toString(),
+            }))
+        : (legacy?.binds.map((bind) => ({
+            symbol: bind.symbol,
+            segment: bind.segmentIndex,
+            location: hex(bind.offset),
+            addend: bind.addend.toString(),
+          })) ?? []),
+      rebases: image.chainedFixups
+        ? image.chainedFixups.fixups.filter((fixup) => fixup.kind === "rebase").length
+        : (legacy?.rebases.length ?? 0),
       pointerFormats: image.chainedFixups?.pointerFormats ?? [],
     },
     exports: [...(image.exportsTrie?.exports.values() ?? [])].map((entry) => ({
@@ -236,6 +258,21 @@ function computeEntry(image: MachOImage): number | null {
   }
   if (image.unixThread && image.unixThread.entryPoint !== 0) return image.unixThread.entryPoint;
   return null;
+}
+
+function uniqueLegacyImports(
+  legacy: LegacyFixups | null,
+): Array<{ name: string; ordinal: number; weak: boolean }> {
+  if (!legacy) return [];
+  const seen = new Set<string>();
+  const imports: Array<{ name: string; ordinal: number; weak: boolean }> = [];
+  for (const bind of legacy.binds) {
+    const key = `${bind.symbol}:${bind.ordinal}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    imports.push({ name: bind.symbol, ordinal: bind.ordinal, weak: bind.weak });
+  }
+  return imports;
 }
 
 function hex(value: number | bigint): string {

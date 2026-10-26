@@ -46,26 +46,26 @@ The real fixture is built at test time and is not committed. Its source is
 
 ## What works today
 
-| Capability             | Evidence                                                                    |
-| ---------------------- | --------------------------------------------------------------------------- |
-| Mach-O parsing         | 64-bit/fat slices, load commands, segments, symbols, UUID, build version    |
-| Chained fixups         | `DYLD_CHAINED_PTR_64`, `64_OFFSET`, arm64e (auth decoded, PAC not enforced) |
-| Legacy fixups          | `LC_DYLD_INFO` rebase/bind/weak/lazy opcodes, eager lazy resolution         |
-| Export tries           | regular, absolute, thread-local, re-export entries                          |
-| User-space dyld        | dependency lookup, slides, binds/rebases, `LC_MAIN`/`LC_UNIXTHREAD`         |
-| AArch64 execution      | integer subset, branches, loads/stores, flags, syscall traps                |
-| Darwin syscalls        | file I/O in a jail, stdin/out/err, anonymous/file mmap, time, entropy       |
-| Mach IPC               | task/reply ports, rights, send/receive, send-once, bootstrap services       |
-| MIG-lite               | typed calls with status words, tested client/server                         |
-| XPC-style RPC          | typed object codec and request/reply over Mach                              |
-| launchd-style jobs     | XML plists, MachServices, RunAtLoad, bounded KeepAlive                      |
-| Objective-C 2          | class lists, absolute + relative method lists, selectors, instances         |
-| Message send           | `objc_msgSend`/`Super2`, guest IMP tail calls, framework IMP traps          |
-| UIKit shim             | `UIApplicationMain`, `UIWindow`, `UIView`, `UIViewController`, `UIColor`    |
-| Frame capture          | deterministic 375×667 RGBA frames, PNG/PPM encoding, stable SHA-256         |
-| Inspection             | `inspect --objc`: classes, categories, protocols, ivars, fixup format       |
-| Input                  | scripted taps/drags/ticks, hit-testing, began/moved/ended callbacks         |
-| Deterministic fixtures | generated Mach-O, hand-encoded A64, and a generated ObjC app                |
+| Capability             | Evidence                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| Mach-O parsing         | 64-bit/fat slices, load commands, segments, symbols, UUID, build version           |
+| Chained fixups         | `DYLD_CHAINED_PTR_64`, `64_OFFSET`, arm64e (auth decoded, PAC not enforced)        |
+| Legacy fixups          | `LC_DYLD_INFO` rebase/bind/weak/lazy opcodes, eager lazy resolution                |
+| Export tries           | regular, absolute, thread-local, re-export entries                                 |
+| User-space dyld        | dependency lookup, slides, binds/rebases, `LC_MAIN`/`LC_UNIXTHREAD`                |
+| AArch64 execution      | integer subset, branches, loads/stores, flags, syscall traps                       |
+| Darwin syscalls        | file I/O in a jail, stdin/out/err, anonymous/file mmap, time, entropy              |
+| Mach IPC               | task/reply ports, rights, send/receive, send-once, bootstrap services              |
+| MIG-lite               | typed calls with status words, tested client/server                                |
+| XPC-style RPC          | typed object codec and request/reply over Mach                                     |
+| launchd-style jobs     | XML plists, MachServices, RunAtLoad, bounded KeepAlive                             |
+| Objective-C 2          | class lists, absolute + relative method lists, selectors, instances                |
+| Message send           | `objc_msgSend`/`Super2`, guest IMP tail calls, framework IMP traps                 |
+| UIKit shim             | `UIApplicationMain`, `UIWindow`, `UIView`, `UIViewController`, `UIColor`           |
+| Frame capture          | deterministic 375×667 RGBA frames, PNG/PPM encoding, stable SHA-256                |
+| Inspection             | `inspect`: chained and legacy imports; `--objc` classes/categories/protocols/ivars |
+| Input                  | scripted taps/drags/ticks, hit-testing, began/moved/ended callbacks                |
+| Deterministic fixtures | generated Mach-O, hand-encoded A64, and a generated ObjC app                       |
 
 ## What is deliberately absent
 

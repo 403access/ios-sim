@@ -83,6 +83,9 @@ describe("ObjC UIKit demo", () => {
     expect(result.objcStats.associations).toBeGreaterThanOrEqual(1);
     expect(result.objcStats.weakZeroings).toBeGreaterThanOrEqual(1);
     expect(result.objcStats.weakLoads).toBeGreaterThanOrEqual(1);
+    expect(result.objcStats.messages).toBeGreaterThan(0);
+    expect(result.objcStats.hostDispatches).toBeGreaterThan(0);
+    expect(result.objcStats.guestDispatches).toBeGreaterThan(0);
   });
 
   it("delivers moved samples for a drag", () => {
