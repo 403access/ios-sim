@@ -27,7 +27,13 @@ describe("ObjC inspection", () => {
       {
         name: "Window",
         target: "AppDelegate",
-        methods: ["application:didFinishLaunchingWithOptions:", "buttonTapped:", "tick:"],
+        methods: [
+          "application:didFinishLaunchingWithOptions:",
+          "applicationDidBecomeActive:",
+          "applicationWillTerminate:",
+          "buttonTapped:",
+          "tick:",
+        ],
         protocols: [],
       },
     ]);
