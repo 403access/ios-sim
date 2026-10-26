@@ -55,7 +55,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-26 · formatting, layers, NSData",
+  updated: "2026-10-26 · segments, formatting, layers",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -119,10 +119,11 @@ export const architecture: Architecture = {
       id: "uikit",
       name: "UIKit shim",
       kicker: "Views · controls · controllers",
-      percent: 68,
+      percent: 70,
       chips: [
         { label: "views", state: "done" },
         { label: "controls", state: "done" },
+        { label: "segments", state: "done" },
         { label: "gestures", state: "done" },
         { label: "text", state: "done" },
         { label: "images", state: "done" },
@@ -131,7 +132,7 @@ export const architecture: Architecture = {
       ],
       shipped: [
         "View tree, hit-testing, clipping, scroll drags, responder forwarding",
-        "Label (bitmap, wrapping), button, switch, slider, image view",
+        "Label (bitmap, wrapping), button, switch, slider, segments, image view",
         "Lifecycle + appearance, notifications, tap/pan recognisers",
         "Legacy and block animations on the virtual clock",
       ],
@@ -314,6 +315,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "617591e", text: "UISegmentedControl selection and rendering" },
     { hash: "0d18a9e", text: "stringWithFormat + formatted NSLog (stack varargs)" },
     { hash: "754f212", text: "CALayer corner radius on view backgrounds" },
     { hash: "22dc12a", text: "NSData + UIImage imageWithData, data-backed images" },
