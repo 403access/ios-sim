@@ -98,6 +98,12 @@ const STRING_INSTANCE_SIZE = 16;
 const NUMBER_VALUE = 8;
 const NUMBER_INSTANCE_SIZE = 16;
 
+const SWITCH_ON = 64;
+const SWITCH_INSTANCE_SIZE = 72;
+
+const CONTROL_EVENT_TOUCH_UP_INSIDE = 64n;
+const CONTROL_EVENT_VALUE_CHANGED = 4096n;
+
 const TIMER_INSTANCE_SIZE = 8;
 /** Virtual seconds advanced by one `tick` input event. */
 export const TICK_SECONDS = 0.5;
@@ -131,6 +137,11 @@ export interface TickEvent {
 }
 
 export type InputEvent = TapEvent | DragEvent | TickEvent;
+
+interface StubPool {
+  page: bigint;
+  cursor: bigint;
+}
 
 interface TouchStep {
   readonly kind: "touch" | "tick";
@@ -226,7 +237,10 @@ export class ObjcHost {
   private readonly weakOwners = new Map<bigint, bigint>();
   private readonly deadObjects = new Set<bigint>();
   private readonly poolOwners = new Map<bigint, boolean>();
-  private readonly buttonActions = new Map<bigint, { target: bigint; action: bigint }>();
+  private readonly controlActions = new Map<
+    bigint,
+    Array<{ target: bigint; action: bigint; events: bigint }>
+  >();
   private readonly observers = new Map<string, Array<{ observer: bigint; selector: bigint }>>();
   private notificationCenter: bigint | null = null;
   private userDefaults: bigint | null = null;
@@ -245,10 +259,8 @@ export class ObjcHost {
   private clock = 0;
   private tickAdvanced = false;
   private readonly dictionaries = new Map<bigint, Map<string, bigint>>();
-  private readonly notificationPage: bigint;
-  private notificationCursor: bigint;
-  private readonly lifecyclePage: bigint;
-  private lifecycleCursor: bigint;
+  private readonly callbackPool: StubPool = { page: 0n, cursor: 0n };
+  private readonly lifecyclePool: StubPool = { page: 0n, cursor: 0n };
   private readonly loadedControllers = new Set<bigint>();
   private readonly appearedControllers = new Set<bigint>();
   private readonly pendingLifecycle = new Map<bigint, { view: bigint; selectors: string[] }>();
@@ -299,16 +311,16 @@ export class ObjcHost {
     this.loadStubPage = this.memory.allocate(0x1000, { tag: "objc-load-stub", protection: 7 });
     this.deallocPage = this.memory.allocate(0x1000, { tag: "objc-dealloc-stubs", protection: 7 });
     this.deallocCursor = this.deallocPage;
-    this.notificationPage = this.memory.allocate(0x1000, {
+    this.callbackPool.page = this.memory.allocate(0x1000, {
       tag: "objc-notification-stubs",
       protection: 7,
     });
-    this.notificationCursor = this.notificationPage;
-    this.lifecyclePage = this.memory.allocate(0x1000, {
+    this.callbackPool.cursor = this.callbackPool.page;
+    this.lifecyclePool.page = this.memory.allocate(0x1000, {
       tag: "objc-lifecycle-stubs",
       protection: 7,
     });
-    this.lifecycleCursor = this.lifecyclePage;
+    this.lifecyclePool.cursor = this.lifecyclePool.page;
 
     // Data symbols some metadata references directly.
     const emptyCache = this.allocBytes(16);
@@ -905,40 +917,116 @@ export class ObjcHost {
     });
     this.registerClass(window);
 
-    const button = this.defineClass({
-      name: "UIButton",
+    const control = this.defineClass({
+      name: "UIControl",
       superclass: "UIView",
       instanceSize: VIEW_INSTANCE_SIZE,
       methods: [
+        { selector: "init", types: "@16@0:8", run: self },
         {
           selector: "addTarget:action:forControlEvents:",
           types: "v40@0:8@16:24Q32",
           run: (cpu, receiver) => {
-            this.buttonActions.set(receiver, {
+            const list = this.controlActions.get(receiver) ?? [];
+            list.push({
               target: cpu.readRegister(2),
               action: cpu.readRegister(3),
+              events: cpu.readRegister(4),
             });
+            this.controlActions.set(receiver, list);
+          },
+        },
+        {
+          selector: "removeTarget:action:forControlEvents:",
+          types: "v40@0:8@16:24Q32",
+          run: (cpu, receiver) => {
+            const target = cpu.readRegister(2);
+            const action = cpu.readRegister(3);
+            const events = cpu.readRegister(4);
+            const list = this.controlActions.get(receiver);
+            if (!list) return;
+            const remaining = list.filter(
+              (entry) =>
+                !(
+                  (target === 0n || entry.target === target) &&
+                  (action === 0n || entry.action === action) &&
+                  (events === 0n || (entry.events & events) !== 0n)
+                ),
+            );
+            if (remaining.length === 0) this.controlActions.delete(receiver);
+            else this.controlActions.set(receiver, remaining);
           },
         },
         {
           selector: "sendActionsForControlEvents:",
           types: "v24@0:8Q16",
-          run: (cpu, receiver) => this.sendButtonAction(cpu, receiver, 0n),
+          run: (cpu, receiver) => this.sendControlActions(cpu, receiver, cpu.readRegister(2)),
         },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(control);
+
+    const button = this.defineClass({
+      name: "UIButton",
+      superclass: "UIControl",
+      instanceSize: VIEW_INSTANCE_SIZE,
+      methods: [
         {
           selector: "touchesEnded:withEvent:",
           types: "v32@0:8@16@24",
-          run: (cpu, receiver) => this.sendButtonAction(cpu, receiver, cpu.readRegister(3)),
-        },
-        {
-          selector: "init",
-          types: "@16@0:8",
-          run: (cpu, receiver) => cpu.writeRegister(0, receiver),
+          run: (cpu, receiver) =>
+            this.sendControlActions(cpu, receiver, CONTROL_EVENT_TOUCH_UP_INSIDE),
         },
       ],
       classMethods: [],
     });
     this.registerClass(button);
+
+    const uiSwitch = this.defineClass({
+      name: "UISwitch",
+      superclass: "UIControl",
+      instanceSize: SWITCH_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "setOn:animated:",
+          types: "v28@0:8B16B20",
+          run: (cpu, receiver) =>
+            this.memory.write(
+              receiver + BigInt(SWITCH_ON),
+              1,
+              cpu.readRegister(2) === 0n ? 0n : 1n,
+            ),
+        },
+        {
+          selector: "setOn:",
+          types: "v20@0:8B16",
+          run: (cpu, receiver) =>
+            this.memory.write(
+              receiver + BigInt(SWITCH_ON),
+              1,
+              cpu.readRegister(2) === 0n ? 0n : 1n,
+            ),
+        },
+        {
+          selector: "isOn",
+          types: "B16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(SWITCH_ON), 1)),
+        },
+        {
+          selector: "touchesEnded:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => {
+            const next = this.memory.read(receiver + BigInt(SWITCH_ON), 1) === 0n ? 1n : 0n;
+            this.memory.write(receiver + BigInt(SWITCH_ON), 1, next);
+            return this.sendControlActions(cpu, receiver, CONTROL_EVENT_VALUE_CHANGED);
+          },
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(uiSwitch);
 
     const string = this.defineClass({
       name: "NSString",
@@ -2146,21 +2234,31 @@ export class ObjcHost {
     const notification = this.allocateInstance(klass);
     this.memory.write(notification + 8n, 8, namePointer);
     this.memory.write(notification + 16n, 8, object);
-    cpu.pc = this.writeNotificationStub(list, notification);
+    const calls = list.map((entry) => ({
+      receiver: entry.observer,
+      selector: entry.selector,
+      argument: notification,
+    }));
+    const stub = this.emitCallStub(this.callbackPool, calls, 0n);
+    if (stub !== null) cpu.pc = stub;
     return { value: 0n };
   }
 
-  private writeNotificationStub(
-    observers: ReadonlyArray<{ observer: bigint; selector: bigint }>,
-    notification: bigint,
-  ): bigint {
+  /**
+   * Generate a guest stub that sends several messages in order and returns a
+   * value, so a host method can trigger multiple callbacks (notification
+   * observers, control targets, lifecycle steps) and still hand control back
+   * to the guest caller afterwards.
+   */
+  private emitCallStub(
+    pool: StubPool,
+    calls: ReadonlyArray<{ receiver: bigint; selector: bigint; argument: bigint }>,
+    returnValue: bigint,
+  ): bigint | null {
+    if (calls.length === 0) return null;
     const messageSend = this.symbols.get("_objc_msgSend");
     if (!messageSend) throw new ObjcError("internal_error", "objc_msgSend is not registered");
-    const address = this.notificationCursor;
-    this.notificationCursor += 128n;
-    if (this.notificationCursor > this.notificationPage + 0x1000n) {
-      throw new ObjcError("stub_limit", "the notification stub page overflowed");
-    }
+    const address = pool.cursor;
     const code: number[] = [stpPre(29, 30, 31, -16)];
     const literals: bigint[] = [];
     const refs: Array<{ index: number; register: number; slot: number }> = [];
@@ -2169,18 +2267,24 @@ export class ObjcHost {
       literals.push(value);
       code.push(0);
     };
-    for (const entry of observers) {
-      addLiteral(0, entry.observer);
-      addLiteral(1, entry.selector);
-      addLiteral(2, notification);
+    for (const call of calls) {
+      addLiteral(0, call.receiver);
+      addLiteral(1, call.selector);
+      addLiteral(2, call.argument);
       addLiteral(16, messageSend);
       code.push(blr(16));
     }
+    addLiteral(0, returnValue);
     code.push(ldpPost(29, 30, 31, 16), ret());
     const literalStart = code.length * 4;
     for (const ref of refs) {
       code[ref.index] = ldrLiteral(ref.register, literalStart + ref.slot * 8 - ref.index * 4);
     }
+    const size = BigInt(literalStart + literals.length * 8);
+    if (address + size > pool.page + 0x1000n) {
+      throw new ObjcError("stub_limit", "the callback stub page overflowed");
+    }
+    pool.cursor = address + size;
     code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
     literals.forEach((value, index) =>
       this.memory.write(address + BigInt(literalStart + index * 8), 8, value),
@@ -2212,22 +2316,19 @@ export class ObjcHost {
     return this.invoke(method, cpu);
   }
 
-  private sendButtonAction(cpu: Arm64Cpu, button: bigint, event: bigint): SyscallResult {
-    const entry = this.buttonActions.get(button);
-    if (!entry) return { value: 0n };
-    const selector = this.readCString(entry.action);
-    const method = this.resolve(entry.target, selector);
-    if (!method) {
-      throw new ObjcError(
-        "unrecognized_selector",
-        `button target ${this.describe(entry.target)} does not respond to ${selector}`,
-      );
-    }
-    cpu.writeRegister(0, entry.target);
-    cpu.writeRegister(1, entry.action);
-    cpu.writeRegister(2, button);
-    cpu.writeRegister(3, event);
-    return this.invoke(method, cpu);
+  /** Send every matching control action through objc_msgSend. */
+  private sendControlActions(cpu: Arm64Cpu, control: bigint, mask: bigint): SyscallResult {
+    const entries = (this.controlActions.get(control) ?? []).filter(
+      (entry) => (entry.events & mask) !== 0n,
+    );
+    const calls = entries.map((entry) => ({
+      receiver: entry.target,
+      selector: entry.action,
+      argument: control,
+    }));
+    const stub = this.emitCallStub(this.callbackPool, calls, 0n);
+    if (stub !== null) cpu.pc = stub;
+    return { value: 0n };
   }
 
   private drainPool(receiver: bigint): void {
@@ -2634,47 +2735,16 @@ export class ObjcHost {
     for (const selector of pending.selectors) {
       if (selector === "viewDidLoad") this.loadedControllers.add(controller);
     }
-    const messageSend = this.symbols.get("_objc_msgSend");
-    if (!messageSend) throw new ObjcError("internal_error", "objc_msgSend is not registered");
-    const calls: Array<{ receiver: bigint; selector: bigint; imp: bigint }> = [];
+    const calls: Array<{ receiver: bigint; selector: bigint; argument: bigint }> = [];
     for (const name of pending.selectors) {
       const method = this.resolve(controller, name);
       if (!method || this.hostMethods.has(method.imp)) continue;
-      calls.push({ receiver: controller, selector: this.internString(name), imp: method.imp });
+      calls.push({ receiver: controller, selector: this.internString(name), argument: 0n });
     }
-    if (calls.length === 0) return;
-    const address = this.lifecycleCursor;
-    const code: number[] = [stpPre(29, 30, 31, -16)];
-    const literals: bigint[] = [];
-    const refs: Array<{ index: number; register: number; slot: number }> = [];
-    const addLiteral = (register: number, value: bigint): void => {
-      refs.push({ index: code.length, register, slot: literals.length });
-      literals.push(value);
-      code.push(0);
-    };
-    for (const call of calls) {
-      addLiteral(0, call.receiver);
-      addLiteral(1, call.selector);
-      addLiteral(16, call.imp);
-      code.push(blr(16));
-    }
-    addLiteral(0, pending.view);
-    code.push(ldpPost(29, 30, 31, 16), ret());
-    const literalStart = code.length * 4;
-    for (const ref of refs) {
-      code[ref.index] = ldrLiteral(ref.register, literalStart + ref.slot * 8 - ref.index * 4);
-    }
-    const size = BigInt(literalStart + literals.length * 8);
-    if (this.lifecycleCursor + size > this.lifecyclePage + 0x1000n) {
-      throw new ObjcError("stub_limit", "the lifecycle stub page overflowed");
-    }
-    this.lifecycleCursor += size;
-    code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
-    literals.forEach((value, index) =>
-      this.memory.write(address + BigInt(literalStart + index * 8), 8, value),
-    );
+    const stub = this.emitCallStub(this.lifecyclePool, calls, pending.view);
+    if (stub === null) return;
     cpu.writeRegister(0, pending.view);
-    cpu.pc = address;
+    cpu.pc = stub;
   }
 
   private uiApplicationMain(cpu: Arm64Cpu): SyscallResult {
@@ -2969,6 +3039,9 @@ export class ObjcHost {
       );
     }
     const klass = this.instances.get(view);
+    if (klass?.name === "UISwitch") {
+      this.paintSwitch(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
+    }
     if (klass?.name === "UILabel") {
       const textPointer = this.memory.read(view + BigInt(LABEL_TEXT), 8);
       if (textPointer !== 0n) {
@@ -3004,6 +3077,42 @@ export class ObjcHost {
     for (const child of this.children.get(view) ?? []) {
       this.paint(child, framebuffer, childOriginX, childOriginY, childClip, alpha);
     }
+  }
+
+  /** Draw a pill track and a round knob: deterministic, no images or layers. */
+  private paintSwitch(
+    view: bigint,
+    framebuffer: Framebuffer,
+    x: number,
+    y: number,
+    rect: { width: number; height: number },
+    clip: { x: number; y: number; width: number; height: number },
+    alpha: number,
+  ): void {
+    const on = this.memory.read(view + BigInt(SWITCH_ON), 1) !== 0n;
+    const height = rect.height;
+    const radius = height / 2;
+    const track: Rgba = on
+      ? { r: 52, g: 199, b: 89, a: 255 * alpha }
+      : { r: 200, g: 200, b: 205, a: 255 * alpha };
+    for (let row = 0; row < height; row += 1) {
+      const dy = row + 0.5 - radius;
+      const inset = radius - Math.sqrt(Math.max(0, radius * radius - dy * dy));
+      const left = x + inset;
+      const right = x + rect.width - inset;
+      if (right > left) framebuffer.fillRect(left, y + row, right - left, 1, track, clip);
+    }
+    const diameter = Math.max(2, height - 4);
+    const knobRadius = diameter / 2;
+    const centreX = on ? x + rect.width - 2 - knobRadius : x + 2 + knobRadius;
+    const centreY = y + height / 2;
+    const knob: Rgba = { r: 255, g: 255, b: 255, a: 255 * alpha };
+    for (let row = 0; row < diameter; row += 1) {
+      const dy = row + 0.5 - knobRadius;
+      const half = Math.sqrt(Math.max(0, knobRadius * knobRadius - dy * dy));
+      framebuffer.fillRect(centreX - half, y + 2 + row, half * 2, 1, knob, clip);
+    }
+    void centreY;
   }
 
   private scrollOffsetX(view: bigint): number {

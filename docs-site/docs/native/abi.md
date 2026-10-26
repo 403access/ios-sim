@@ -198,16 +198,22 @@ These are original metadata with host IMP trampolines, not Apple classes:
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NSObject`         | `-init`, `-dealloc`, `-class`, `-self`, `-isKindOfClass:`, `-respondsToSelector:`, `-retain`, `-release`, `-autorelease`, `-retainCount`, `+alloc`, `+new`    |
 | `UIView`           | `-init`, `-initWithFrame:`, `-setFrame:`, `-frame`, `-setBackgroundColor:`, `-backgroundColor`, `-addSubview:`, `-setHidden:`, `-isHidden`, `-layoutSubviews` |
+| `UIControl`        | `-init`, `-addTarget:action:forControlEvents:`, `-removeTarget:action:forControlEvents:`, `-sendActionsForControlEvents:`                                     |
+| `UIButton`         | `UIControl` subclass; `-touchesEnded:withEvent:` sends touch-up actions                                                                                       |
+| `UISwitch`         | `UIControl` subclass; `-setOn:`, `-setOn:animated:`, `-isOn`, and a local `-touchesEnded:` that toggles then sends value-changed                              |
 | `UIWindow`         | `-initWithFrame:`, `-makeKeyAndVisible`, `-setRootViewController:`, `-rootViewController`                                                                     |
 | `UIViewController` | `-init`, `-view`, `-setView:`, `-loadView`; lifecycle callbacks below                                                                                         |
 | `UIColor`          | `+redColor`, `+whiteColor`, `+blackColor`, `+clearColor`, `+colorWithRed:green:blue:alpha:`                                                                   |
 | `UIApplication`    | `+sharedApplication`, `-setDelegate:`, `-delegate`                                                                                                            |
 
-`UILabel` stores a C string (not `NSString`), a colour object at offset 72, a scale at offset 80,
+`UILabel` stores a string pointer (an `NSString` or a bare C string), a colour object at offset 72, a scale at offset 80,
 and alignment at offset 88 (0 left, 1 centre, 2 right); its instance size is 96. The renderer draws text with a built-in 3×5 uppercase/digit bitmap
 font at the label's frame. This is a proof of text reaching the framebuffer, not CoreText.
-`UIButton` stores one target/action pair; only touch-up dispatch is performed. Action methods receive
-the button as the sender. `UIView` ivars are fixed by this shim: frame doubles at 8/16/24/32, background object at 40,
+`UIControl` keeps a target/action list with its event mask. `UIButton` sends touch-up actions from
+`-touchesEnded:withEvent:`; `UISwitch` toggles its on byte and sends value-changed. Actions run from
+one generated stub, so several targets see the control as the sender and the caller still returns.
+`UISwitch` paints a deterministic pill and knob (green when on, grey when off); it has no animation,
+images, or layers. `UIView` ivars are fixed by this shim: frame doubles at 8/16/24/32, background object at 40,
 hidden byte at 48, clips-to-bounds byte at 49, alpha double at 56, instance size 64. Frames are **parent-relative**: painting
 and hit-testing accumulate origins down the tree, so a child inside a container lands at
 `container.origin + child.origin`. `clipsToBounds` intersects a view's clip with its frame for

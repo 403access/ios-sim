@@ -72,6 +72,7 @@ const SELECTORS = {
   objectForKey: "objectForKey:",
   scheduledTimer: "scheduledTimerWithTimeInterval:target:selector:repeats:",
   timerFired: "timerFired:",
+  switchChanged: "switchChanged:",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -187,7 +188,10 @@ type SlotName =
   | "timer"
   | "timerFires"
   | "timerColors"
-  | "statusView";
+  | "statusView"
+  | "classSwitch"
+  | "toggle"
+  | "switchChanges";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -236,6 +240,7 @@ interface Plan {
   readonly scrollChildren: number;
   readonly timerInterval: number;
   readonly statusRect: number;
+  readonly switchRect: number;
   readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
@@ -359,6 +364,9 @@ function planData(): Plan {
     "timerFires",
     "timerColors",
     "statusView",
+    "classSwitch",
+    "toggle",
+    "switchChanges",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -410,7 +418,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 7 * 24;
+  cursor += 8 + 8 * 24;
   const appCategory = cursor;
   cursor += 48;
   const lifecycleCategory = cursor;
@@ -497,6 +505,8 @@ function planData(): Plan {
   const scrollChildren = cursor;
   cursor += 64;
   const statusRect = cursor;
+  cursor += 32;
+  const switchRect = cursor;
   cursor += 32;
   const timerInterval = cursor;
   cursor += 8;
@@ -608,6 +618,7 @@ function planData(): Plan {
     scrollOffset,
     scrollChildren,
     statusRect,
+    switchRect,
     timerInterval,
     half,
     size: cursor,
@@ -738,6 +749,10 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
 
+  label("switchChanged");
+  emitMarker(slot("switchChanges"), 1);
+  emitWord(ret());
+
   label("timerFired");
   emitWord(stpPre(29, 30, 31, -16));
   emitWord(stpPre(19, 20, 31, -16));
@@ -831,6 +846,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("viewWillAppear") ?? 0),
     bases.textBase + (code.labels.get("viewDidAppear") ?? 0),
     bases.textBase + (code.labels.get("timerFired") ?? 0),
+    bases.textBase + (code.labels.get("switchChanged") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -881,6 +897,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_lifecycleMarker",
         value: dataAddress(plan.slotOffsets.lifecycleMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_switchChanges",
+        value: dataAddress(plan.slotOffsets.switchChanges),
         sectionIndex: 2,
       },
       {
@@ -1199,6 +1220,34 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(2, slot("delegateSelf"));
     emitAddress(3, selector(SELECTORS.buttonTapped));
     emitWord(movz(4, 64));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // UISwitch *toggle = [[UISwitch alloc] initWithFrame:(280,310,60,32)];
+    emitPointer(0, slot("classSwitch"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.switchRect));
+    emitDouble(1, dataAddress(plan.switchRect + 8));
+    emitDouble(2, dataAddress(plan.switchRect + 16));
+    emitDouble(3, dataAddress(plan.switchRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(21, slot("toggle"));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.addTarget));
+    emitPointer(2, slot("delegateSelf"));
+    emitAddress(3, selector(SELECTORS.switchChanged));
+    emitWord(movz(4, 4096 & 0xffff));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
     emitWord(movReg(0, 19));
@@ -1721,6 +1770,7 @@ function emitData(
   viewWillAppearImp: number,
   viewDidAppearImp: number,
   timerFiredImp: number,
+  switchChangedImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -1772,7 +1822,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 7);
+  u32(plan.appCategoryMethods + 4, 8);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -1812,6 +1862,10 @@ function emitData(
   rebase(timerEntry, selector(SELECTORS.timerFired));
   rebase(timerEntry + 8, selector(TYPES));
   rebase(timerEntry + 16, timerFiredImp);
+  const switchEntry = plan.appCategoryMethods + 176;
+  rebase(switchEntry, selector(SELECTORS.switchChanged));
+  rebase(switchEntry + 8, selector(TYPES));
+  rebase(switchEntry + 16, switchChangedImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }
@@ -1976,6 +2030,7 @@ function emitData(
   bind(plan.slotOffsets.classNumber, "_OBJC_CLASS_$_NSNumber");
   bind(plan.slotOffsets.classDictionary, "_OBJC_CLASS_$_NSMutableDictionary");
   bind(plan.slotOffsets.classTimer, "_OBJC_CLASS_$_NSTimer");
+  bind(plan.slotOffsets.classSwitch, "_OBJC_CLASS_$_UISwitch");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
@@ -2034,6 +2089,10 @@ function emitData(
   f64(plan.statusRect + 8, 620);
   f64(plan.statusRect + 16, 375);
   f64(plan.statusRect + 24, 40);
+  f64(plan.switchRect, 280);
+  f64(plan.switchRect + 8, 310);
+  f64(plan.switchRect + 16, 60);
+  f64(plan.switchRect + 24, 32);
   f64(plan.timerInterval, 1);
   f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {

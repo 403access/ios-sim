@@ -186,6 +186,22 @@ describe("ObjC UIKit demo", () => {
     ).toBe(1n);
   });
 
+  it("toggles a UISwitch and sends a value-changed action", () => {
+    const result = runDemo([{ x: 300, y: 326 }]);
+    expect(result.frames).toHaveLength(2);
+    const at = (frameIndex: number, x: number, y: number): number[] => {
+      const frame = result.frames[frameIndex]!;
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    // Off: knob on the left, grey track on the right. On: the reverse.
+    expect(at(0, 290, 326)).toEqual([255, 255, 255]);
+    expect(at(0, 330, 326)).toEqual([200, 200, 205]);
+    expect(at(1, 290, 326)).toEqual([52, 199, 89]);
+    expect(at(1, 330, 326)).toEqual([255, 255, 255]);
+    expect(result.program.memory.read(result.program.resolveExport("_switchChanges")!, 8)).toBe(1n);
+  });
+
   it("moves the view on ticks and fires timers on the virtual clock", () => {
     const result = runDemo([
       { kind: "tick" },

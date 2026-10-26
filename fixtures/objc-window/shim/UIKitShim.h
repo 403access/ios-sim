@@ -15,7 +15,7 @@
 typedef struct objc_selector *SEL;
 typedef unsigned long NSUInteger;
 
-enum { UIControlEventTouchUpInside = 1 << 6 };
+enum { UIControlEventTouchUpInside = 1 << 6, UIControlEventValueChanged = 1 << 12 };
 typedef signed char BOOL;
 #define YES ((BOOL)1)
 #define NO ((BOOL)0)
@@ -192,8 +192,20 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)setTextAlignment:(long)alignment;
 @end
 
-@interface UIButton : UIView
+@interface UIControl : UIView
 - (void)addTarget:(id)target action:(SEL)action forControlEvents:(NSUInteger)events;
+- (void)removeTarget:(id)target action:(SEL)action forControlEvents:(NSUInteger)events;
+- (void)sendActionsForControlEvents:(NSUInteger)events;
+@end
+
+@interface UIButton : UIControl
+- (void)addTarget:(id)target action:(SEL)action forControlEvents:(NSUInteger)events;
+@end
+
+@interface UISwitch : UIControl
+- (void)setOn:(BOOL)on animated:(BOOL)animated;
+- (void)setOn:(BOOL)on;
+- (BOOL)isOn;
 @end
 
 @interface UIWindow : UIView

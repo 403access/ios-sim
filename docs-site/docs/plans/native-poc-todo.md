@@ -71,6 +71,7 @@ started.
 - [x] `NSNumber` and `NSArray`/`NSMutableArray` (host-side storage, range-checked lookup)
 - [x] `NSDictionary`/`NSMutableDictionary` with string keys
 - [x] Deterministic virtual clock: ticks advance 0.5 s and fire due `NSTimer`s
+- [x] `UIControl` target/action masks, `UIButton` touch-up, `UISwitch` toggle + rendering
 - [x] `UIViewController -viewDidLoad` once, via a category or subclass
 - [x] `UIViewController -viewWillAppear:`/`-viewDidAppear:` when the root view is shown
 - [x] `UILabel` with a 3×5 bitmap font (left/centre/right alignment)

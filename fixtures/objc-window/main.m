@@ -26,6 +26,7 @@ static NSMutableDictionary *gTheme;
 static NSMutableArray *gTimerColors;
 static UIView *gStatus;
 static int gTimerFires;
+static int gSwitchChanges;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
@@ -129,6 +130,7 @@ static unsigned gTick;
 - (void)applicationWillTerminate:(id)application;
 - (void)themeChanged:(id)notification;
 - (void)timerFired:(id)timer;
+- (void)switchChanged:(id)sender;
 @end
 
 @implementation AppDelegate
@@ -208,6 +210,11 @@ static unsigned gTick;
              action:@selector(buttonTapped:)
    forControlEvents:UIControlEventTouchUpInside];
   [window addSubview:button];
+  UISwitch *toggle = [[UISwitch alloc] initWithFrame:CGRectMake(280, 310, 60, 32)];
+  [toggle addTarget:self
+             action:@selector(switchChanged:)
+   forControlEvents:UIControlEventValueChanged];
+  [window addSubview:toggle];
   [window makeKeyAndVisible];
   return YES;
 }
@@ -229,6 +236,11 @@ static unsigned gTick;
   BOOL ready = gLifecycle == 1 && gAppear == 12;
   UIColor *color = [gTheme objectForKey:"theme"];
   gView.backgroundColor = ready ? color : [UIColor blackColor];
+}
+
+- (void)switchChanged:(id)sender {
+  (void)sender;
+  gSwitchChanges++;
 }
 
 - (void)timerFired:(id)timer {
