@@ -647,7 +647,7 @@ export class ObjcHost {
     this.registerSymbol("_NSLog", (cpu) => {
       const pointer = cpu.readRegister(0);
       if (pointer !== 0n && this.log) {
-        const text = this.memory.readCString(pointer, 4096);
+        const text = this.formatVariadic(this.memory.readCString(pointer, 4096), cpu);
         this.log(new TextEncoder().encode(`${text}\n`));
       }
       return { value: 0n };
@@ -1395,6 +1395,18 @@ export class ObjcHost {
           selector: "stringWithString:",
           types: "@24@0:8@16",
           run: (cpu) => cpu.writeRegister(0, this.newString(cpu.readRegister(2))),
+        },
+        {
+          selector: "stringWithFormat:",
+          types: "@24@0:8*16",
+          run: (cpu) => {
+            if (!this.byAddress.has(cpu.readRegister(0))) {
+              throw new ObjcError("bad_receiver", "stringWithFormat: is not a class");
+            }
+            const format = this.stringValue(cpu.readRegister(2));
+            const text = this.formatVariadic(format, cpu);
+            cpu.writeRegister(0, this.newString(this.internString(text)));
+          },
         },
       ],
     });
@@ -3394,6 +3406,72 @@ export class ObjcHost {
     const instance = this.allocateInstance(numberClass);
     this.memory.write(instance + BigInt(NUMBER_VALUE), 8, BigInt.asIntN(64, value));
     return instance;
+  }
+
+  /**
+   * Minimal `printf`-style formatting for `NSLog` and `+stringWithFormat:`.
+   * Supports %@, %s, %d/%i/%u, %ld/%lu/%lld/%llu and %% . Integers come from
+   * x-registers (starting at `registerStart`) and then the guest stack; %f is
+   * intentionally unsupported and left as literal text.
+   */
+  private formatVariadic(format: string, cpu: Arm64Cpu): string {
+    // Apple's arm64 ABI passes variadic arguments on the stack, starting at
+    // the caller's SP; named arguments stay in registers.
+    let stackOffset = 0n;
+    const nextArgument = (): bigint => {
+      const value = this.memory.read(cpu.sp + stackOffset, 8);
+      stackOffset += 8n;
+      return value;
+    };
+    let output = "";
+    let index = 0;
+    while (index < format.length) {
+      const character = format[index]!;
+      if (character !== "%") {
+        output += character;
+        index += 1;
+        continue;
+      }
+      const rest = format.slice(index + 1);
+      const match = /^((?:ll|l)?)([@sdilu%])/.exec(rest);
+      if (!match) {
+        output += character;
+        index += 1;
+        continue;
+      }
+      const modifier = match[1]!;
+      const specifier = match[2]!;
+      const length = match[0]!.length;
+      const argument = specifier === "%" ? null : nextArgument();
+      switch (specifier) {
+        case "%":
+          output += "%";
+          break;
+        case "@":
+          output += this.stringValue(argument ?? 0n);
+          break;
+        case "s": {
+          const pointer = argument ?? 0n;
+          output += pointer === 0n ? "(null)" : this.memory.readCString(pointer, 4096);
+          break;
+        }
+        case "d":
+        case "i":
+          output +=
+            modifier.length > 0
+              ? BigInt.asIntN(64, argument ?? 0n).toString()
+              : BigInt.asIntN(32, argument ?? 0n).toString();
+          break;
+        case "u":
+          output +=
+            modifier.length > 0
+              ? BigInt.asUintN(64, argument ?? 0n).toString()
+              : BigInt.asUintN(32, argument ?? 0n).toString();
+          break;
+      }
+      index += 1 + length;
+    }
+    return output;
   }
 
   /** Create an NSTimer; scheduling starts it on the virtual clock. */

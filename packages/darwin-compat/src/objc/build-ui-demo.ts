@@ -28,6 +28,7 @@ import {
   addReg,
   and,
   adrp,
+  subImm,
   b,
   blr,
   cbz,
@@ -89,6 +90,7 @@ const SELECTORS = {
   dataWithContentsOfFile: "dataWithContentsOfFile:",
   layer: "layer",
   setCornerRadius: "setCornerRadius:",
+  stringWithFormat: "stringWithFormat:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
   beginAnimations: "beginAnimations:context:",
@@ -235,7 +237,9 @@ type SlotName =
   | "iconData"
   | "dataLength"
   | "imageNamed"
-  | "imageFromData";
+  | "imageFromData"
+  | "formatted"
+  | "formatMarker";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -441,6 +445,8 @@ function planData(): Plan {
     "dataLength",
     "imageNamed",
     "imageFromData",
+    "formatted",
+    "formatMarker",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -477,6 +483,9 @@ function planData(): Plan {
     "png",
     "nope",
     "TAPPED",
+    "%s-%d",
+    "OK",
+    "OK-7",
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
@@ -1074,6 +1083,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       {
+        name: "_formatMarker",
+        value: dataAddress(plan.slotOffsets.formatMarker),
+        sectionIndex: 2,
+      },
+      {
         name: "_dataLength",
         value: dataAddress(plan.slotOffsets.dataLength),
         sectionIndex: 2,
@@ -1533,6 +1547,27 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
     emitStore(0, slot("bundleMissing"));
+
+    // NSString *formatted = [NSString stringWithFormat:"%s-%d", "OK", 7];
+    // Variadic arguments go on the stack on arm64.
+    emitWord(subImm(31, 31, 16));
+    emitAddress(9, dataAddress(plan.stringOffsets.OK!));
+    emitWord(strUnsigned(9, 31, 0));
+    emitWord(movz(10, 7));
+    emitWord(strUnsigned(10, 31, 8));
+    emitPointer(0, slot("classString"));
+    emitAddress(1, selector(SELECTORS.stringWithFormat));
+    emitAddress(2, dataAddress(plan.stringOffsets["%s-%d"]!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(addImm(31, 31, 16));
+    emitStore(0, slot("formatted"));
+    emitPointer(0, slot("formatted"));
+    emitAddress(1, selector(SELECTORS.isEqualToString));
+    emitAddress(2, dataAddress(plan.stringOffsets["OK-7"]!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("formatMarker"));
 
     // NSData *data = [NSData dataWithContentsOfFile:found];
     // UIImage *fromData = [UIImage imageWithData:data];
@@ -2244,6 +2279,9 @@ function emitData(
     "png",
     "nope",
     "TAPPED",
+    "%s-%d",
+    "OK",
+    "OK-7",
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",

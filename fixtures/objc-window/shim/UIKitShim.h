@@ -178,6 +178,7 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 
 @interface NSString : NSObject
 + (id)stringWithUTF8String:(const char *)text;
++ (id)stringWithFormat:(const char *)format, ...;
 - (const char *)UTF8String;
 - (unsigned long)length;
 - (BOOL)isEqualToString:(NSString *)other;

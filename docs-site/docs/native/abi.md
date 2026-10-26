@@ -286,6 +286,11 @@ hierarchy) and resolves `pathForResource:ofType:` through the same loader as `UI
 nil when the file is absent. Resource names are C strings, matching the shim's other name-taking
 APIs.
 
+`+stringWithFormat:` and `NSLog` share one small formatter: `%@` (NSString or C string), `%s`,
+`%d`/`%i`/`%u`, `%ld`/`%lu`/`%lld`/`%llu`, and `%%`. On Apple arm64, variadic arguments are passed on
+the stack rather than in x-registers; the shim reads them from the caller's SP, which is what the
+clang fixture verified. `%f` is not implemented and stays literal text.
+
 The shim's `NSString` is a small object holding a pointer to guest bytes; `-length` counts UTF-8
 bytes and `-integerValue` parses base 10. Where the shim took a C string before (`UILabel -setText:`,
 notification names, defaults keys) a bare pointer is still accepted, so generated and clang code can
