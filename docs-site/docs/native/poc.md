@@ -127,7 +127,8 @@ open an Apple binary. `scripts/build-objc-fixture.sh` therefore generates two ti
 
 Both export nothing. Every ObjC symbol the app imports (`objc_msgSend`, `objc_alloc`,
 `_OBJC_CLASS_$_UIView`, …) is resolved by `ObjcHost.symbols`. The fixture links with
-`-fixup_chains` because the loader implements chained fixups, not legacy `LC_DYLD_INFO` opcodes.
+`-fixup_chains` and `-no_fixup_chains` variants; both run through the same loader and render the
+same frames. The legacy variant exercises the classic `LC_DYLD_INFO` opcode path.
 
 ## Reading the evidence
 

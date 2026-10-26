@@ -407,6 +407,12 @@ export class ObjcHost {
         { selector: "release", types: "v16@0:8", run: () => undefined },
         { selector: "autorelease", types: "@16@0:8", run: self },
         { selector: "retainCount", types: "Q16@0:8", run: (cpu) => cpu.writeRegister(0, 1n) },
+        {
+          selector: "conformsToProtocol:",
+          types: "c24@0:8^{objc_protocol=}16",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.conformsToProtocol(receiver, cpu.readRegister(2)) ? 1n : 0n),
+        },
       ],
       classMethods: [
         {
@@ -431,6 +437,12 @@ export class ObjcHost {
           selector: "class",
           types: "#16@0:8",
           run: (cpu, receiver) => cpu.writeRegister(0, receiver),
+        },
+        {
+          selector: "conformsToProtocol:",
+          types: "c24@0:8^{objc_protocol=}16",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.conformsToProtocol(receiver, cpu.readRegister(2)) ? 1n : 0n),
         },
         { selector: "initialize", types: "v16@0:8", run: () => undefined },
       ],
@@ -648,6 +660,7 @@ export class ObjcHost {
         },
         this.constantColor("redColor", { r: 1, g: 0, b: 0, a: 1 }),
         this.constantColor("blueColor", { r: 0, g: 0, b: 1, a: 1 }),
+        this.constantColor("purpleColor", { r: 0.5, g: 0, b: 0.5, a: 1 }),
         this.constantColor("greenColor", { r: 0, g: 1, b: 0, a: 1 }),
         this.constantColor("whiteColor", { r: 1, g: 1, b: 1, a: 1 }),
         this.constantColor("blackColor", { r: 0, g: 0, b: 0, a: 1 }),
@@ -777,6 +790,7 @@ export class ObjcHost {
       methods: methodMap,
       classMethods: classMap,
       ivars: [],
+      protocols: [],
     };
     this.symbols.set(`_OBJC_CLASS_$_${spec.name}`, classAddress);
     this.symbols.set(`_OBJC_METACLASS_$_${spec.name}`, metaclass);
@@ -825,7 +839,11 @@ export class ObjcHost {
     for (const [selector, method] of category.methods) methods.set(selector, method);
     const classMethods = new Map(klass.classMethods);
     for (const [selector, method] of category.classMethods) classMethods.set(selector, method);
-    const updated: ObjcClass = { ...klass, methods, classMethods };
+    const protocols = [...klass.protocols];
+    for (const protocol of category.protocols) {
+      if (!protocols.includes(protocol)) protocols.push(protocol);
+    }
+    const updated: ObjcClass = { ...klass, methods, classMethods, protocols };
     this.classes.set(updated.name, updated);
     this.byAddress.set(updated.address, updated);
     this.byMetaAddress.set(updated.metaclass, updated);
@@ -1037,6 +1055,28 @@ export class ObjcHost {
       current = this.byAddress.get(current.superclass);
     }
     return false;
+  }
+
+  private conformsToProtocol(receiver: bigint, protocol: bigint): boolean {
+    if (protocol === 0n) return false;
+    const name = this.memory.read(protocol + 8n, 8);
+    if (name === 0n) return false;
+    const wanted = this.readCString(name);
+    const klass = this.byAddress.get(this.classOf(receiver));
+    if (!klass) return false;
+    for (const candidate of klass.protocols) {
+      if (candidate === wanted) return true;
+    }
+    return false;
+  }
+
+  /** `Class:Protocol` pairs, for CLI and tests. */
+  protocolSummary(): string[] {
+    const summary: string[] = [];
+    for (const klass of this.classes.values()) {
+      for (const protocol of klass.protocols) summary.push(`${klass.name}:${protocol}`);
+    }
+    return summary;
   }
 
   private describe(receiver: bigint): string {

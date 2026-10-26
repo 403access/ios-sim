@@ -24,6 +24,7 @@ describe("ObjC UIKit demo", () => {
       expect.arrayContaining(["NSObject", "UIView", "UIWindow", "AppDelegate"]),
     );
     expect(result.objcCategories).toEqual(["AppDelegate(Window)"]);
+    expect(result.objcProtocols).toContain("TapView:Tappable");
 
     // The category supplies the delegate method and +initialize increments the
     // marker exactly once before the first message.

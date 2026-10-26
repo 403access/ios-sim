@@ -65,6 +65,7 @@ export interface ProcessResult {
   readonly frames: readonly CapturedFrame[];
   readonly objcClasses: readonly string[];
   readonly objcCategories: readonly string[];
+  readonly objcProtocols: readonly string[];
 }
 
 export interface CreateProcessOptions extends ProcessOptions {
@@ -256,6 +257,7 @@ export class DarwinProcess {
       frames: this.objc?.frames ?? [],
       objcClasses: this.objc ? [...this.objc.classes.keys()] : [],
       objcCategories: this.objc?.categories ?? [],
+      objcProtocols: this.objc?.protocolSummary() ?? [],
     };
   }
 }

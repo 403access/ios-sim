@@ -8,7 +8,10 @@
 
 #import "UIKitShim.h"
 
-@interface TapView : UIView {
+@protocol Tappable
+@end
+
+@interface TapView : UIView <Tappable> {
   BOOL _pressed;
 }
 @end
@@ -18,7 +21,11 @@
   (void)touches;
   (void)event;
   _pressed = YES;
-  self.backgroundColor = [UIColor blueColor];
+  if ([self conformsToProtocol:@protocol(Tappable)]) {
+    self.backgroundColor = [UIColor blueColor];
+  } else {
+    self.backgroundColor = [UIColor purpleColor];
+  }
 }
 - (void)touchesEnded:(id)touches withEvent:(id)event {
   (void)touches;

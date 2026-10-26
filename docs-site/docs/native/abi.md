@@ -123,8 +123,18 @@ Supported load command: `LC_DYLD_CHAINED_FIXUPS` with header version 0, imports 
 `PTR_64` (2), `PTR_64_OFFSET` (6), `ARM64E` (1), `ARM64E_USERLAND` (9), `ARM64E_USERLAND24` (12).
 
 The loader applies each operation to the mapped image at `slide + segment offset`. Multi-start
-chains and unsupported pointer formats are hard errors. Legacy `LC_DYLD_INFO` bind opcodes are
-not implemented; an image that needs them fails with `legacy_bindings_unimplemented`.
+chains and unsupported pointer formats are hard errors.
+
+### Legacy `LC_DYLD_INFO`
+
+Classic rebase, bind, weak-bind, and lazy-bind opcode streams are implemented. Bindings are
+applied eagerly: lazy symbol pointers are resolved at load, so `dyld_stub_binder` is bound to
+zero and never called. Rebase pointers that fall inside the image's preferred range receive the
+slide; other values are left untouched.
+
+The arm64 threaded-bind opcode (`0xD0`) is rejected with
+`legacy_threaded_binds_unimplemented`; link with chained fixups for those images. Unknown opcodes
+and truncated streams fail with `bad_legacy_bind`/`bad_legacy_rebase`.
 
 ## Objective-C 2 subset
 
@@ -282,5 +292,5 @@ plain `KEY=VALUE` are not implemented.
 
 Errors are `CompatError` subclasses with a stable `code`. Examples: `memory_fault`,
 `unsupported_instruction`, `unsupported_syscall`, `path_escape`, `dependency_not_found`,
-`symbol_not_found`, `legacy_bindings_unimplemented`, `instruction_limit`, `deadline`,
+`symbol_not_found`, `legacy_threaded_binds_unimplemented`, `bad_legacy_bind`, `instruction_limit`, `deadline`,
 `xpc_truncated`, `plist_duplicate_key`. The CLI prints the code; tests assert on it.

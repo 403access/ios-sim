@@ -99,7 +99,7 @@ ports/bootstrap services, MIG-lite, an XPC-style codec, a Darwin syscall subset,
 plists, an Objective-C 2 metadata/dispatch subset, a clean-room UIKit shim, and deterministic
 PNG frame capture. The generated ObjC app and a clang-built ObjC app render the same frame digest.
 
-Not implemented: threads/blocking Mach receive, legacy dyld bindings, the shared cache, real
+Not implemented: threads/blocking Mach receive, the shared cache, real
 Apple Objective-C/Swift runtimes, Foundation, Apple UIKit/AppKit, Metal/IOSurface/QuartzCore,
 code signing, TCC, `launchd_sim`, CoreSimulator, SpringBoard, and APFS images. It cannot run the
 simulator or an unmodified Apple app. The [roadmap](docs-site/docs/native/roadmap.md) sequences the remaining multi-year

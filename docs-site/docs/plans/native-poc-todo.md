@@ -20,6 +20,12 @@ started.
 - [~] FP register-offset addressing (not emitted by the fixtures; throws visibly)
 - [ ] SIMD lane arithmetic beyond scalar (not needed for the PoC)
 
+## Loader
+
+- [x] `LC_DYLD_INFO` rebase, bind, weak-bind, and lazy-bind opcodes
+- [x] Eager lazy resolution and `dyld_stub_binder` handling
+- [ ] arm64 threaded binds (rejected by name)
+
 ## P1 — Objective-C ABI
 
 - [x] Parse `__objc_classlist`, `class_t`, `class_ro_t`
@@ -31,9 +37,10 @@ started.
 - [x] `+load` before the entry point through a generated prologue
 - [x] Categories (`__objc_catlist`) merged into classes
 - [x] Absolute and relative ivar lists parsed and exposed
+- [x] Protocol lists, inherited protocols, and `conformsToProtocol:`
 - [x] Runtime entry points: retain/release/autorelease, storeStrong, opt_self, sel_registerName
 - [x] Guest IMP tail call preserves arguments and return address
-- [~] Protocols, associated objects, weak references (absent, documented)
+- [~] Associated objects and weak references (absent, documented)
 
 ## P2 — framework shim and frame
 

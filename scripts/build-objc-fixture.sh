@@ -27,25 +27,31 @@ mkdir -p "$build"
 
 bun scripts/build-objc-shim.ts "$build"
 
-clang \
-  -target arm64-apple-macos13 \
-  -fobjc-runtime=macosx-13.0 \
-  -fobjc-arc \
-  -fobjc-relative-method-lists \
-  -nostdinc \
-  -isystem fixtures/objc-window/shim \
-  -nostdlib \
-  -L"$build" \
-  -lSystem \
-  -Wl,-e,_main \
-  -Wl,-undefined,dynamic_lookup \
-  -Wl,-fixup_chains \
-  -Wl,-no_adhoc_codesign \
-  -o "$build/ObjcWindow" \
-  fixtures/objc-window/main.m
+build_app() {
+  local output="$1"
+  local fixups="$2"
+  clang \
+    -target arm64-apple-macos13 \
+    -fobjc-runtime=macosx-13.0 \
+    -fobjc-arc \
+    -fobjc-relative-method-lists \
+    -nostdinc \
+    -isystem fixtures/objc-window/shim \
+    -nostdlib \
+    -L"$build" \
+    -lSystem \
+    -Wl,-e,_main \
+    -Wl,-undefined,dynamic_lookup \
+    "$fixups" \
+    -Wl,-no_adhoc_codesign \
+    -o "$output" \
+    fixtures/objc-window/main.m
+  install_name_tool \
+    -change /usr/lib/libSystem.B.dylib @loader_path/libSystemShim.dylib \
+    "$output"
+}
 
-install_name_tool \
-  -change /usr/lib/libSystem.B.dylib @loader_path/libSystemShim.dylib \
-  "$build/ObjcWindow"
+build_app "$build/ObjcWindow" -Wl,-fixup_chains
+build_app "$build/ObjcWindowLegacy" -Wl,-no_fixup_chains
 
-echo "built $build/ObjcWindow"
+echo "built $build/ObjcWindow and $build/ObjcWindowLegacy"

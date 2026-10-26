@@ -45,6 +45,7 @@ export interface ObjcCategory {
   readonly classAddress: bigint;
   readonly methods: ReadonlyMap<string, ObjcMethod>;
   readonly classMethods: ReadonlyMap<string, ObjcMethod>;
+  readonly protocols: readonly string[];
 }
 
 export interface ObjcClass {
@@ -58,6 +59,7 @@ export interface ObjcClass {
   readonly methods: ReadonlyMap<string, ObjcMethod>;
   readonly classMethods: ReadonlyMap<string, ObjcMethod>;
   readonly ivars: readonly ObjcIvar[];
+  readonly protocols: readonly string[];
 }
 
 /**
@@ -101,6 +103,11 @@ function parseClass(memory: VirtualMemory, image: LoadedImage, address: bigint):
   const flags = readU32(memory, data, "class flags");
   const methods = parseMethodList(memory, readPointer(memory, data + 32n, "class methods"));
   const ivars = parseIvarList(memory, readPointer(memory, data + 48n, "class ivars"));
+  const protocols = parseProtocolList(
+    memory,
+    readPointer(memory, data + 40n, "class protocols"),
+    new Set(),
+  );
 
   const metaData = readPointer(memory, isa + 32n, "metaclass data") & ~0x7n;
   const metaSuperclass = readPointer(memory, isa + 8n, "metaclass superclass");
@@ -120,6 +127,7 @@ function parseClass(memory: VirtualMemory, image: LoadedImage, address: bigint):
     methods,
     classMethods,
     ivars,
+    protocols,
   };
 }
 
@@ -151,10 +159,39 @@ export function parseObjcCategories(memory: VirtualMemory, image: LoadedImage): 
           memory,
           readPointer(memory, pointer + 24n, "category class methods"),
         ),
+        protocols: parseProtocolList(
+          memory,
+          readPointer(memory, pointer + 32n, "category protocols"),
+          new Set(),
+        ),
       });
     }
   }
   return categories;
+}
+
+function parseProtocolList(memory: VirtualMemory, address: bigint, visited: Set<bigint>): string[] {
+  if (address === 0n) return [];
+  const count = readU64(memory, address, "protocol list");
+  if (count > 256n) {
+    throw new ObjcError("bad_objc_metadata", `protocol list claims ${count} entries`);
+  }
+  const names: string[] = [];
+  for (let index = 0n; index < count; index += 1n) {
+    const reference = readPointer(memory, address + 8n + index * 8n, "protocol reference");
+    if (reference === 0n || visited.has(reference)) continue;
+    visited.add(reference);
+    const name = readCString(memory, readPointer(memory, reference + 8n, "protocol name"));
+    if (!names.includes(name)) names.push(name);
+    for (const inherited of parseProtocolList(
+      memory,
+      readPointer(memory, reference + 16n, "inherited protocols"),
+      visited,
+    )) {
+      if (!names.includes(inherited)) names.push(inherited);
+    }
+  }
+  return names;
 }
 
 function parseIvarList(memory: VirtualMemory, address: bigint): ObjcIvar[] {
@@ -291,6 +328,11 @@ function sectionAddress(image: LoadedImage, preferredAddress: number): bigint {
 }
 
 function readPointer(memory: VirtualMemory, address: bigint, what: string): bigint {
+  requireMapped(memory, address, 8, what);
+  return memory.read(address, 8);
+}
+
+function readU64(memory: VirtualMemory, address: bigint, what: string): bigint {
   requireMapped(memory, address, 8, what);
   return memory.read(address, 8);
 }

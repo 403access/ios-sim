@@ -61,6 +61,7 @@ __attribute__((objc_root_class))
 + (UIColor *)redColor;
 + (UIColor *)blueColor;
 + (UIColor *)greenColor;
++ (UIColor *)purpleColor;
 + (UIColor *)whiteColor;
 + (UIColor *)colorWithRed:(CGFloat)red
                     green:(CGFloat)green
@@ -73,6 +74,7 @@ __attribute__((objc_root_class))
 - (void)setFrame:(CGRect)frame;
 - (void)setBackgroundColor:(UIColor *)color;
 - (void)addSubview:(UIView *)view;
+- (BOOL)conformsToProtocol:(id)protocol;
 - (void)touchesBegan:(id)touches withEvent:(id)event;
 - (void)touchesEnded:(id)touches withEvent:(id)event;
 @end

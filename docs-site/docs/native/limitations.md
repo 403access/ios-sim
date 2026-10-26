@@ -16,7 +16,7 @@ exists so no reader can mistake the substrate for a working iOS Simulator.
 | Kernel interface    | Mach ports/task ports, MIG, kqueue, Darwin VM semantics           | User-space port model and a syscall shim; no kernel                                                               | A real kernel boundary (microkernel host, or kernel module) with blocking threads and VM objects |
 | IPC                 | XPC client/server, port rights in messages, launchd registration  | Semantic ports, rights, reply ports, bootstrap registry, MIG-lite                                                 | Port/memory descriptors, port sets, notifications, byte-compatible MIG/XPC                       |
 | Process model       | `launchd_sim`, `posix_spawn` attributes, roles, jetsam            | Single-threaded jobs, bounded KeepAlive                                                                           | Threads, signals, process groups, memory pressure, spawn attributes                              |
-| Loader              | `dyld_sim`, shared cache, chained fixups, code signing            | Thin/fat parse, user-space loading, chained fixups, export tries                                                  | Shared-cache mapping, legacy bindings, initializers, `dlopen`, signature validation              |
+| Loader              | `dyld_sim`, shared cache, chained fixups, code signing            | Thin/fat parse, user-space loading, chained + legacy fixups, export tries                                         | Shared-cache mapping, threaded binds, initializers, `dlopen`, signature validation               |
 | Runtimes            | Objective-C runtime ABI, Swift runtime, Foundation/CoreFoundation | ObjC 2 metadata, `objc_msgSend`, categories, `+initialize`, ivar metadata; no Foundation, Swift, or ARC semantics | A libobjc2/Foundation-compatible substrate, then Swift metadata and Foundation conformance       |
 | Graphics            | Metal, IOSurface, QuartzCore/CoreAnimation, display link, colour  | CPU RGBA framebuffer with deterministic PNG/PPM; solid rectangles only                                            | A Metal-on-Vulkan-class implementation with stable frames and IOSurface sharing                  |
 | UI                  | AppKit host, UIKit simulator build, accessibility                 | Clean-room shim: `UIApplicationMain`, window, view, colour                                                        | Real UIKit build plus AppKit-replacement windowing/accessibility                                 |
@@ -73,8 +73,8 @@ macOS-gated test runs compiler output end to end.
   autorelease pools are markers. Objects live until the process exits; the PoC is short-lived.
 - **Selectors are C strings.** The shim follows the modern direct-selector convention; a selector
   registered as an opaque `objc_selector` struct is not supported.
-- **Classes are realised eagerly.** `+load`, categories, and `+initialize` are implemented;
-  protocols, associated objects, and weak references are not. A missing method fails with
+- **Classes are realised eagerly.** `+load`, categories, `+initialize`, and protocol conformance
+  are implemented; associated objects and weak references are not. A missing method fails with
   `unrecognized_selector`, not a message-send crash.
 - **Ivar metadata is parsed, not synthesised.** Instances get an `isa` and the class's
   `instanceSize`; compiler-assigned ivar offsets work because the guest uses its own layout. The

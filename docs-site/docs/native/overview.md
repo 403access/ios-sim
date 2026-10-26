@@ -50,6 +50,7 @@ The real fixture is built at test time and is not committed. Its source is
 | ---------------------- | --------------------------------------------------------------------------- |
 | Mach-O parsing         | 64-bit/fat slices, load commands, segments, symbols, UUID, build version    |
 | Chained fixups         | `DYLD_CHAINED_PTR_64`, `64_OFFSET`, arm64e (auth decoded, PAC not enforced) |
+| Legacy fixups          | `LC_DYLD_INFO` rebase/bind/weak/lazy opcodes, eager lazy resolution         |
 | Export tries           | regular, absolute, thread-local, re-export entries                          |
 | User-space dyld        | dependency lookup, slides, binds/rebases, `LC_MAIN`/`LC_UNIXTHREAD`         |
 | AArch64 execution      | integer subset, branches, loads/stores, flags, syscall traps                |
@@ -67,8 +68,8 @@ The real fixture is built at test time and is not committed. Its source is
 
 ## What is deliberately absent
 
-The parts that make the simulator a simulator are missing: the dynamic shared cache, legacy dyld
-bindings, real Apple Objective-C/Swift runtimes, Foundation, Apple UIKit/AppKit,
+The parts that make the simulator a simulator are missing: the dynamic shared cache, real Apple
+Objective-C/Swift runtimes, Foundation, Apple UIKit/AppKit,
 Metal/IOSurface/QuartzCore, code signing and entitlements, TCC, keychain, `launchd_sim`,
 CoreSimulator XPC services, SpringBoard, jetsam, and APFS disk images. The UIKit on this branch is
 a clean-room shim, not Apple's framework. See [Limitations](./limitations.md) for the full matrix,

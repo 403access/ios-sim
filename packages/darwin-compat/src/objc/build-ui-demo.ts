@@ -26,7 +26,9 @@ import { S_CSTRING_LITERALS, S_REGULAR } from "../macho/constants.js";
 import {
   addImm,
   adrp,
+  b,
   blr,
+  cbz,
   ldpPost,
   ldrDouble,
   ldrUnsigned,
@@ -54,6 +56,8 @@ const SELECTORS = {
   redColor: "redColor",
   blueColor: "blueColor",
   greenColor: "greenColor",
+  purpleColor: "purpleColor",
+  conformsToProtocol: "conformsToProtocol:",
   touchesBegan: "touchesBegan:withEvent:",
   touchesEnded: "touchesEnded:withEvent:",
   didFinishLaunching: "application:didFinishLaunchingWithOptions:",
@@ -66,6 +70,7 @@ const TYPES = "v16@0:8";
 type SlotName =
   | "classWindow"
   | "classTapView"
+  | "protocolTappable"
   | "classColor"
   | "msgSend"
   | "uiApplicationMain"
@@ -87,12 +92,15 @@ interface Plan {
   readonly tapEmptyMethods: number;
   readonly tapMethods: number;
   readonly tapIvars: number;
+  readonly tapProtocols: number;
+  readonly tappableProtocol: number;
   readonly appClass: number;
   readonly appMeta: number;
   readonly tapClass: number;
   readonly tapMeta: number;
   readonly classList: number;
   readonly categoryList: number;
+  readonly protocolList: number;
   readonly windowRect: number;
   readonly viewRect: number;
   readonly size: number;
@@ -161,6 +169,7 @@ function planData(): Plan {
   const slotNames: SlotName[] = [
     "classWindow",
     "classTapView",
+    "protocolTappable",
     "classColor",
     "msgSend",
     "uiApplicationMain",
@@ -188,6 +197,7 @@ function planData(): Plan {
     DEMO_CLASS_NAME,
     DEMO_VIEW_CLASS_NAME,
     DEMO_CATEGORY_NAME,
+    "Tappable",
     "_pressed",
     "B",
   ]) {
@@ -220,6 +230,10 @@ function planData(): Plan {
   cursor += 8 + 2 * 24;
   const tapIvars = cursor;
   cursor += 8 + 32;
+  const tapProtocols = cursor;
+  cursor += 16;
+  const tappableProtocol = cursor;
+  cursor += 96;
   const constEnd = cursor;
 
   cursor = align(cursor);
@@ -238,6 +252,8 @@ function planData(): Plan {
   const classList = cursor;
   cursor += 16;
   const categoryList = cursor;
+  cursor += 8;
+  const protocolList = cursor;
   cursor += 8;
 
   cursor = align(cursor);
@@ -290,6 +306,13 @@ function planData(): Plan {
       flags: S_REGULAR,
     },
     {
+      name: "__objc_protolist",
+      offset: protocolList,
+      size: 8,
+      alignment: 3,
+      flags: S_REGULAR,
+    },
+    {
       name: "__const",
       offset: windowRect,
       size: 64,
@@ -312,12 +335,15 @@ function planData(): Plan {
     tapEmptyMethods,
     tapMethods,
     tapIvars,
+    tapProtocols,
+    tappableProtocol,
     appClass,
     appMeta,
     tapClass,
     tapMeta,
     classList,
     categoryList,
+    protocolList,
     windowRect,
     viewRect,
     size: cursor,
@@ -388,7 +414,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitDelegate();
 
   label("tapBegan");
-  emitTouchHandler(SELECTORS.blueColor);
+  emitBeganHandler();
   label("tapEnded");
   emitTouchHandler(SELECTORS.greenColor);
 
@@ -513,6 +539,43 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(ldpPost(29, 30, 31, 16));
     emitWord(ret());
   }
+
+  function emitBeganHandler(): void {
+    emitWord(stpPre(29, 30, 31, -16));
+    emitWord(stpPre(19, 20, 31, -16));
+    emitWord(movReg(19, 0));
+    // if ([self conformsToProtocol:@protocol(Tappable)]) blue else purple
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.conformsToProtocol));
+    emitPointer(2, slot("protocolTappable"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    const skipBlue = code.words.length;
+    emitWord(0);
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.blueColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    const jumpToApply = code.words.length;
+    emitWord(0);
+    const purple = code.words.length;
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.purpleColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    const apply = code.words.length;
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(ldpPost(19, 20, 31, 16));
+    emitWord(ldpPost(29, 30, 31, 16));
+    emitWord(ret());
+    code.words[skipBlue] = cbz(0, (purple - skipBlue) * 4);
+    code.words[jumpToApply] = b((apply - jumpToApply) * 4);
+  }
 }
 
 function emitData(
@@ -537,6 +600,7 @@ function emitData(
     DEMO_CLASS_NAME,
     DEMO_VIEW_CLASS_NAME,
     DEMO_CATEGORY_NAME,
+    "Tappable",
     "_pressed",
     "B",
   ]) {
@@ -624,6 +688,7 @@ function emitData(
 
   rebase(plan.tapRo + 24, address(plan.stringOffsets[DEMO_VIEW_CLASS_NAME]!));
   rebase(plan.tapRo + 32, address(plan.tapMethods));
+  rebase(plan.tapRo + 40, address(plan.tapProtocols));
   rebase(plan.tapRo + 48, address(plan.tapIvars));
   rebase(plan.tapMetaRo + 24, address(plan.stringOffsets[DEMO_VIEW_CLASS_NAME]!));
   rebase(plan.tapMetaRo + 32, address(plan.tapEmptyMethods));
@@ -634,6 +699,12 @@ function emitData(
   rebase(plan.tapMeta, address(plan.tapMeta));
   bind(plan.tapMeta + 8, "_OBJC_METACLASS_$_UIView");
   rebase(plan.tapMeta + 32, address(plan.tapMetaRo));
+
+  // protocol_list_t { count 1, [protocol] } and protocol_t { isa, name, protocols, ... }
+  u32(plan.tapProtocols, 1);
+  rebase(plan.tapProtocols + 8, address(plan.tappableProtocol));
+  rebase(plan.tappableProtocol + 8, address(plan.stringOffsets.Tappable!));
+  rebase(plan.protocolList, address(plan.tappableProtocol));
 
   // ivar_list_t { entsize 32, count 1, [offset, name, type, alignment, size] }
   u32(plan.tapIvars, 32);
@@ -655,6 +726,7 @@ function emitData(
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
   rebase(plan.slotOffsets.classTapView, address(plan.tapClass));
+  rebase(plan.slotOffsets.protocolTappable, address(plan.tappableProtocol));
 
   f64(plan.windowRect, 0);
   f64(plan.windowRect + 8, 0);

@@ -7,9 +7,9 @@
  * symbol-table fallback, chained binds/rebases (including arm64e pointer
  * formats), and `LC_MAIN`/`LC_UNIXTHREAD` entry selection.
  *
- * Not implemented: the dyld shared cache, legacy dyld opcode bindings, lazy
- * binding stubs, initializers, `dlopen`, weak symbol coalescing, and code
- * signing. Each has a stable error code instead of silent success.
+ * Not implemented: the dyld shared cache, lazy binding stubs (legacy lazy
+ * binds are applied eagerly), initializers, `dlopen`, weak symbol coalescing,
+ * and code signing. Each has a stable error code instead of silent success.
  */
 
 import { readFileSync } from "node:fs";
@@ -17,6 +17,7 @@ import { basename, dirname, isAbsolute, join, normalize } from "node:path";
 import { LoaderError } from "../errors.js";
 import type { ChainedFixup } from "../macho/fixups.js";
 import { parseMachO } from "../macho/parse.js";
+import { parseLegacyFixups, type LegacyBind } from "../macho/legacy.js";
 import {
   DYLD_CHAINED_PTR_64_OFFSET,
   DYLD_CHAINED_PTR_ARM64E,
@@ -103,6 +104,89 @@ interface LoadContext {
 }
 
 const MAX_IMAGES = 128;
+
+function applyLegacyFixups(loaded: LoadedImage, context: LoadContext, slice: Uint8Array): void {
+  const legacy = parseLegacyFixups(slice, loaded.image);
+  const slide = loaded.slide;
+  let low = BigInt(Number.MAX_SAFE_INTEGER);
+  let high = 0n;
+  for (const segment of loaded.image.segments) {
+    if (segment.name === "__PAGEZERO" || segment.vmSize === 0) continue;
+    const start = BigInt(segment.vmAddress);
+    low = start < low ? start : low;
+    const end = start + BigInt(segment.vmSize);
+    high = end > high ? end : high;
+  }
+
+  const addressOf = (segmentIndex: number, offset: number, what: string): bigint => {
+    const segment = loaded.image.segments[segmentIndex];
+    if (!segment) {
+      throw new LoaderError("bad_legacy_fixup", `${what} names missing segment ${segmentIndex}`);
+    }
+    const relative = offset;
+    if (relative < 0 || relative + 8 > segment.vmSize) {
+      throw new LoaderError(
+        "bad_legacy_fixup",
+        `${what} at ${segment.name}+${relative} is outside the segment`,
+      );
+    }
+    return loaded.base + BigInt(segment.vmAddress - loaded.image.preferredBase) + BigInt(relative);
+  };
+
+  for (const rebase of legacy.rebases) {
+    const address = addressOf(rebase.segmentIndex, rebase.offset, "rebase");
+    const value = context.memory.read(address, 8);
+    if (value >= low && value < high) {
+      context.memory.write(address, 8, BigInt.asUintN(64, value + slide));
+    }
+    context.stats.rebases += 1;
+    context.stats.fixups += 1;
+  }
+
+  for (const bind of legacy.binds) {
+    const address = addressOf(bind.segmentIndex, bind.offset, "bind");
+    const value = legacyBindTarget(bind, loaded, context);
+    if (value !== null) {
+      context.memory.write(address, 8, BigInt.asUintN(64, value + bind.addend));
+    }
+    context.stats.binds += 1;
+    context.stats.fixups += 1;
+  }
+}
+
+function legacyBindTarget(
+  bind: LegacyBind,
+  loaded: LoadedImage,
+  context: LoadContext,
+): bigint | null {
+  const main = context.order[0];
+  let target: bigint | null = null;
+  if (bind.ordinal === 0) {
+    target = lookupExport(loaded, bind.symbol, new Set());
+  } else if (bind.ordinal === -1) {
+    target = main ? lookupExport(main, bind.symbol, new Set()) : null;
+  } else if (bind.ordinal === -2 || bind.ordinal === -3) {
+    target = main ? lookupFlat(main, bind.symbol) : null;
+  } else if (bind.ordinal > 0) {
+    const dependency = loaded.dependencies[bind.ordinal - 1];
+    target = dependency ? lookupExport(dependency, bind.symbol, new Set()) : null;
+  } else {
+    throw new LoaderError(
+      "unsupported_import_ordinal",
+      `import ordinal ${bind.ordinal} for ${bind.symbol} is not supported`,
+    );
+  }
+  target ??= context.externalSymbols.get(bind.symbol) ?? null;
+  if (target !== null) return target;
+  // The lazy-bind trampoline is never called because every lazy pointer is
+  // resolved eagerly. Binding it to zero is enough and avoids a fake symbol.
+  if (bind.weak || bind.ordinal === -3 || bind.symbol === "dyld_stub_binder") return 0n;
+  throw new LoaderError(
+    "symbol_not_found",
+    `${loaded.path} needs ${bind.symbol} from ordinal ${bind.ordinal}, but it is not exported`,
+    { path: loaded.path, symbol: bind.symbol, ordinal: bind.ordinal },
+  );
+}
 
 export class ImageLoader {
   private readonly memory: VirtualMemory;
@@ -245,7 +329,7 @@ export class ImageLoader {
       loaded.dependencies[dylib.ordinal - 1] = this.loadImage(resolved, context);
     }
 
-    applyFixups(loaded, context);
+    applyFixups(loaded, context, slice);
     context.stats.images += 1;
     return loaded;
   }
@@ -302,17 +386,16 @@ function mapSegments(
   }
 }
 
-function applyFixups(loaded: LoadedImage, context: LoadContext): void {
+function applyFixups(loaded: LoadedImage, context: LoadContext, slice: Uint8Array): void {
   const fixups = loaded.image.chainedFixups;
   if (!fixups) {
+    const info = loaded.image.dyldInfo;
     if (
-      (loaded.image.dyldInfo?.bindSize ?? 0) > 0 ||
-      (loaded.image.dyldInfo?.lazyBindSize ?? 0) > 0
+      info &&
+      (info.rebaseSize > 0 || info.bindSize > 0 || info.weakBindSize > 0 || info.lazyBindSize > 0)
     ) {
-      throw new LoaderError(
-        "legacy_bindings_unimplemented",
-        `${loaded.path} uses legacy dyld opcode bindings; only chained fixups are implemented`,
-      );
+      applyLegacyFixups(loaded, context, slice);
+      return;
     }
     return;
   }
