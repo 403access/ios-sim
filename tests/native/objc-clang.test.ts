@@ -60,6 +60,19 @@ describe.skipIf(!available)("real clang ObjC app", () => {
         frameCount: 5,
       },
       {
+        label: "nav",
+        events: [{ x: 60, y: 600 }],
+        frameCount: 2,
+      },
+      {
+        label: "nav-pop",
+        events: [
+          { x: 60, y: 600 },
+          { x: 40, y: 22 },
+        ],
+        frameCount: 3,
+      },
+      {
         label: "segments",
         events: [{ x: 170, y: 378 }],
         frameCount: 2,

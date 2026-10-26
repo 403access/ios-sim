@@ -51,11 +51,11 @@ import {
 } from "./abi.js";
 
 export const OBJC_TRAP_BASE = 0x9000;
-export const OBJC_TRAP_LIMIT = 0x9100;
+export const OBJC_TRAP_LIMIT = 0x9200;
 export const DEFAULT_SCREEN = { width: 375, height: 667 } as const;
 
 const ARENA_SIZE = 0x8000;
-const TRAMPOLINE_PAGE = 0x1000;
+const TRAMPOLINE_PAGE = 0x2000;
 const STUB_PAGE = 0x1000;
 const MAX_INSTANCES = 512;
 const MAX_FRAMES = 8;
@@ -146,7 +146,9 @@ const TIMER_INSTANCE_SIZE = 8;
 export const TICK_SECONDS = 0.5;
 
 const CONTROLLER_VIEW = 8;
-const CONTROLLER_INSTANCE_SIZE = 16;
+const CONTROLLER_TITLE = 16;
+const CONTROLLER_INSTANCE_SIZE = 24;
+const NAV_BAR_HEIGHT = 44;
 
 export interface CapturedFrame {
   readonly width: number;
@@ -348,6 +350,12 @@ export class ObjcHost {
   private readonly gestures = new Map<bigint, bigint[]>();
   private readonly segments = new Map<bigint, string[]>();
   private readonly viewLayers = new Map<bigint, bigint>();
+  private readonly navigationStacks = new Map<bigint, bigint[]>();
+  private readonly navigationContent = new Map<bigint, bigint>();
+  private readonly navigationChrome = new Map<
+    bigint,
+    { bar: bigint; title: bigint; back: bigint }
+  >();
   private readonly gestureDefs = new Map<
     bigint,
     {
@@ -988,6 +996,11 @@ export class ObjcHost {
           types: "B16@0:8",
           run: (cpu, receiver) =>
             cpu.writeRegister(0, this.memory.read(receiver + BigInt(VIEW_HIDDEN), 1)),
+        },
+        {
+          selector: "removeFromSuperview",
+          types: "v16@0:8",
+          run: (_cpu, receiver) => this.detachView(receiver),
         },
         {
           selector: "layer",
@@ -2579,10 +2592,95 @@ export class ObjcHost {
             this.memory.write(receiver + BigInt(CONTROLLER_VIEW), 8, cpu.readRegister(2)),
         },
         { selector: "loadView", types: "v16@0:8", run: () => undefined },
+        {
+          selector: "setTitle:",
+          types: "v24@0:8@16",
+          run: (cpu, receiver) =>
+            this.memory.write(receiver + BigInt(CONTROLLER_TITLE), 8, cpu.readRegister(2)),
+        },
+        {
+          selector: "title",
+          types: "@16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(CONTROLLER_TITLE), 8)),
+        },
       ],
       classMethods: [],
     });
     this.registerClass(controller);
+
+    const navigation = this.defineClass({
+      name: "UINavigationController",
+      superclass: "UIViewController",
+      instanceSize: CONTROLLER_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "initWithRootViewController:",
+          types: "@24@0:8@16",
+          run: (cpu, receiver) => {
+            this.navigationStacks.set(receiver, [cpu.readRegister(2)]);
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "view",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            this.controllerDepth += 1;
+            const view = this.controllerView(receiver);
+            this.ensureNavigationChrome(receiver);
+            this.controllerDepth -= 1;
+            this.rebuildNavigation(receiver);
+            cpu.writeRegister(0, view);
+            this.flushLifecycle(receiver, cpu);
+          },
+        },
+        {
+          selector: "pushViewController:animated:",
+          types: "v36@0:8@16B24",
+          run: (cpu, receiver) => {
+            const stack = this.navigationStacks.get(receiver) ?? [];
+            const target = cpu.readRegister(2);
+            if (target !== 0n) stack.push(target);
+            this.navigationStacks.set(receiver, stack);
+            if (this.memory.read(receiver + BigInt(CONTROLLER_VIEW), 8) !== 0n) {
+              this.rebuildNavigation(receiver);
+            }
+          },
+        },
+        {
+          selector: "popViewControllerAnimated:",
+          types: "@20@0:8B16",
+          run: (cpu, receiver) => {
+            const stack = this.navigationStacks.get(receiver) ?? [];
+            if (stack.length <= 1) {
+              cpu.writeRegister(0, 0n);
+              return;
+            }
+            const popped = stack.pop()!;
+            if (this.memory.read(receiver + BigInt(CONTROLLER_VIEW), 8) !== 0n) {
+              this.rebuildNavigation(receiver);
+            }
+            cpu.writeRegister(0, popped);
+          },
+        },
+        {
+          selector: "topViewController",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const stack = this.navigationStacks.get(receiver) ?? [];
+            cpu.writeRegister(0, stack[stack.length - 1] ?? 0n);
+          },
+        },
+        {
+          selector: "backTapped:",
+          types: "v24@0:8@16",
+          run: (_cpu, receiver) => this.navigationBack(receiver),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(navigation);
 
     const pool = this.defineClass({
       name: "NSAutoreleasePool",
@@ -4554,6 +4652,104 @@ export class ObjcHost {
       if (half <= 0) continue;
       framebuffer.fillRect(centreX - half, centreY - radius + row, half * 2, 1, color, clip);
     }
+  }
+
+  /** Create the bar, title, and back button for a navigation controller. */
+  private ensureNavigationChrome(controller: bigint): void {
+    if (this.navigationChrome.has(controller)) return;
+    const view = this.memory.read(controller + BigInt(CONTROLLER_VIEW), 8);
+    if (view === 0n) return;
+    const viewClass = this.classes.get("UIView");
+    const labelClass = this.classes.get("UILabel");
+    const buttonClass = this.classes.get("UIButton");
+    if (!viewClass || !labelClass || !buttonClass) return;
+    const bar = this.allocateInstance(viewClass);
+    this.writeRect(bar, { x: 0, y: 0, width: this.width, height: NAV_BAR_HEIGHT });
+    this.memory.write(bar + BigInt(VIEW_BACKGROUND), 8, this.newColor(0.95, 0.95, 0.97, 1));
+    this.addSubview(view, bar);
+    const title = this.allocateInstance(labelClass);
+    this.writeRect(title, { x: 0, y: 8, width: this.width, height: 28 });
+    this.writeDouble(title, LABEL_SCALE, 2);
+    this.memory.write(title + BigInt(LABEL_ALIGNMENT), 8, 1n);
+    this.addSubview(bar, title);
+    const back = this.allocateInstance(buttonClass);
+    this.writeRect(back, { x: 8, y: 9, width: 76, height: 26 });
+    this.memory.write(back + BigInt(VIEW_BACKGROUND), 8, this.newColor(0.82, 0.82, 0.86, 1));
+    this.controlActions.set(back, [
+      {
+        target: controller,
+        action: this.internString("backTapped:"),
+        events: CONTROL_EVENT_TOUCH_UP_INSIDE,
+      },
+    ]);
+    const backLabel = this.allocateInstance(labelClass);
+    this.writeRect(backLabel, { x: 0, y: 0, width: 76, height: 26 });
+    this.writeDouble(backLabel, LABEL_SCALE, 2);
+    this.memory.write(backLabel + BigInt(LABEL_ALIGNMENT), 8, 1n);
+    this.memory.write(backLabel + BigInt(LABEL_TEXT), 8, this.internString("BACK"));
+    this.addSubview(back, backLabel);
+    this.addSubview(bar, back);
+    this.navigationChrome.set(controller, { bar, title, back });
+  }
+
+  /** Show the top controller's view under the bar. */
+  private rebuildNavigation(controller: bigint): void {
+    const chrome = this.navigationChrome.get(controller);
+    const view = this.memory.read(controller + BigInt(CONTROLLER_VIEW), 8);
+    if (!chrome || view === 0n) return;
+    const stack = this.navigationStacks.get(controller) ?? [];
+    const top = stack[stack.length - 1] ?? 0n;
+    const title =
+      top === 0n ? "" : this.stringValue(this.memory.read(top + BigInt(CONTROLLER_TITLE), 8));
+    this.memory.write(chrome.title + BigInt(LABEL_TEXT), 8, this.internString(title));
+    const previous = this.navigationContent.get(controller);
+    if (previous !== undefined) {
+      this.detachView(previous);
+      this.navigationContent.delete(controller);
+    }
+    if (top === 0n) return;
+    const child = this.controllerView(top);
+    if (child === 0n) return;
+    this.writeRect(child, {
+      x: 0,
+      y: NAV_BAR_HEIGHT,
+      width: this.width,
+      height: Math.max(0, this.height - NAV_BAR_HEIGHT),
+    });
+    this.addSubview(view, child, 0);
+    this.navigationContent.set(controller, child);
+  }
+
+  private navigationBack(controller: bigint): void {
+    const stack = this.navigationStacks.get(controller) ?? [];
+    if (stack.length > 1) {
+      stack.pop();
+      this.rebuildNavigation(controller);
+      return;
+    }
+    this.detachView(this.memory.read(controller + BigInt(CONTROLLER_VIEW), 8));
+  }
+
+  private detachView(view: bigint): void {
+    if (view === 0n) return;
+    const parent = this.superviews.get(view);
+    if (parent === undefined) return;
+    this.children.set(
+      parent,
+      (this.children.get(parent) ?? []).filter((child) => child !== view),
+    );
+    this.superviews.delete(view);
+  }
+
+  private newColor(r: number, g: number, b: number, a: number): bigint {
+    const klass = this.classes.get("UIColor");
+    if (!klass) throw new ObjcError("internal_error", "UIColor is missing");
+    const instance = this.allocateInstance(klass);
+    this.writeDouble(instance, COLOR_RED, r);
+    this.writeDouble(instance, COLOR_GREEN, g);
+    this.writeDouble(instance, COLOR_BLUE, b);
+    this.writeDouble(instance, COLOR_ALPHA, a);
+    return instance;
   }
 
   /** Draw the segmented track, dividers, selected fill, and segment titles. */

@@ -190,6 +190,16 @@ as `objcStats` in the process result and CLI JSON: allocations, retains, release
 autoreleases, pool pushes/pops, deallocs, associations, weak stores/loads/zeroings, and
 message dispatch totals split into host and guest IMPs.
 
+### Navigation
+
+`UINavigationController` keeps a stack and builds its chrome host-side: a 44-point bar, a centred
+bitmap title from the top controller's `title`, and a back button whose target is the controller
+itself. The top controller's view is inserted under the bar at `(0, 44, width, height - 44)`;
+push/pop rebuild it. Back pops when the stack has more than one entry, otherwise it removes the
+navigation view from its superview (a demo convenience). There are no animated transitions, no
+interactive pop gesture, no navigation-bar customisation, and pushed controllers' lifecycle
+callbacks are not sent.
+
 ### Layers
 
 `-layer` returns a lazily created `CALayer` per view. Its corner radius rounds the view's own
@@ -228,19 +238,20 @@ nearest-neighbour sampling, multiplied by the view's alpha.
 
 These are original metadata with host IMP trampolines, not Apple classes:
 
-| Class                | Methods (instance unless marked +)                                                                                                                                                                    |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NSObject`           | `-init`, `-dealloc`, `-class`, `-self`, `-isKindOfClass:`, `-respondsToSelector:`, `-retain`, `-release`, `-autorelease`, `-retainCount`, `+alloc`, `+new`, `-performSelector:withObject:afterDelay:` |
-| `UIView`             | `-init`, `-initWithFrame:`, `-setFrame:`, `-frame`, `-setBackgroundColor:`, `-backgroundColor`, `-addSubview:`, `-setHidden:`, `-isHidden`, `-layoutSubviews`                                         |
-| `UIControl`          | `-init`, `-addTarget:action:forControlEvents:`, `-removeTarget:action:forControlEvents:`, `-sendActionsForControlEvents:`                                                                             |
-| `UIButton`           | `UIControl` subclass; `-touchesEnded:withEvent:` sends touch-up actions                                                                                                                               |
-| `UISegmentedControl` | `UIControl` subclass; `-initWithItems:`, `-numberOfSegments`, `-selectedSegmentIndex`, `-setSelectedSegmentIndex:`; touch selects and sends value-changed                                             |
-| `UISlider`           | `UIControl` subclass; `-setValue:`, `-setValue:animated:`, `-value`, min/max accessors, and drag updates that send value-changed                                                                      |
-| `UISwitch`           | `UIControl` subclass; `-setOn:`, `-setOn:animated:`, `-isOn`, and a local `-touchesEnded:` that toggles then sends value-changed                                                                      |
-| `UIWindow`           | `-initWithFrame:`, `-makeKeyAndVisible`, `-setRootViewController:`, `-rootViewController`                                                                                                             |
-| `UIViewController`   | `-init`, `-view`, `-setView:`, `-loadView`; lifecycle callbacks below                                                                                                                                 |
-| `UIColor`            | `+redColor`, `+whiteColor`, `+blackColor`, `+clearColor`, `+colorWithRed:green:blue:alpha:`                                                                                                           |
-| `UIApplication`      | `+sharedApplication`, `-setDelegate:`, `-delegate`                                                                                                                                                    |
+| Class                    | Methods (instance unless marked +)                                                                                                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NSObject`               | `-init`, `-dealloc`, `-class`, `-self`, `-isKindOfClass:`, `-respondsToSelector:`, `-retain`, `-release`, `-autorelease`, `-retainCount`, `+alloc`, `+new`, `-performSelector:withObject:afterDelay:` |
+| `UIView`                 | `-init`, `-initWithFrame:`, `-setFrame:`, `-frame`, `-setBackgroundColor:`, `-backgroundColor`, `-addSubview:`, `-setHidden:`, `-isHidden`, `-layoutSubviews`                                         |
+| `UIControl`              | `-init`, `-addTarget:action:forControlEvents:`, `-removeTarget:action:forControlEvents:`, `-sendActionsForControlEvents:`                                                                             |
+| `UIButton`               | `UIControl` subclass; `-touchesEnded:withEvent:` sends touch-up actions                                                                                                                               |
+| `UINavigationController` | `UIViewController` subclass; `-initWithRootViewController:`, `-pushViewController:animated:`, `-popViewControllerAnimated:`, `-topViewController`; host-built bar, title, back button                 |
+| `UISegmentedControl`     | `UIControl` subclass; `-initWithItems:`, `-numberOfSegments`, `-selectedSegmentIndex`, `-setSelectedSegmentIndex:`; touch selects and sends value-changed                                             |
+| `UISlider`               | `UIControl` subclass; `-setValue:`, `-setValue:animated:`, `-value`, min/max accessors, and drag updates that send value-changed                                                                      |
+| `UISwitch`               | `UIControl` subclass; `-setOn:`, `-setOn:animated:`, `-isOn`, and a local `-touchesEnded:` that toggles then sends value-changed                                                                      |
+| `UIWindow`               | `-initWithFrame:`, `-makeKeyAndVisible`, `-setRootViewController:`, `-rootViewController`                                                                                                             |
+| `UIViewController`       | `-init`, `-view`, `-setView:`, `-loadView`; lifecycle callbacks below                                                                                                                                 |
+| `UIColor`                | `+redColor`, `+whiteColor`, `+blackColor`, `+clearColor`, `+colorWithRed:green:blue:alpha:`                                                                                                           |
+| `UIApplication`          | `+sharedApplication`, `-setDelegate:`, `-delegate`                                                                                                                                                    |
 
 `UILabel` stores a string pointer (an `NSString` or a bare C string), a colour object at offset 72, a scale at offset 80,
 alignment at offset 88 (0 left, 1 centre, 2 right), and a line limit at offset 96; its instance size is 104. The renderer

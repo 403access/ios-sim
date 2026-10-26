@@ -320,7 +320,17 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)setView:(UIView *)view;
 - (void)viewWillAppear:(BOOL)animated;
 - (void)viewDidAppear:(BOOL)animated;
+- (void)setTitle:(const char *)title;
+- (const char *)title;
 @end
+
+@interface UINavigationController : UIViewController
+- (id)initWithRootViewController:(UIViewController *)root;
+- (void)pushViewController:(UIViewController *)controller animated:(BOOL)animated;
+- (id)popViewControllerAnimated:(BOOL)animated;
+- (UIViewController *)topViewController;
+@end
+
 
 // The last argument is a C string in this shim. Apple's API takes NSString.
 extern int UIApplicationMain(int argc, char *argv[], id principalClassName,

@@ -33,6 +33,8 @@ static int gDelayed;
 static int gBundle;
 static int gGesture;
 static int gSegment = -1;
+static UIWindow *gWindow;
+static UINavigationController *gNav;
 static UILabel *gLabel;
 
 @interface UIViewController (Lifecycle)
@@ -142,6 +144,7 @@ static unsigned gTick;
 - (void)delayedTick:(id)object;
 - (void)gestureTapped:(id)recognizer;
 - (void)segmentChanged:(id)sender;
+- (void)openScreen:(id)sender;
 @end
 
 @implementation AppDelegate
@@ -155,6 +158,7 @@ static unsigned gTick;
   [defaults setInteger:7 forKey:"Count"];
   (void)[defaults integerForKey:"Count"];
   UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 375, 667)];
+  gWindow = window;
   TapView *view = [[TapView alloc] initWithFrame:CGRectMake(20, 20, 200, 100)];
   gView = view;
   view.backgroundColor = [UIColor redColor];
@@ -267,6 +271,24 @@ static unsigned gTick;
   NSMutableArray *items = [NSMutableArray array];
   [items addObject:[NSString stringWithUTF8String:"ONE"]];
   [items addObject:[NSString stringWithUTF8String:"TWO"]];
+  UIViewController *root = [[UIViewController alloc] init];
+  [root setTitle:"ROOT"];
+  root.view.backgroundColor = [UIColor orangeColor];
+  UIViewController *detail = [[UIViewController alloc] init];
+  [detail setTitle:"DETAIL"];
+  detail.view.backgroundColor = [UIColor purpleColor];
+  gNav = [[UINavigationController alloc] initWithRootViewController:root];
+  [gNav pushViewController:detail animated:NO];
+  UIButton *open = [[UIButton alloc] initWithFrame:CGRectMake(20, 586, 140, 28)];
+  open.backgroundColor = [UIColor grayColor];
+  UILabel *openLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 140, 28)];
+  [openLabel setText:[NSString stringWithUTF8String:"OPEN"]];
+  [openLabel setTextAlignment:1];
+  [open addSubview:openLabel];
+  [open addTarget:self
+              action:@selector(openScreen:)
+    forControlEvents:UIControlEventTouchUpInside];
+  [window addSubview:open];
   UISegmentedControl *segments = [[UISegmentedControl alloc] initWithItems:items];
   [segments setFrame:CGRectMake(20, 364, 200, 30)];
   [segments addTarget:self
@@ -310,6 +332,11 @@ static unsigned gTick;
 - (void)switchChanged:(id)sender {
   (void)sender;
   gSwitchChanges++;
+}
+
+- (void)openScreen:(id)sender {
+  (void)sender;
+  [gWindow addSubview:[gNav view]];
 }
 
 - (void)segmentChanged:(UISegmentedControl *)sender {

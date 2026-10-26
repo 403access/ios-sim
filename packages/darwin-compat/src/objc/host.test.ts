@@ -261,6 +261,48 @@ describe("ObjC UIKit demo", () => {
     expect(at(325, 215)).toEqual([127, 127, 127]);
   });
 
+  it("pushes and pops view controllers in a navigation stack", () => {
+    const opened = runDemo([{ x: 60, y: 600 }]);
+    expect(opened.frames).toHaveLength(2);
+    const frame = opened.frames.at(-1)!;
+    const at = (x: number, y: number): number[] => {
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    // Detail content below a light bar with a back button.
+    expect(at(30, 100)).toEqual([128, 0, 128]);
+    expect(at(200, 10)).toEqual([242, 242, 247]);
+    expect(at(20, 20)).toEqual([209, 209, 219]);
+    // The title is drawn in the bar.
+    let ink = 0;
+    for (let y = 10; y <= 34; y += 1) {
+      for (let x = 120; x < 260; x += 1) {
+        const offset = (y * frame.width + x) * 4;
+        if (frame.pixels[offset] === 0 && frame.pixels[offset + 1] === 0) ink += 1;
+      }
+    }
+    expect(ink).toBeGreaterThan(0);
+
+    const popped = runDemo([
+      { x: 60, y: 600 },
+      { x: 40, y: 22 },
+    ]);
+    expect(popped.frames).toHaveLength(3);
+    const root = popped.frames.at(-1)!;
+    const rootOffset = (100 * root.width + 30) * 4;
+    expect([...root.pixels.slice(rootOffset, rootOffset + 3)]).toEqual([255, 128, 0]);
+
+    const hidden = runDemo([
+      { x: 60, y: 600 },
+      { x: 40, y: 22 },
+      { x: 40, y: 22 },
+    ]);
+    expect(hidden.frames).toHaveLength(4);
+    const demo = hidden.frames.at(-1)!;
+    const demoOffset = (30 * demo.width + 30) * 4;
+    expect([...demo.pixels.slice(demoOffset, demoOffset + 3)]).toEqual([255, 0, 0]);
+  });
+
   it("selects a segment and sends value-changed", () => {
     const right = runDemo([{ x: 170, y: 378 }]);
     const rightFrame = right.frames.at(-1)!;

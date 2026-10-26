@@ -96,6 +96,10 @@ const SELECTORS = {
   segmentChanged: "segmentChanged:",
   dataUsingEncoding: "dataUsingEncoding:",
   jsonObjectWithData: "JSONObjectWithData:options:error:",
+  initWithRootViewController: "initWithRootViewController:",
+  pushViewController: "pushViewController:animated:",
+  setTitle: "setTitle:",
+  openScreen: "openScreen:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
   beginAnimations: "beginAnimations:context:",
@@ -256,7 +260,13 @@ type SlotName =
   | "jsonCount"
   | "jsonItems"
   | "jsonValue"
-  | "jsonItemsValue";
+  | "jsonItemsValue"
+  | "classNav"
+  | "rootController"
+  | "detailController"
+  | "nav"
+  | "window"
+  | "openButton";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -310,6 +320,8 @@ interface Plan {
   readonly sliderRect: number;
   readonly imageRect: number;
   readonly segmentRect: number;
+  readonly openRect: number;
+  readonly openLabelRect: number;
   readonly cornerRadius: number;
   readonly wrapRect: number;
   readonly animationDuration: number;
@@ -477,6 +489,12 @@ function planData(): Plan {
     "jsonItems",
     "jsonValue",
     "jsonItemsValue",
+    "classNav",
+    "rootController",
+    "detailController",
+    "nav",
+    "window",
+    "openButton",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -519,6 +537,9 @@ function planData(): Plan {
     "ONE",
     "TWO",
     "items",
+    "ROOT",
+    "DETAIL",
+    "OPEN",
     '{"count":3,"items":["a","b"]}',
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
@@ -542,7 +563,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 12 * 24;
+  cursor += 8 + 13 * 24;
   const appCategory = cursor;
   cursor += 48;
   const lifecycleCategory = cursor;
@@ -645,6 +666,10 @@ function planData(): Plan {
   const animationAlpha = cursor;
   cursor += 8;
   const segmentRect = cursor;
+  cursor += 32;
+  const openRect = cursor;
+  cursor += 32;
+  const openLabelRect = cursor;
   cursor += 32;
   const cornerRadius = cursor;
   cursor += 8;
@@ -763,6 +788,8 @@ function planData(): Plan {
     sliderRect,
     imageRect,
     segmentRect,
+    openRect,
+    openLabelRect,
     cornerRadius,
     wrapRect,
     animationDuration,
@@ -911,6 +938,23 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitAddress(2, dataAddress(plan.stringOffsets.ThemeChanged!));
   emitWord(movz(3, 0));
   emitWord(movReg(4, 20));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(ldpPost(19, 20, 31, 16));
+  emitWord(ldpPost(29, 30, 31, 16));
+  emitWord(ret());
+
+  label("openScreen");
+  emitWord(stpPre(29, 30, 31, -16));
+  emitWord(stpPre(19, 20, 31, -16));
+  emitPointer(19, slot("window"));
+  emitPointer(0, slot("nav"));
+  emitAddress(1, selector(SELECTORS.view));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(movReg(2, 0));
+  emitWord(movReg(0, 19));
+  emitAddress(1, selector(SELECTORS.addSubview));
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
   emitWord(ldpPost(19, 20, 31, 16));
@@ -1071,6 +1115,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("delayedTick") ?? 0),
     bases.textBase + (code.labels.get("gestureTapped") ?? 0),
     bases.textBase + (code.labels.get("segmentChanged") ?? 0),
+    bases.textBase + (code.labels.get("openScreen") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -1330,6 +1375,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitDouble(3, dataAddress(plan.windowRect + 24));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
+    emitStore(19, slot("window"));
 
     // TapView *view = [TapView alloc];
     emitPointer(0, slot("classTapView"));
@@ -2263,6 +2309,144 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UIViewController *root = [[UIViewController alloc] init]; [root setTitle:"ROOT"];
+    emitPointer(0, slot("classController"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.setTitle));
+    emitAddress(2, dataAddress(plan.stringOffsets.ROOT!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.view));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.orangeColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(20, slot("rootController"));
+    // UIViewController *detail = ... "DETAIL" + purple
+    emitPointer(0, slot("classController"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.setTitle));
+    emitAddress(2, dataAddress(plan.stringOffsets.DETAIL!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.view));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.purpleColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(20, slot("detailController"));
+    // UINavigationController *nav = [[UINavigationController alloc]
+    //     initWithRootViewController:root]; [nav pushViewController:detail animated:0];
+    emitPointer(0, slot("classNav"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.initWithRootViewController));
+    emitPointer(2, slot("rootController"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(20, slot("nav"));
+    emitPointer(0, slot("nav"));
+    emitAddress(1, selector(SELECTORS.pushViewController));
+    emitPointer(2, slot("detailController"));
+    emitWord(movz(3, 0));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // UIButton *open = [[UIButton alloc] initWithFrame:(20,586,140,28)];
+    emitPointer(0, slot("classButton"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.openRect));
+    emitDouble(1, dataAddress(plan.openRect + 8));
+    emitDouble(2, dataAddress(plan.openRect + 16));
+    emitDouble(3, dataAddress(plan.openRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.grayColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    // UILabel *openLabel = ... "OPEN"
+    emitPointer(0, slot("classLabel"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.openLabelRect));
+    emitDouble(1, dataAddress(plan.openLabelRect + 8));
+    emitDouble(2, dataAddress(plan.openLabelRect + 16));
+    emitDouble(3, dataAddress(plan.openLabelRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.setText));
+    emitAddress(2, dataAddress(plan.stringOffsets.OPEN!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.setTextAlignment));
+    emitWord(movz(2, 1));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 20));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.addTarget));
+    emitPointer(2, slot("delegateSelf"));
+    emitAddress(3, selector(SELECTORS.openScreen));
+    emitWord(movz(4, 64));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(21, slot("openButton"));
+    emitPointer(0, slot("window"));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitPointer(2, slot("openButton"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -2430,6 +2614,7 @@ function emitData(
   delayedTickImp: number,
   gestureTappedImp: number,
   segmentChangedImp: number,
+  openScreenImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -2461,6 +2646,9 @@ function emitData(
     "ONE",
     "TWO",
     "items",
+    "ROOT",
+    "DETAIL",
+    "OPEN",
     '{"count":3,"items":["a","b"]}',
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
@@ -2495,7 +2683,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 12);
+  u32(plan.appCategoryMethods + 4, 13);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -2555,6 +2743,10 @@ function emitData(
   rebase(segmentEntry, selector(SELECTORS.segmentChanged));
   rebase(segmentEntry + 8, selector(TYPES));
   rebase(segmentEntry + 16, segmentChangedImp);
+  const openEntry = plan.appCategoryMethods + 296;
+  rebase(openEntry, selector(SELECTORS.openScreen));
+  rebase(openEntry + 8, selector(TYPES));
+  rebase(openEntry + 16, openScreenImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }
@@ -2725,6 +2917,7 @@ function emitData(
   bind(plan.slotOffsets.classData, "_OBJC_CLASS_$_NSData");
   bind(plan.slotOffsets.classSegmented, "_OBJC_CLASS_$_UISegmentedControl");
   bind(plan.slotOffsets.classJson, "_OBJC_CLASS_$_NSJSONSerialization");
+  bind(plan.slotOffsets.classNav, "_OBJC_CLASS_$_UINavigationController");
   bind(plan.slotOffsets.classTapGesture, "_OBJC_CLASS_$_UITapGestureRecognizer");
   bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
   bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");
@@ -2802,6 +2995,14 @@ function emitData(
   f64(plan.segmentRect + 8, 364);
   f64(plan.segmentRect + 16, 200);
   f64(plan.segmentRect + 24, 30);
+  f64(plan.openRect, 20);
+  f64(plan.openRect + 8, 586);
+  f64(plan.openRect + 16, 140);
+  f64(plan.openRect + 24, 28);
+  f64(plan.openLabelRect, 0);
+  f64(plan.openLabelRect + 8, 0);
+  f64(plan.openLabelRect + 16, 140);
+  f64(plan.openLabelRect + 24, 28);
   f64(plan.cornerRadius, 12);
   f64(plan.imageRect, 250);
   f64(plan.imageRect + 8, 140);
