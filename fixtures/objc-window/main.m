@@ -29,6 +29,7 @@ static int gTimerFires;
 static int gSwitchChanges;
 static int gSliderChanges;
 static UISlider *gSlider;
+static int gDelayed;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
@@ -134,6 +135,7 @@ static unsigned gTick;
 - (void)timerFired:(id)timer;
 - (void)switchChanged:(id)sender;
 - (void)sliderChanged:(id)sender;
+- (void)delayedTick:(id)object;
 @end
 
 @implementation AppDelegate
@@ -223,6 +225,7 @@ static unsigned gTick;
               action:@selector(sliderChanged:)
     forControlEvents:UIControlEventValueChanged];
   [window addSubview:gSlider];
+  [self performSelector:@selector(delayedTick:) withObject:nil afterDelay:0.5];
   [window makeKeyAndVisible];
   return YES;
 }
@@ -249,6 +252,11 @@ static unsigned gTick;
 - (void)switchChanged:(id)sender {
   (void)sender;
   gSwitchChanges++;
+}
+
+- (void)delayedTick:(id)object {
+  (void)object;
+  gDelayed++;
 }
 
 - (void)sliderChanged:(id)sender {

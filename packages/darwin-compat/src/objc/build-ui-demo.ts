@@ -74,6 +74,8 @@ const SELECTORS = {
   timerFired: "timerFired:",
   switchChanged: "switchChanged:",
   sliderChanged: "sliderChanged:",
+  performAfterDelay: "performSelector:withObject:afterDelay:",
+  delayedTick: "delayedTick:",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -195,7 +197,8 @@ type SlotName =
   | "switchChanges"
   | "classSlider"
   | "slider"
-  | "sliderChanges";
+  | "sliderChanges"
+  | "delayedMarker";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -375,6 +378,7 @@ function planData(): Plan {
     "classSlider",
     "slider",
     "sliderChanges",
+    "delayedMarker",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -426,7 +430,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 9 * 24;
+  cursor += 8 + 10 * 24;
   const appCategory = cursor;
   cursor += 48;
   const lifecycleCategory = cursor;
@@ -760,6 +764,10 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
 
+  label("delayedTick");
+  emitMarker(slot("delayedMarker"), 1);
+  emitWord(ret());
+
   label("sliderChanged");
   emitPointer(19, slot("sliderChanges"));
   emitWord(addImm(19, 19, 1));
@@ -865,6 +873,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("timerFired") ?? 0),
     bases.textBase + (code.labels.get("switchChanged") ?? 0),
     bases.textBase + (code.labels.get("sliderChanged") ?? 0),
+    bases.textBase + (code.labels.get("delayedTick") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -915,6 +924,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_lifecycleMarker",
         value: dataAddress(plan.slotOffsets.lifecycleMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_delayedMarker",
+        value: dataAddress(plan.slotOffsets.delayedMarker),
         sectionIndex: 2,
       },
       {
@@ -1659,6 +1673,15 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(blr(16));
     emitStore(0, slot("timer"));
 
+    // [self performSelector:@selector(delayedTick:) withObject:nil afterDelay:0.5];
+    emitPointer(0, slot("delegateSelf"));
+    emitAddress(1, selector(SELECTORS.performAfterDelay));
+    emitAddress(2, selector(SELECTORS.delayedTick));
+    emitWord(movz(3, 0));
+    emitDouble(0, dataAddress(plan.half));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -1823,6 +1846,7 @@ function emitData(
   timerFiredImp: number,
   switchChangedImp: number,
   sliderChangedImp: number,
+  delayedTickImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -1874,7 +1898,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 9);
+  u32(plan.appCategoryMethods + 4, 10);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -1922,6 +1946,10 @@ function emitData(
   rebase(sliderEntry, selector(SELECTORS.sliderChanged));
   rebase(sliderEntry + 8, selector(TYPES));
   rebase(sliderEntry + 16, sliderChangedImp);
+  const delayedEntry = plan.appCategoryMethods + 224;
+  rebase(delayedEntry, selector(SELECTORS.delayedTick));
+  rebase(delayedEntry + 8, selector(TYPES));
+  rebase(delayedEntry + 16, delayedTickImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }

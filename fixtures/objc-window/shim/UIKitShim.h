@@ -56,6 +56,8 @@ __attribute__((objc_root_class))
 - (id)init;
 - (id)self;
 - (id)performSelector:(SEL)selector;
+- (void)performSelector:(SEL)selector withObject:(id)object afterDelay:(double)delay;
++ (void)cancelPreviousPerformRequestsWithTarget:(id)target;
 @end
 
 @interface UIApplication : NSObject

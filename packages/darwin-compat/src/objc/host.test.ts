@@ -216,6 +216,17 @@ describe("ObjC UIKit demo", () => {
     expect(result.program.memory.read(result.program.resolveExport("_sliderChanges")!, 8)).toBe(4n);
   });
 
+  it("fires a delayed performSelector: on the virtual clock", () => {
+    const idle = runDemo();
+    expect(idle.program.memory.read(idle.program.resolveExport("_delayedMarker")!, 8)).toBe(0n);
+
+    const result = runDemo([{ kind: "tick" }]);
+    // The callback changes no pixels, so its identical frame is skipped; the
+    // tick still moves the view and presents.
+    expect(result.frames).toHaveLength(2);
+    expect(result.program.memory.read(result.program.resolveExport("_delayedMarker")!, 8)).toBe(1n);
+  });
+
   it("moves the view on ticks and fires timers on the virtual clock", () => {
     const result = runDemo([
       { kind: "tick" },

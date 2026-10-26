@@ -256,10 +256,16 @@ export class ObjcHost {
     { interval: number; target: bigint; selector: bigint; repeats: boolean }
   >();
   private readonly scheduledTimers = new Map<bigint, number>();
-  private readonly pendingTimerCalls: Array<{
-    instance: bigint;
+  private readonly pendingCallbacks: Array<{
     target: bigint;
     selector: bigint;
+    argument: bigint;
+  }> = [];
+  private readonly delayedCalls: Array<{
+    fireAt: number;
+    target: bigint;
+    selector: bigint;
+    argument: bigint;
   }> = [];
   private clock = 0;
   private tickAdvanced = false;
@@ -669,6 +675,31 @@ export class ObjcHost {
           selector: "performSelector:withObject:",
           types: "@32@0:8:16@24",
           run: (cpu, receiver) => this.performSelector(cpu, receiver, 2, 1),
+        },
+        {
+          selector: "performSelector:withObject:afterDelay:",
+          types: "v40@0:8:16@24d32",
+          run: (cpu, receiver) => {
+            const selector = cpu.readRegister(2);
+            const argument = cpu.readRegister(3);
+            const delay = Math.max(0, cpu.readVectorDouble(0));
+            this.delayedCalls.push({
+              fireAt: this.clock + delay,
+              target: receiver,
+              selector,
+              argument,
+            });
+          },
+        },
+        {
+          selector: "cancelPreviousPerformRequestsWithTarget:",
+          types: "+24@0:8@16",
+          run: (cpu) => {
+            const target = cpu.readRegister(2);
+            for (let index = this.delayedCalls.length - 1; index >= 0; index -= 1) {
+              if (this.delayedCalls[index]!.target === target) this.delayedCalls.splice(index, 1);
+            }
+          },
         },
         {
           selector: "performSelector:withObject:withObject:",
@@ -1448,10 +1479,10 @@ export class ObjcHost {
           run: (_cpu, receiver) => {
             const definition = this.timerDefs.get(receiver);
             if (definition) {
-              this.pendingTimerCalls.push({
-                instance: receiver,
+              this.pendingCallbacks.push({
                 target: definition.target,
                 selector: definition.selector,
+                argument: receiver,
               });
             }
           },
@@ -2677,10 +2708,10 @@ export class ObjcHost {
         this.scheduledTimers.delete(instance);
         continue;
       }
-      this.pendingTimerCalls.push({
-        instance,
+      this.pendingCallbacks.push({
         target: definition.target,
         selector: definition.selector,
+        argument: instance,
       });
       if (definition.repeats) {
         const step = definition.interval > 0 ? definition.interval : TICK_SECONDS;
@@ -2688,6 +2719,21 @@ export class ObjcHost {
       } else {
         this.scheduledTimers.delete(instance);
       }
+    }
+  }
+
+  /** Queue delayed `performSelector:` calls that are due on the virtual clock. */
+  private collectDelayedCalls(): void {
+    const due = this.delayedCalls.filter((call) => call.fireAt <= this.clock + 1e-9);
+    if (due.length === 0) return;
+    for (const call of due) {
+      const index = this.delayedCalls.indexOf(call);
+      if (index >= 0) this.delayedCalls.splice(index, 1);
+      this.pendingCallbacks.push({
+        target: call.target,
+        selector: call.selector,
+        argument: call.argument,
+      });
     }
   }
 
@@ -3019,16 +3065,19 @@ export class ObjcHost {
   /** Prepare the next touch callback and return `{view, touches, event, selector}`. */
   private nextEvent(_cpu: Arm64Cpu): SyscallResult {
     const step = this.touchScript[this.eventIndex];
-    if (!step && this.pendingTimerCalls.length === 0) return { value: 0n };
-    if (this.pendingTimerCalls.length > 0)
-      return this.dispatchTimerCall(this.pendingTimerCalls.shift()!);
+    if (this.pendingCallbacks.length === 0) this.collectDelayedCalls();
+    if (!step && this.pendingCallbacks.length === 0) return { value: 0n };
+    if (this.pendingCallbacks.length > 0) {
+      return this.dispatchCallback(this.pendingCallbacks.shift()!);
+    }
     if (!step) return { value: 0n };
     if (step.kind === "tick" && !this.tickAdvanced) {
       this.tickAdvanced = true;
       this.clock += TICK_SECONDS;
+      this.collectDelayedCalls();
       this.collectDueTimers();
-      if (this.pendingTimerCalls.length > 0) {
-        return this.dispatchTimerCall(this.pendingTimerCalls.shift()!);
+      if (this.pendingCallbacks.length > 0) {
+        return this.dispatchCallback(this.pendingCallbacks.shift()!);
       }
     }
     this.eventIndex += 1;
@@ -3065,15 +3114,15 @@ export class ObjcHost {
     return { value: record };
   }
 
-  /** Build the event record that makes the loop send a timer callback. */
-  private dispatchTimerCall(call: {
-    instance: bigint;
+  /** Build the event record that makes the loop send a scheduled callback. */
+  private dispatchCallback(call: {
     target: bigint;
     selector: bigint;
+    argument: bigint;
   }): SyscallResult {
     const record = this.memory.allocate(32, { tag: "objc-timer-event" });
     this.memory.write(record, 8, call.target);
-    this.memory.write(record + 8n, 8, call.instance);
+    this.memory.write(record + 8n, 8, call.argument);
     this.memory.write(record + 16n, 8, 0n);
     this.memory.write(record + 24n, 8, call.selector);
     return { value: record };

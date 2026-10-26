@@ -194,18 +194,18 @@ message dispatch totals split into host and guest IMPs.
 
 These are original metadata with host IMP trampolines, not Apple classes:
 
-| Class              | Methods (instance unless marked +)                                                                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NSObject`         | `-init`, `-dealloc`, `-class`, `-self`, `-isKindOfClass:`, `-respondsToSelector:`, `-retain`, `-release`, `-autorelease`, `-retainCount`, `+alloc`, `+new`    |
-| `UIView`           | `-init`, `-initWithFrame:`, `-setFrame:`, `-frame`, `-setBackgroundColor:`, `-backgroundColor`, `-addSubview:`, `-setHidden:`, `-isHidden`, `-layoutSubviews` |
-| `UIControl`        | `-init`, `-addTarget:action:forControlEvents:`, `-removeTarget:action:forControlEvents:`, `-sendActionsForControlEvents:`                                     |
-| `UIButton`         | `UIControl` subclass; `-touchesEnded:withEvent:` sends touch-up actions                                                                                       |
-| `UISlider`         | `UIControl` subclass; `-setValue:`, `-setValue:animated:`, `-value`, min/max accessors, and drag updates that send value-changed                              |
-| `UISwitch`         | `UIControl` subclass; `-setOn:`, `-setOn:animated:`, `-isOn`, and a local `-touchesEnded:` that toggles then sends value-changed                              |
-| `UIWindow`         | `-initWithFrame:`, `-makeKeyAndVisible`, `-setRootViewController:`, `-rootViewController`                                                                     |
-| `UIViewController` | `-init`, `-view`, `-setView:`, `-loadView`; lifecycle callbacks below                                                                                         |
-| `UIColor`          | `+redColor`, `+whiteColor`, `+blackColor`, `+clearColor`, `+colorWithRed:green:blue:alpha:`                                                                   |
-| `UIApplication`    | `+sharedApplication`, `-setDelegate:`, `-delegate`                                                                                                            |
+| Class              | Methods (instance unless marked +)                                                                                                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NSObject`         | `-init`, `-dealloc`, `-class`, `-self`, `-isKindOfClass:`, `-respondsToSelector:`, `-retain`, `-release`, `-autorelease`, `-retainCount`, `+alloc`, `+new`, `-performSelector:withObject:afterDelay:` |
+| `UIView`           | `-init`, `-initWithFrame:`, `-setFrame:`, `-frame`, `-setBackgroundColor:`, `-backgroundColor`, `-addSubview:`, `-setHidden:`, `-isHidden`, `-layoutSubviews`                                         |
+| `UIControl`        | `-init`, `-addTarget:action:forControlEvents:`, `-removeTarget:action:forControlEvents:`, `-sendActionsForControlEvents:`                                                                             |
+| `UIButton`         | `UIControl` subclass; `-touchesEnded:withEvent:` sends touch-up actions                                                                                                                               |
+| `UISlider`         | `UIControl` subclass; `-setValue:`, `-setValue:animated:`, `-value`, min/max accessors, and drag updates that send value-changed                                                                      |
+| `UISwitch`         | `UIControl` subclass; `-setOn:`, `-setOn:animated:`, `-isOn`, and a local `-touchesEnded:` that toggles then sends value-changed                                                                      |
+| `UIWindow`         | `-initWithFrame:`, `-makeKeyAndVisible`, `-setRootViewController:`, `-rootViewController`                                                                                                             |
+| `UIViewController` | `-init`, `-view`, `-setView:`, `-loadView`; lifecycle callbacks below                                                                                                                                 |
+| `UIColor`          | `+redColor`, `+whiteColor`, `+blackColor`, `+clearColor`, `+colorWithRed:green:blue:alpha:`                                                                                                           |
+| `UIApplication`    | `+sharedApplication`, `-setDelegate:`, `-delegate`                                                                                                                                                    |
 
 `UILabel` stores a string pointer (an `NSString` or a bare C string), a colour object at offset 72, a scale at offset 80,
 and alignment at offset 88 (0 left, 1 centre, 2 right); its instance size is 96. The renderer draws text with a built-in 3×5 uppercase/digit bitmap
@@ -265,9 +265,11 @@ The loop is driven by the CLI's scripted `--tap x,y`, `--drag x1,y1,x2,y2[,steps
 (topmost child whose frame contains the point) and delivered to the deepest hit view. A tap
 expands to began+ended; a drag to began, interpolated moved samples, and ended; a tick advances
 the virtual clock by `TICK_SECONDS` (0.5 s) and sends `tick:` to the delegate. Timers scheduled with
-`+scheduledTimerWithTimeInterval:target:selector:repeats:` are host-side records on that clock: a
-tick first delivers every due timer (earliest first), then the `tick:` message, so a one-second
-timer fires every second tick. Frames whose pixels are identical to the previous frame are not
+`+scheduledTimerWithTimeInterval:target:selector:repeats:` and delayed
+`-performSelector:withObject:afterDelay:` calls are host-side records on that clock: a tick first
+delivers every due callback (earliest first), then the `tick:` message, so a one-second timer fires
+every second tick and a half-second delayed call fires on the first one. Callbacks whose frame is
+identical to the previous one add no frame. Frames whose pixels are identical to the previous frame are not
 appended. The stub owns the ABI: every callback is a normal
 `blr` through `objc_msgSend`, so `+initialize`, categories, and overrides apply. When the events
 are exhausted, the stub returns zero to `main`.

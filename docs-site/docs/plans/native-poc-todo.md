@@ -73,6 +73,7 @@ started.
 - [x] Deterministic virtual clock: ticks advance 0.5 s and fire due `NSTimer`s
 - [x] `UIControl` target/action masks, `UIButton` touch-up, `UISwitch` toggle + rendering
 - [x] `UISlider` drag-to-value with value-changed actions and track/knob rendering
+- [x] `performSelector:withObject:afterDelay:` and cancellation on the virtual clock
 - [x] `UIViewController -viewDidLoad` once, via a category or subclass
 - [x] `UIViewController -viewWillAppear:`/`-viewDidAppear:` when the root view is shown
 - [x] `UILabel` with a 3×5 bitmap font (left/centre/right alignment)
