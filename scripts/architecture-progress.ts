@@ -55,7 +55,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-26 · blocks, gestures, bundles",
+  updated: "2026-10-26 · NSData, blocks, gestures",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -168,9 +168,10 @@ export const architecture: Architecture = {
       id: "foundation",
       name: "Foundation shim",
       kicker: "The objects apps share",
-      percent: 54,
+      percent: 58,
       chips: [
         { label: "NSString", state: "done" },
+        { label: "NSData", state: "done" },
         { label: "collections", state: "done" },
         { label: "timers", state: "done" },
         { label: "bundle", state: "done" },
@@ -180,10 +181,10 @@ export const architecture: Architecture = {
       shipped: [
         "NSString, NSNumber, NSArray/NSMutableArray, NSDictionary/NSMutableDictionary",
         "NSUserDefaults, notifications with userInfo, NSTimer, delayed perform",
-        "NSBundle, NSLog, a PNG decoder behind UIImage",
+        "NSBundle, NSLog, NSData, a PNG decoder behind UIImage",
       ],
       open: [
-        "NSData, NSDate, NSURL, NSError, NSFileManager",
+        "NSDate, NSURL, NSError, NSFileManager",
         "NSJSONSerialization, NSKeyedArchiver, NSOperation/GCD",
         "KVC/KVO, NSInvocation, NSRunLoop",
       ],
@@ -311,6 +312,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "22dc12a", text: "NSData + UIImage imageWithData, data-backed images" },
     { hash: "fd7f190", text: "Block literals bind; block-based view animations" },
     { hash: "b851832", text: "Multi-page segment mapping fix in the loader" },
     { hash: "e9c2c6c", text: "Tap and pan gesture recognisers" },
@@ -318,7 +320,6 @@ export const architecture: Architecture = {
     { hash: "d9b6fe9", text: "NSBundle resource lookup" },
     { hash: "b61e348", text: "Responder forwarding and scroll drags" },
     { hash: "cc3f742", text: "UIImage/UIImageView with a PNG decoder" },
-    { hash: "026f0b7", text: "Virtual clock, NSTimer, delayed performs" },
   ],
   next: [
     "UINavigationController + UITableView-lite",
