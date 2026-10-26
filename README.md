@@ -175,6 +175,7 @@ bun run native          # build and run the native CLI
 bun run docs:check      # relative-link gate
 bun run docs:build
 bun run package:native   # build build/packages/*.tgz + manifest.json
+bun run provenance       # verify claims' evidence paths
 bun run verify          # local full check
 ```
 

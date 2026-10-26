@@ -486,7 +486,8 @@ and broken Markdown links; CI and `verify` run it. REL-003 builds both packages 
 `build/packages/*.tgz` plus a SHA-256 manifest; no Apple files are included. OBS-004 exports events
 as Chrome Trace Event JSON (process slices + instants, unmatched starts closed). DX-001 adds an
 AArch64 integer/syscall disassembler and `inspect --disasm`; unknown words print `.word`. LEG-001
-(provenance ledger) is next.
+adds a machine-readable provenance ledger, a docs page, and a checker that verifies every evidence
+path and required claim. OBS-005 (trace CLI) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

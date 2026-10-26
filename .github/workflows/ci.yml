@@ -41,6 +41,7 @@ jobs:
         run: bunx vitest run tests/native
       - run: bun run corpus
       - run: bun run repro
+      - run: bun run provenance
       - name: Fuzz parsers (100k per target in CI)
         run: bun scripts/fuzz-darwin.ts --iterations 100000
       - name: Performance baseline (CI scale)

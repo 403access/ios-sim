@@ -37,6 +37,7 @@
     "corpus": "bun scripts/build-corpus.ts",
     "bench": "bun scripts/bench.ts",
     "soak": "bun scripts/soak.ts",
+    "provenance": "bun scripts/check-provenance.ts",
     "repro": "bun scripts/repro-fixtures.ts",
     "package:native": "bun scripts/package-native.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",

@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 67 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 68 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -45,15 +45,13 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LEG-001` is the next task;
-`OBS-005` remains in the observability lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `OBS-005` is the next task;
+`DX-003` remains in the developer-tooling lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-36 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
-THR-012 stress, fuzzing, corpus, benchmarks, events, statistics, native CI, QA-005, soak,
-reproducible fixtures, boot reports, jetsam, docs gates, packaging, trace export, and disassembly).
-This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-37 are complete through DX-001 and LEG-001 (substrate, loader, threads, quality,
+observability, release, and provenance). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -179,7 +177,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `OBS-002`  | Runtime statistics             | P1       | S    | **done**  | A0               | Counters + `stats` command                                 |
 | `OBS-003`  | Missing symbol/MIG report      | P1       | M    | **done**  | OBS-001          | Unresolved symbols + missing services report               |
 | `OBS-004`  | Trace export                   | P2       | M    | **done**  | OBS-001          | Chrome/JSON trace                                          |
-| `OBS-005`  | `trace/stats/why` CLI          | P2       | M    | blocked   | OBS-004          | Commands + redaction                                       |
+| `OBS-005`  | `trace/stats/why` CLI          | P2       | M    | **next**  | OBS-004          | Commands + redaction                                       |
 | `OBS-006`  | Fault diagnostics              | P1       | M    | blocked   | OBS-001          | PC/encoding/maps on fault                                  |
 | `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | proposed  | OBS-002          | Loopback-only                                              |
 | `QA-001`   | Fuzz harness                   | P0       | M    | **done**  | A0               | 1M mutations, 0 crashes, corpus retained                   |
@@ -197,7 +195,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `REL-005`  | Docs gates                     | P1       | S    | **done**  | A0               | Broken relative links fail                                 |
 | `REL-006`  | Supply-chain checks            | P2       | S    | blocked   | REL-001          | Audit/lockfile                                             |
 | `REL-007`  | Maintenance calendar           | P2       | S    | blocked   | SB-008           | Quarterly runbook                                          |
-| `LEG-001`  | Provenance ledger              | P0       | S    | **next**  | A0               | Every claim sourced                                        |
+| `LEG-001`  | Provenance ledger              | P0       | S    | **done**  | A0               | 25 claims, evidence paths verified                         |
 | `LEG-002`  | Runtime legal review           | P0       | M    | blocked   | LEG-001          | Written gate                                               |
 | `LEG-003`  | Hosting/deployment model       | P1       | M    | blocked   | LEG-002          | Allowed patterns                                           |
 | `LEG-004`  | Claims audit                   | P1       | S    | **ready** | A0               | No false simulator claims                                  |

@@ -21,7 +21,13 @@ const sidebars: SidebarsConfig = {
       type: "category",
       label: "Native track (Option A)",
       collapsed: false,
-      items: ["native/overview", "native/architecture", "native/abi", "native/limitations"],
+      items: [
+        "native/overview",
+        "native/architecture",
+        "native/abi",
+        "native/limitations",
+        "native/provenance",
+      ],
     },
     {
       type: "category",
