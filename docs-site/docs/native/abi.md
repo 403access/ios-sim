@@ -190,12 +190,17 @@ classes get an `isa` and their declared `instanceSize`; the shim does not lay ou
 The fourth argument is a C string, a documented deviation from Apple's `NSString *`. The host:
 
 1. allocates the `UIApplication` and delegate instances;
-2. resolves `application:didFinishLaunchingWithOptions:` on the delegate class;
-3. generates a guest stub that calls the delegate IMP, zeroes `x0`, then calls the presenter;
+2. generates a guest stub that sends the delegate message through `objc_msgSend`;
+3. then runs a bounded event loop: `nextEvent` (host trap) returns a record of
+   `{view, touches, event}` or zero; the stub sends `touchesBegan:withEvent:` and
+   `touchesEnded:withEvent:`, rendering after each;
 4. jumps to the stub with `x0 = delegate`, `x1 = selector`, `x2 = application`, `x3 = 0`.
 
-The stub saves `x29/x30` and `x19/x20`, calls the delegate with a normal `blr`, then renders.
-There is no run loop: the call returns after one pass.
+The loop is driven by the CLI's scripted `--tap x,y` events, not by a display server. Each tap is
+hit-tested against the view tree (topmost child whose frame contains the point) and delivered to
+the deepest hit view. The stub owns the ABI: every callback is a normal `blr` through
+`objc_msgSend`, so `+initialize`, categories, and overrides apply. When the events are exhausted,
+the stub returns zero to `main`.
 
 ### Frames
 

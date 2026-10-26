@@ -20,8 +20,10 @@ import type { VirtualMemory } from "../dyld/vm.js";
 import { Framebuffer, WHITE, type Rgba } from "../ui/framebuffer.js";
 import {
   adrp,
+  b,
   blr,
   br,
+  cbz,
   ldpPost,
   ldpQuadPost,
   ldrLiteral,
@@ -85,11 +87,18 @@ export interface CapturedFrame {
   readonly digest: string;
 }
 
+export interface TapEvent {
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface ObjcHostOptions {
   readonly memory: VirtualMemory;
   readonly width?: number;
   readonly height?: number;
   readonly maxFrames?: number;
+  /** Scripted taps delivered after `didFinishLaunching`. */
+  readonly events?: readonly TapEvent[];
 }
 
 type HostMethodHandler = (cpu: Arm64Cpu, receiver: bigint) => void;
@@ -124,6 +133,7 @@ export class ObjcHost {
   readonly frames: CapturedFrame[] = [];
   readonly width: number;
   readonly height: number;
+  readonly events: readonly TapEvent[];
 
   private readonly memory: VirtualMemory;
   private readonly maxFrames: number;
@@ -153,12 +163,15 @@ export class ObjcHost {
   private sharedApplication: bigint | null = null;
   private applicationDelegate: bigint | null = null;
   private readonly presentAddress: bigint;
+  private readonly nextEventAddress: bigint;
+  private eventIndex = 0;
 
   constructor(options: ObjcHostOptions) {
     this.memory = options.memory;
     this.width = options.width ?? DEFAULT_SCREEN.width;
     this.height = options.height ?? DEFAULT_SCREEN.height;
     this.maxFrames = options.maxFrames ?? MAX_FRAMES;
+    this.events = options.events ?? [];
     this.arena = this.memory.allocate(ARENA_SIZE, { tag: "objc-host", protection: 3 });
     this.arenaCursor = this.arena;
     this.arenaEnd = this.arena + BigInt(ARENA_SIZE);
@@ -187,6 +200,7 @@ export class ObjcHost {
       return { value: cpu.readRegister(0) };
     });
     this.resendAddress = this.allocateTrampoline((cpu) => this.messageSend(cpu));
+    this.nextEventAddress = this.allocateTrampoline((cpu) => this.nextEvent(cpu));
   }
 
   /** Register the classes of every loaded image, then merge categories. */
@@ -370,6 +384,60 @@ export class ObjcHost {
     });
     this.registerClass(object);
 
+    const set = this.defineClass({
+      name: "NSSet",
+      superclass: "NSObject",
+      instanceSize: 16,
+      methods: [
+        {
+          selector: "anyObject",
+          types: "@16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, this.memory.read(receiver + 8n, 8)),
+        },
+      ],
+      classMethods: [
+        {
+          selector: "setWithObject:",
+          types: "@24@0:8@16",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass) throw new ObjcError("bad_receiver", "NSSet receiver is not a class");
+            const instance = this.allocateInstance(klass);
+            this.memory.write(instance + 8n, 8, cpu.readRegister(2));
+            cpu.writeRegister(0, instance);
+          },
+        },
+      ],
+    });
+    this.registerClass(set);
+
+    const touch = this.defineClass({
+      name: "UITouch",
+      superclass: "NSObject",
+      instanceSize: 24,
+      methods: [
+        {
+          selector: "locationInView:",
+          types: "{CGPoint=dd}24@0:8@16",
+          run: (cpu, receiver) => {
+            cpu.writeVectorDouble(0, this.readDouble(receiver, 8));
+            cpu.writeVectorDouble(1, this.readDouble(receiver, 16));
+          },
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(touch);
+
+    const uiEvent = this.defineClass({
+      name: "UIEvent",
+      superclass: "NSObject",
+      instanceSize: 8,
+      methods: [],
+      classMethods: [],
+    });
+    this.registerClass(uiEvent);
+
     const view = this.defineClass({
       name: "UIView",
       superclass: "NSObject",
@@ -428,6 +496,9 @@ export class ObjcHost {
             cpu.writeRegister(0, this.memory.read(receiver + BigInt(VIEW_HIDDEN), 1)),
         },
         { selector: "layoutSubviews", types: "v16@0:8", run: () => undefined },
+        { selector: "touchesBegan:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
+        { selector: "touchesEnded:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
+        { selector: "touchesCancelled:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
       ],
       classMethods: [],
     });
@@ -523,6 +594,8 @@ export class ObjcHost {
           },
         },
         this.constantColor("redColor", { r: 1, g: 0, b: 0, a: 1 }),
+        this.constantColor("blueColor", { r: 0, g: 0, b: 1, a: 1 }),
+        this.constantColor("greenColor", { r: 0, g: 1, b: 0, a: 1 }),
         this.constantColor("whiteColor", { r: 1, g: 1, b: 1, a: 1 }),
         this.constantColor("blackColor", { r: 0, g: 0, b: 0, a: 1 }),
         this.constantColor("clearColor", { r: 0, g: 0, b: 0, a: 0 }),
@@ -1009,7 +1082,7 @@ export class ObjcHost {
       }
       const messageSend = this.symbols.get("_objc_msgSend");
       if (!messageSend) throw new ObjcError("internal_error", "objc_msgSend is not registered");
-      const stub = this.writeApplicationStub(messageSend, this.presentAddress);
+      const stub = this.writeApplicationStub();
       cpu.writeRegister(0, delegate);
       cpu.writeRegister(1, this.internString("application:didFinishLaunchingWithOptions:"));
       cpu.writeRegister(2, application);
@@ -1022,59 +1095,147 @@ export class ObjcHost {
   }
 
   /**
-   * Guest stub that sends the delegate message through `objc_msgSend` and then
-   * runs the host presenter:
+   * Guest stub: delegate callback, then a bounded event loop.
    *
-   *   save x19..x22, x29, x30
-   *   x0..x3 = delegate, selector, application, options
-   *   blr objc_msgSend
-   *   x0 = 0
-   *   blr presenter
-   *   restore, ret
+   *   send application:didFinishLaunchingWithOptions:   (objc_msgSend)
+   *   present
+   *   loop:
+   *     record = nextEvent()                            (host trap, 0 = done)
+   *     if (!record) break
+   *     [record.view touchesBegan:record.touches withEvent:record.event]
+   *     present
+   *     [record.view touchesEnded:...]
+   *     present
+   *   return 0
    *
-   * Going through `objc_msgSend` (instead of calling the IMP directly) makes
-   * `+initialize` and category overrides part of the normal path.
+   * The stub owns the ABI: every guest callback is a normal `blr` through
+   * `objc_msgSend`, so +initialize, categories, and overrides all apply.
    */
-  private writeApplicationStub(messageSend: bigint, present: bigint): bigint {
+  private writeApplicationStub(): bigint {
+    const messageSend = this.symbols.get("_objc_msgSend");
+    if (!messageSend) throw new ObjcError("internal_error", "objc_msgSend is not registered");
     const address = this.stubCursor;
     if (this.stubCursor + 256n > this.stubPage + BigInt(STUB_PAGE)) {
       throw new ObjcError("stub_limit", "the ObjC stub page overflowed");
     }
-    const head: number[] = [
-      stpPre(29, 30, 31, -16),
-      stpPre(19, 20, 31, -16),
-      stpPre(21, 22, 31, -16),
-      movReg(19, 0),
-      movReg(20, 1),
-      movReg(21, 2),
-      movReg(22, 3),
-    ];
-    const tail: number[] = [
-      movReg(0, 19),
-      movReg(1, 20),
-      movReg(2, 21),
-      movReg(3, 22),
-      blr(16),
-      movz(0, 0),
-      ldrLiteral(16, 0),
-      blr(16),
-      ldpPost(21, 22, 31, 16),
-      ldpPost(19, 20, 31, 16),
-      ldpPost(29, 30, 31, 16),
-      ret(),
-    ];
-    const code = [...head, ldrLiteral(16, 0), ...tail];
+    const code: number[] = [];
+    const literals: bigint[] = [];
+    const literalRefs: Array<{ index: number; register: number; slot: number }> = [];
+    const loadLiteral = (register: number, value: bigint): void => {
+      literalRefs.push({ index: code.length, register, slot: literals.length });
+      literals.push(value);
+      code.push(0);
+    };
+
+    code.push(stpPre(29, 30, 31, -16));
+    code.push(stpPre(19, 20, 31, -16));
+    code.push(stpPre(21, 22, 31, -16));
+    code.push(movReg(19, 0));
+    code.push(movReg(20, 1));
+    code.push(movReg(21, 2));
+    code.push(movReg(22, 3));
+
+    loadLiteral(16, messageSend);
+    code.push(movReg(0, 19));
+    code.push(movReg(1, 20));
+    code.push(movReg(2, 21));
+    code.push(movReg(3, 22));
+    code.push(blr(16));
+
+    loadLiteral(16, this.presentAddress);
+    code.push(blr(16));
+
+    const loopStart = code.length;
+    loadLiteral(16, this.nextEventAddress);
+    code.push(blr(16));
+    const doneCheck = code.length;
+    code.push(cbz(0, 0));
+    code.push(movReg(19, 0));
+    code.push(ldrUnsigned(20, 19, 0));
+    code.push(ldrUnsigned(21, 19, 8));
+    code.push(ldrUnsigned(22, 19, 16));
+
+    code.push(movReg(0, 20));
+    loadLiteral(1, this.internString("touchesBegan:withEvent:"));
+    code.push(movReg(2, 21));
+    code.push(movReg(3, 22));
+    loadLiteral(16, messageSend);
+    code.push(blr(16));
+    loadLiteral(16, this.presentAddress);
+    code.push(blr(16));
+
+    code.push(movReg(0, 20));
+    loadLiteral(1, this.internString("touchesEnded:withEvent:"));
+    code.push(movReg(2, 21));
+    code.push(movReg(3, 22));
+    loadLiteral(16, messageSend);
+    code.push(blr(16));
+    loadLiteral(16, this.presentAddress);
+    code.push(blr(16));
+
+    const back = code.length;
+    code.push(b(0));
+    const done = code.length;
+    code.push(movz(0, 0));
+    code.push(ldpPost(21, 22, 31, 16));
+    code.push(ldpPost(19, 20, 31, 16));
+    code.push(ldpPost(29, 30, 31, 16));
+    code.push(ret());
+    code[doneCheck] = cbz(0, (done - doneCheck) * 4);
+    code[back] = b((loopStart - back) * 4);
+
     const literalStart = code.length * 4;
-    const sendIndex = head.length;
-    const presentIndex = head.length + 1 + 6;
-    code[sendIndex] = ldrLiteral(16, literalStart - sendIndex * 4);
-    code[presentIndex] = ldrLiteral(16, literalStart + 8 - presentIndex * 4);
+    for (const ref of literalRefs) {
+      code[ref.index] = ldrLiteral(ref.register, literalStart + ref.slot * 8 - ref.index * 4);
+    }
     code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
-    this.memory.write(address + BigInt(literalStart), 8, messageSend);
-    this.memory.write(address + BigInt(literalStart + 8), 8, present);
+    literals.forEach((value, index) =>
+      this.memory.write(address + BigInt(literalStart + index * 8), 8, value),
+    );
     this.stubCount += 1;
     this.stubCursor += 256n;
     return address;
+  }
+
+  /** Prepare one scripted tap and return `{view, touches, event}` or null. */
+  private nextEvent(_cpu: Arm64Cpu): SyscallResult {
+    const event = this.events[this.eventIndex];
+    if (!event) return { value: 0n };
+    this.eventIndex += 1;
+    const window = this.keyWindow ?? this.windows.at(-1) ?? null;
+    if (window === null) return { value: 0n };
+    const hit = this.hitTest(window, event);
+    if (hit === null) return { value: 0n };
+
+    const touchClass = this.classes.get("UITouch");
+    const setClass = this.classes.get("NSSet");
+    const uiEventClass = this.classes.get("UIEvent");
+    if (!touchClass || !setClass || !uiEventClass) {
+      throw new ObjcError("internal_error", "event objects are not registered");
+    }
+    const touch = this.allocateInstance(touchClass);
+    this.memory.write(touch + 8n, 8, doubleBits(event.x));
+    this.memory.write(touch + 16n, 8, doubleBits(event.y));
+    const touches = this.allocateInstance(setClass);
+    this.memory.write(touches + 8n, 8, touch);
+    const uiEvent = this.allocateInstance(uiEventClass);
+    const record = this.memory.allocate(24, { tag: "objc-event" });
+    this.memory.write(record, 8, hit);
+    this.memory.write(record + 8n, 8, touches);
+    this.memory.write(record + 16n, 8, uiEvent);
+    return { value: record };
+  }
+
+  private hitTest(view: bigint, point: { x: number; y: number }): bigint | null {
+    if (this.memory.read(view + BigInt(VIEW_HIDDEN), 1) !== 0n) return null;
+    const children = this.children.get(view) ?? [];
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index]!;
+      if (!containsPoint(this.readStoredRect(child), point)) continue;
+      const hit = this.hitTest(child, point);
+      if (hit !== null) return hit;
+    }
+    return containsPoint(this.readStoredRect(view), point) ? view : null;
   }
 
   private present(): void {
@@ -1151,6 +1312,15 @@ export class ObjcHost {
   private writeU64(address: bigint, value: bigint | number): void {
     this.memory.write(address, 8, BigInt(value));
   }
+}
+
+function containsPoint(rect: Rect, point: { x: number; y: number }): boolean {
+  return (
+    point.x >= rect.x &&
+    point.y >= rect.y &&
+    point.x < rect.x + rect.width &&
+    point.y < rect.y + rect.height
+  );
 }
 
 function loadImmediate(register: number, value: number): number[] {

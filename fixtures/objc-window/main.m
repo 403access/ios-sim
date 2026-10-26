@@ -8,6 +8,26 @@
 
 #import "UIKitShim.h"
 
+@interface TapView : UIView {
+  BOOL _pressed;
+}
+@end
+
+@implementation TapView
+- (void)touchesBegan:(id)touches withEvent:(id)event {
+  (void)touches;
+  (void)event;
+  _pressed = YES;
+  self.backgroundColor = [UIColor blueColor];
+}
+- (void)touchesEnded:(id)touches withEvent:(id)event {
+  (void)touches;
+  (void)event;
+  _pressed = NO;
+  self.backgroundColor = [UIColor greenColor];
+}
+@end
+
 @interface AppDelegate : NSObject
 - (BOOL)application:(id)application didFinishLaunchingWithOptions:(id)options;
 @end
@@ -17,7 +37,7 @@
   (void)application;
   (void)options;
   UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 375, 667)];
-  UIView *view = [[UIView alloc] initWithFrame:CGRectMake(20, 20, 200, 100)];
+  TapView *view = [[TapView alloc] initWithFrame:CGRectMake(20, 20, 200, 100)];
   view.backgroundColor = [UIColor redColor];
   [window addSubview:view];
   [window makeKeyAndVisible];

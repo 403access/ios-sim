@@ -4,7 +4,7 @@ import { CaptureSink } from "../syscall/kernel.js";
 import { MapFileProvider } from "../dyld/loader.js";
 import { buildUIKitDemo, DEMO_SCREEN, DEMO_VIEW_RECT } from "./build-ui-demo.js";
 
-function runDemo() {
+function runDemo(events?: readonly { x: number; y: number }[]) {
   const demo = buildUIKitDemo();
   const runtime = new DarwinRuntime({
     provider: new MapFileProvider(new Map([["/UIKitDemo", demo.built.bytes]])),
@@ -12,7 +12,7 @@ function runDemo() {
     defaultStdout: new CaptureSink(),
     defaultStderr: new CaptureSink(),
   });
-  return runtime.run("/UIKitDemo", { argv: [] });
+  return runtime.run("/UIKitDemo", { argv: [], events });
 }
 
 describe("ObjC UIKit demo", () => {
@@ -46,6 +46,22 @@ describe("ObjC UIKit demo", () => {
     expect(at(30, 30)).toEqual([255, 0, 0, 255]);
     expect(at(10, 10)).toEqual([255, 255, 255, 255]);
     expect(at(DEMO_VIEW_RECT.x - 1, DEMO_VIEW_RECT.y - 1)).toEqual([255, 255, 255, 255]);
+  });
+
+  it("delivers a scripted tap to the view and renders each state", () => {
+    const result = runDemo([{ x: 30, y: 30 }]);
+    expect(result.exitStatus).toBe(0);
+    expect(result.frames).toHaveLength(3);
+    const colors = result.frames.map((frame) => {
+      const offset = (30 * frame.width + 30) * 4;
+      return [frame.pixels[offset]!, frame.pixels[offset + 1]!, frame.pixels[offset + 2]!];
+    });
+    expect(colors).toEqual([
+      [255, 0, 0],
+      [0, 0, 255],
+      [0, 255, 0],
+    ]);
+    expect(new Set(result.frames.map((frame) => frame.digest)).size).toBe(3);
   });
 
   it("produces a deterministic frame digest", () => {

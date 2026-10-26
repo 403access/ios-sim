@@ -13,7 +13,7 @@ import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { ImageLoader, type FileProvider, type LoadedProgram } from "../dyld/loader.js";
 import { MachKernel, type MachTask } from "../mach/kernel.js";
-import { ObjcHost, type CapturedFrame } from "../objc/host.js";
+import { ObjcHost, type CapturedFrame, type TapEvent } from "../objc/host.js";
 import {
   CaptureSink,
   DarwinSyscallKernel,
@@ -37,6 +37,7 @@ export interface ProcessOptions {
   /** Install the Objective-C framework shim (default: true). */
   readonly objc?: boolean;
   readonly screen?: { readonly width: number; readonly height: number };
+  readonly events?: readonly TapEvent[];
 }
 
 export interface RuntimeOptions {
@@ -106,6 +107,7 @@ export class DarwinRuntime {
             memory,
             width: options.screen?.width,
             height: options.screen?.height,
+            events: options.events,
           });
     const loader = new ImageLoader({
       provider: this.provider,

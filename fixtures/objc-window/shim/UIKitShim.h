@@ -59,6 +59,8 @@ __attribute__((objc_root_class))
 
 @interface UIColor : NSObject
 + (UIColor *)redColor;
++ (UIColor *)blueColor;
++ (UIColor *)greenColor;
 + (UIColor *)whiteColor;
 + (UIColor *)colorWithRed:(CGFloat)red
                     green:(CGFloat)green
@@ -71,6 +73,8 @@ __attribute__((objc_root_class))
 - (void)setFrame:(CGRect)frame;
 - (void)setBackgroundColor:(UIColor *)color;
 - (void)addSubview:(UIView *)view;
+- (void)touchesBegan:(id)touches withEvent:(id)event;
+- (void)touchesEnded:(id)touches withEvent:(id)event;
 @end
 
 @interface UIWindow : UIView

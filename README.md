@@ -83,6 +83,8 @@ bun apps/native/src/bin.ts run <macho>          # jailed, budgeted execution
 bun apps/native/src/bin.ts launchd <plist>      # launchd-style jobs
 bun apps/native/src/bin.ts uikit-demo --out frame.png
                                                 # generated ObjC app -> rendered frame
+bun apps/native/src/bin.ts uikit-demo --tap 30,30 --out-dir frames
+                                                # tap -> red, blue, green frames
 
 # optional: build a real Mach-O from our assembly with Xcode clang
 ./scripts/build-native-fixtures.sh

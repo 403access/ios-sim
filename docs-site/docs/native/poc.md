@@ -97,6 +97,9 @@ The digest is asserted by the hermetic test and by the gated clang test, so the 
 producers (this repository's writer and Apple clang) are compared on the same pixel output. A
 change in either path breaks the equality, which is the point.
 
+With `--tap 30,30` the same app renders three frames: red, blue after `touchesBegan:`, green after
+`touchesEnded:`. Both producers are compared on the full digest sequence.
+
 ## Try it
 
 ```bash
@@ -105,6 +108,7 @@ bun run --cwd packages/darwin-compat build
 
 # generated ObjC app: class metadata, message sends, shim, frame
 bun apps/native/src/bin.ts uikit-demo --out /tmp/uikit-demo.png
+bun apps/native/src/bin.ts uikit-demo --tap 30,30 --out-dir /tmp/frames
 
 # optional: the same pipeline with clang output (macOS + Xcode)
 ./scripts/build-objc-fixture.sh
@@ -135,8 +139,8 @@ Both export nothing. Every ObjC symbol the app imports (`objc_msgSend`, `objc_al
 
 ## Open problems (in order)
 
-1. `+initialize`, lazy realisation, categories, protocols, and weak references.
-2. Threads and blocking receives; the run loop is a single pass today.
+1. `+load`, lazy realisation, protocols, associated objects, and weak references.
+2. Threads and blocking receives; the loop is a scripted list of taps, not an event source.
 3. Real ARC, autorelease semantics, and a run loop with input.
 4. Application ivar layout and general `NSObject` subclasses.
 5. CoreGraphics paths, text, and a window on the host.

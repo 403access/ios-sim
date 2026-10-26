@@ -6,8 +6,8 @@
  * tooling and never claims to boot the iOS Simulator.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { Command, CommanderError } from "commander";
 import {
   CaptureSink,
@@ -78,6 +78,8 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .option("--trace-syscalls", "trace syscalls to stderr")
     .option("--no-objc", "disable the Objective-C framework shim")
     .option("--out <file>", "write the last captured frame (.png or .ppm)")
+    .option("--out-dir <dir>", "write every captured frame as frame-<n>.png")
+    .option("--tap <x,y>", "scripted tap event (repeatable)", collectTap, [])
     .option("--json", "print JSON result")
     .action((file: string, options: RunOptions) => {
       const absolute = resolve(file);
@@ -111,7 +113,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
               )
           : undefined,
       });
-      if (options.out) writeFrame(result.frames.at(-1), options.out);
+      writeFrames(result.frames, options);
       if (options.json) {
         io.stdout(`${JSON.stringify(runJson(result), null, 2)}\n`);
       } else {
@@ -144,26 +146,30 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
   program
     .command("uikit-demo")
     .description("run the generated ObjC/UIKit proof-of-concept app and capture a frame")
-    .option("--out <file>", "write the frame (.png or .ppm)")
+    .option("--out <file>", "write the last frame (.png or .ppm)")
+    .option("--out-dir <dir>", "write every frame as frame-<n>.png")
+    .option("--tap <x,y>", "scripted tap event (repeatable)", collectTap, [])
     .option("--json", "print JSON")
-    .action((options: { out?: string; json?: boolean }) => {
+    .action((options: { out?: string; outDir?: string; tap: TapPoint[]; json?: boolean }) => {
       const demo = buildUIKitDemo();
       const runtime = new DarwinRuntime({
         provider: new MapFileProvider(new Map([["/UIKitDemo", demo.built.bytes]])),
         rootDir: process.cwd(),
       });
-      const result = runtime.run("/UIKitDemo");
+      const result = runtime.run("/UIKitDemo", { events: options.tap });
       const frame = result.frames.at(-1);
       if (!frame) {
         throw new Error("the demo app did not present a frame");
       }
-      if (options.out) writeFrame(frame, options.out);
+      writeFrames(result.frames, options);
       if (options.json) {
         io.stdout(
           `${JSON.stringify({ ...runJson(result), image: describeUIKitDemo(demo) }, null, 2)}\n`,
         );
       } else {
-        io.stdout(`${frameSummary(frame)}\n`);
+        for (const [index, captured] of result.frames.entries()) {
+          io.stdout(`${frameSummary(captured, index)}\n`);
+        }
         io.stdout(`classes: ${result.objcClasses.join(", ")}\n`);
       }
       requestedExit = result.exitStatus;
@@ -269,9 +275,41 @@ interface RunOptions {
   strictSyscalls: boolean;
   objc: boolean;
   out?: string;
+  outDir?: string;
+  tap: TapPoint[];
   trace?: boolean;
   traceSyscalls?: boolean;
   json?: boolean;
+}
+
+interface TapPoint {
+  x: number;
+  y: number;
+}
+
+function collectTap(value: string, previous: TapPoint[]): TapPoint[] {
+  const [rawX, rawY, ...rest] = value.split(",");
+  const x = Number(rawX);
+  const y = Number(rawY);
+  if (rest.length > 0 || !Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new Error(`expected --tap x,y, got ${value}`);
+  }
+  return [...previous, { x, y }];
+}
+
+function writeFrames(
+  frames: readonly { width: number; height: number; pixels: Uint8Array }[],
+  options: { out?: string; outDir?: string },
+): void {
+  if (frames.length === 0) return;
+  if (options.out) writeFrame(frames.at(-1), options.out);
+  if (options.outDir) {
+    const directory = resolve(options.outDir);
+    mkdirSync(directory, { recursive: true });
+    frames.forEach((frame, index) => {
+      writeFrame(frame, join(directory, `frame-${index}.png`));
+    });
+  }
 }
 
 function parseInteger(value: string): number {
@@ -327,8 +365,12 @@ function writeFrame(
   writeFileSync(target, bytes);
 }
 
-function frameSummary(frame: { width: number; height: number; digest: string }): string {
-  return `frame ${frame.width}x${frame.height} sha256=${frame.digest}`;
+function frameSummary(
+  frame: { width: number; height: number; digest: string },
+  index?: number,
+): string {
+  const prefix = index === undefined ? "frame" : `frame ${index}`;
+  return `${prefix} ${frame.width}x${frame.height} sha256=${frame.digest}`;
 }
 
 function doctorReport() {
@@ -348,7 +390,7 @@ function doctorReport() {
       "Darwin syscall subset with a jailed file layer and anonymous mmap",
       "launchd-style plist jobs, MachServices, RunAtLoad, bounded KeepAlive",
       "Objective-C 2 metadata, objc_msgSend dispatch, and a host UIKit shim",
-      "deterministic PNG/PPM frame capture from a rendered view tree",
+      "deterministic PNG/PPM frame capture, scripted taps, and touch callbacks",
       "generated arm64 fixture program executed end-to-end on Linux/macOS",
     ],
     notImplemented: [

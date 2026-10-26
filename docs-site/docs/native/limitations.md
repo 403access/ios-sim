@@ -66,8 +66,9 @@ macOS-gated test runs compiler output end to end.
   file; a real kernel would use reference counts.
 - **XPC/MIG are not byte-compatible with Apple.** They are versioned research protocols.
 - **launchd output paths and working directories are recorded, not applied.**
-- **The UIKit shim is one-shot.** `UIApplicationMain` runs the delegate callback and one render
-  pass, then returns. There is no run loop, no input, no display link, and no second frame.
+- **The run loop is scripted and headless.** `UIApplicationMain` runs the delegate callback, then
+  a bounded loop over CLI-supplied taps, rendering after each callback. There is no real event
+  source, display link, timers, multitouch, gesture recognisers, or host window.
 - **ARC is elided, not implemented.** `objc_retain`/`release`/`autorelease` are no-ops and
   autorelease pools are markers. Objects live until the process exits; the PoC is short-lived.
 - **Selectors are C strings.** The shim follows the modern direct-selector convention; a selector
