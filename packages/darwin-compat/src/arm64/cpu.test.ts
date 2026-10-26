@@ -273,6 +273,18 @@ describe("A64 scalar floating point", () => {
     expect(cpu.readVectorSingle(3)).toBe(7);
   });
 
+  it("round-trips quad pairs through pre- and post-indexed forms", () => {
+    const { cpu } = run([0xadbf07e0, 0xacc107e0, 0xd65f03c0], {
+      prepare: (_memory, machine) => {
+        machine.writeVectorDouble(0, 1.5);
+        machine.writeVectorDouble(1, 2.5);
+      },
+    });
+    // stp q0,q1,[sp,#-32]! then ldp q0,q1,[sp],#32
+    expect(cpu.readVectorDouble(0)).toBe(1.5);
+    expect(cpu.readVectorDouble(1)).toBe(2.5);
+  });
+
   it("loads and stores scalar doubles and quads", () => {
     const { cpu, memory } = run([0xfd400420, 0xfd000820, 0xad410420, 0xad020420], {
       prepare: (store, machine) => {

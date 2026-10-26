@@ -77,7 +77,7 @@ export function stpQuadPre(rt: number, rt2: number, rn: number, offset: number):
 export function ldpQuadPost(rt: number, rt2: number, rn: number, offset: number): number {
   if (offset % 16 !== 0 || offset < 0 || offset > 504)
     throw new Error(`unaligned or out-of-range quad pair post-index ${offset}`);
-  return 0xad400000 | (1 << 23) | (((offset / 16) & 0x7f) << 15) | (rt2 << 10) | (rn << 5) | rt;
+  return 0xac400000 | (1 << 23) | (((offset / 16) & 0x7f) << 15) | (rt2 << 10) | (rn << 5) | rt;
 }
 
 /** `ldr dN, [Xn, #offset]` (scalar double, unsigned immediate). */

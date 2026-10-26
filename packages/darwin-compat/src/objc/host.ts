@@ -463,7 +463,8 @@ export class ObjcHost {
     this.registerSymbol("_objc_alloc", (cpu) => {
       const klass = this.byAddress.get(cpu.readRegister(0));
       if (!klass) throw new ObjcError("bad_receiver", "objc_alloc receiver is not a class");
-      if (this.ensureInitialized(cpu)) return { value: cpu.readRegister(0) };
+      // Initialization is deferred to the first message on the instance:
+      // objc_alloc has no selector in x1 to resend after +initialize.
       // objc_alloc must honour a guest +alloc override, not allocate directly.
       const method = this.resolveClassMethod(klass, "alloc");
       if (method) return this.invoke(method, cpu);
@@ -606,6 +607,7 @@ export class ObjcHost {
             if (!klass) throw new ObjcError("bad_receiver", "NSSet receiver is not a class");
             const instance = this.allocateInstance(klass);
             this.memory.write(instance + 8n, 8, cpu.readRegister(2));
+            this.autoreleaseObject(instance);
             cpu.writeRegister(0, instance);
           },
         },
@@ -793,6 +795,8 @@ export class ObjcHost {
                 cpu.readVectorBits(index, 64),
               );
             }
+            // Convenience constructors return autoreleased objects.
+            this.autoreleaseObject(instance);
             cpu.writeRegister(0, instance);
           },
         },
@@ -860,6 +864,7 @@ export class ObjcHost {
         ] as const) {
           this.memory.write(instance + BigInt(offset), 8, doubleBits(value));
         }
+        this.autoreleaseObject(instance);
         cpu.writeRegister(0, instance);
       },
     };
@@ -1004,18 +1009,31 @@ export class ObjcHost {
     const classObject = this.byAddress.get(receiver);
     const klass = classObject ?? this.byAddress.get(this.memory.read(receiver, 8));
     if (!klass || this.initialized.has(klass.address)) return false;
-    const method = klass.classMethods.get("initialize");
-    this.initialized.add(klass.address);
-    if (!method) return false;
-    // The shim's +initialize is a no-op; running it in TypeScript would only
-    // risk clobbering the pending arguments.
-    if (this.hostMethods.has(method.imp)) return false;
-    cpu.pc = this.initializeStub(klass.address, method.imp);
+
+    const chain: ObjcClass[] = [];
+    let current: ObjcClass | undefined = klass;
+    while (current) {
+      chain.unshift(current);
+      current = this.byAddress.get(current.superclass);
+    }
+    const pending: Array<{ klass: ObjcClass; imp: bigint }> = [];
+    for (const candidate of chain) {
+      if (this.initialized.has(candidate.address)) continue;
+      this.initialized.add(candidate.address);
+      const method = candidate.classMethods.get("initialize");
+      if (method && !this.hostMethods.has(method.imp)) {
+        pending.push({ klass: candidate, imp: method.imp });
+      }
+    }
+    if (pending.length === 0) return false;
+    cpu.pc = this.initializeStub(pending);
     return true;
   }
 
-  private initializeStub(classAddress: bigint, imp: bigint): bigint {
-    const cached = this.initializeStubs.get(classAddress);
+  /** Call every pending `+initialize` (root first), then re-enter dispatch. */
+  private initializeStub(pending: readonly { klass: ObjcClass; imp: bigint }[]): bigint {
+    const key = pending[pending.length - 1]!.klass.address;
+    const cached = this.initializeStubs.get(key);
     if (cached) return cached;
     if (this.initializeStubs.size >= MAX_INITIALIZE_STUBS) {
       throw new ObjcError(
@@ -1023,13 +1041,16 @@ export class ObjcHost {
         `more than ${MAX_INITIALIZE_STUBS} classes needed a +initialize stub`,
       );
     }
+    if (pending.length > 8) {
+      throw new ObjcError("stub_limit", "more than 8 pending +initialize methods");
+    }
     const address = this.initializeStubCursor;
     this.initializeStubCursor += 256n;
     if (this.initializeStubCursor > this.initializePage + BigInt(INITIALIZE_PAGE)) {
       throw new ObjcError("stub_limit", "the +initialize stub area overflowed");
     }
     const selector = this.internString("initialize");
-    const head: number[] = [
+    const code: number[] = [
       stpPre(29, 30, 31, -16),
       stpPre(0, 1, 31, -16),
       stpPre(2, 3, 31, -16),
@@ -1039,11 +1060,18 @@ export class ObjcHost {
       stpQuadPre(2, 3, 31, -32),
       stpQuadPre(4, 5, 31, -32),
       stpQuadPre(6, 7, 31, -32),
-      ...loadImmediate(0, Number(classAddress)),
-      ...loadImmediate(1, Number(selector)),
     ];
-    const afterInit: number[] = [
-      blr(16),
+    const literals: bigint[] = [];
+    const refs: Array<{ index: number; slot: number }> = [];
+    for (const entry of pending) {
+      code.push(...loadImmediate(0, Number(entry.klass.address)));
+      code.push(...loadImmediate(1, Number(selector)));
+      refs.push({ index: code.length, slot: literals.length });
+      literals.push(entry.imp);
+      code.push(0);
+      code.push(blr(16));
+    }
+    code.push(
       ldpQuadPost(6, 7, 31, 32),
       ldpQuadPost(4, 5, 31, 32),
       ldpQuadPost(2, 3, 31, 32),
@@ -1053,19 +1081,21 @@ export class ObjcHost {
       ldpPost(2, 3, 31, 16),
       ldpPost(0, 1, 31, 16),
       ldpPost(29, 30, 31, 16),
-      ldrLiteral(16, 0),
-      br(16),
-    ];
-    const code = [...head, ldrLiteral(16, 0), ...afterInit];
+    );
+    const resendIndex = code.length;
+    code.push(0);
+    code.push(br(16));
     const literalStart = code.length * 4;
-    const impIndex = head.length;
-    const resendIndex = head.length + 1 + afterInit.length - 2;
-    code[impIndex] = ldrLiteral(16, literalStart - impIndex * 4);
-    code[resendIndex] = ldrLiteral(16, literalStart + 8 - resendIndex * 4);
+    for (const ref of refs) {
+      code[ref.index] = ldrLiteral(16, literalStart + ref.slot * 8 - ref.index * 4);
+    }
+    code[resendIndex] = ldrLiteral(16, literalStart + literals.length * 8 - resendIndex * 4);
     code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
-    this.memory.write(address + BigInt(literalStart), 8, imp);
-    this.memory.write(address + BigInt(literalStart + 8), 8, this.resendAddress);
-    this.initializeStubs.set(classAddress, address);
+    literals.forEach((value, index) =>
+      this.memory.write(address + BigInt(literalStart + index * 8), 8, value),
+    );
+    this.memory.write(address + BigInt(literalStart + literals.length * 8), 8, this.resendAddress);
+    this.initializeStubs.set(key, address);
     return address;
   }
 
@@ -1131,11 +1161,13 @@ export class ObjcHost {
     const superPointer = cpu.readRegister(0);
     const receiver = this.memory.read(superPointer, 8);
     if (this.ensureInitialized(cpu)) return { value: receiver };
-    const superclass = this.memory.read(superPointer + 8n, 8);
+    // objc_msgSendSuper2 passes the class containing the method, not the
+    // superclass; lookup starts at that class's superclass.
+    const container = this.byAddress.get(this.memory.read(superPointer + 8n, 8));
+    const start = container ? this.byAddress.get(container.superclass) : undefined;
     const selector = this.readCString(cpu.readRegister(1));
-    const start = this.byAddress.get(superclass);
     if (!start) {
-      throw new ObjcError("bad_receiver", `objc_msgSendSuper2 superclass is not registered`);
+      throw new ObjcError("bad_receiver", `objc_msgSendSuper2 container class is not registered`);
     }
     const method = this.resolveFrom(start, selector);
     if (!method) {

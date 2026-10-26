@@ -169,9 +169,10 @@ ret
 The trap resolves the selector against the class hierarchy. A host IMP (framework method) is
 called in TypeScript and returns through the trampoline. A guest IMP is entered by setting `pc`
 and leaving `x0..x7`, `v0..v7`, `sp`, and `x30` untouched, so it is a true tail call and the
-callee returns directly to the original caller. `objc_msgSendSuper2` reads the receiver and
-starting superclass from the `objc_super` struct and rewrites `x0` to the receiver before the IMP
-runs. The fixtures use a guest `BaseView` superclass to keep this path on every touch.
+callee returns directly to the original caller. `objc_msgSendSuper2` reads the receiver and the class
+containing the method from the `objc_super` struct (the `objc_msgSendSuper2` convention), starts
+lookup at that class's superclass, and rewrites `x0` to the receiver before the IMP runs. The
+fixtures use a guest `BaseView` superclass to keep this path on every touch.
 
 Recognised runtime entry points: `objc_retain`, `objc_release`, `objc_autorelease`,
 `objc_autoreleasePoolPush/Pop`, `objc_storeStrong`, `objc_storeWeak`, `objc_loadWeakRetained`,
@@ -179,8 +180,8 @@ Recognised runtime entry points: `objc_retain`, `objc_release`, `objc_autoreleas
 `objc_opt_class`, `objc_opt_isKindOfClass`, `objc_alloc`, `sel_registerName`, `objc_getClass`,
 `objc_setAssociatedObject`, `objc_getAssociatedObject`, `objc_removeAssociatedObjects`,
 `objc_storeWeak`, `objc_loadWeakRetained`, `objc_loadWeak`, `objc_destroyWeak`,
-`objc_sync_enter/exit`. Retain/release update a host-side refcount (objects start at 1), and
-autorelease pools are real stacks drained on pop. Objects are never reclaimed and `-dealloc` is
+`objc_sync_enter/exit`. Retain/release update a host-side refcount (objects start at 1; convenience
+constructors return autoreleased objects), and autorelease pools are real stacks drained on pop. Objects are never reclaimed and `-dealloc` is
 not called; the PoC process is short-lived and the docs state the limitation. Counts are exposed
 as `objcStats` in the process result and CLI JSON.
 

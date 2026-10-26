@@ -11,7 +11,9 @@ describe("ObjC inspection", () => {
     expect(names).toEqual(expect.arrayContaining(["AppDelegate", "TapView"]));
 
     const tapView = inspection.classes.find((klass) => klass.name === "TapView")!;
-    expect(tapView.superclass).toBe("UIView");
+    expect(tapView.superclass).toBe("BaseView");
+    const baseView = inspection.classes.find((klass) => klass.name === "BaseView")!;
+    expect(baseView.superclass).toBe("UIView");
     expect(tapView.instanceSize).toBe(16);
     expect(tapView.protocols).toEqual(["Tappable"]);
     expect(tapView.ivars).toEqual([
@@ -30,6 +32,6 @@ describe("ObjC inspection", () => {
       },
     ]);
     expect(inspection.protocols).toContain("Tappable");
-    expect(formatObjcInspection(inspection)).toContain("class TapView : UIView");
+    expect(formatObjcInspection(inspection)).toContain("class TapView : BaseView");
   });
 });

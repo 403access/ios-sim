@@ -96,7 +96,10 @@ type SlotName =
   | "weakSet"
   | "weakLoad"
   | "msgSendSuper"
-  | "superStruct";
+  | "superStruct"
+  | "baseInitMarker"
+  | "tapInitMarker"
+  | "initOrder";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -117,6 +120,8 @@ interface Plan {
   readonly baseRo: number;
   readonly baseMetaRo: number;
   readonly baseMethods: number;
+  readonly tapClassMethods: number;
+  readonly baseClassMethods: number;
   readonly appClass: number;
   readonly appMeta: number;
   readonly tapClass: number;
@@ -210,6 +215,9 @@ function planData(): Plan {
     "weakSet",
     "weakLoad",
     "msgSendSuper",
+    "baseInitMarker",
+    "tapInitMarker",
+    "initOrder",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -278,6 +286,10 @@ function planData(): Plan {
   const baseMetaRo = cursor;
   cursor += 72;
   const baseMethods = cursor;
+  cursor += 8 + 24;
+  const tapClassMethods = cursor;
+  cursor += 8 + 24;
+  const baseClassMethods = cursor;
   cursor += 8 + 24;
   const constEnd = cursor;
 
@@ -391,6 +403,8 @@ function planData(): Plan {
     baseRo,
     baseMetaRo,
     baseMethods,
+    tapClassMethods,
+    baseClassMethods,
     appClass,
     appMeta,
     tapClass,
@@ -438,6 +452,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(adrp(9, address, pc()));
     emitWord(strUnsigned(register, 9, address & 0xfff));
   };
+  const emitMarker = (address: number, value: number): void => {
+    emitWord(adrp(9, address, pc()));
+    emitWord(movz(10, value));
+    emitWord(strUnsigned(10, 9, address & 0xfff));
+  };
   const label = (name: string): void => {
     code.labels.set(name, code.words.length * 4);
   };
@@ -471,6 +490,16 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(strUnsigned(2, 1, 0));
   emitWord(ret());
 
+  label("baseInitialize");
+  emitMarker(slot("baseInitMarker"), 1);
+  emitMarker(slot("initOrder"), 1);
+  emitWord(ret());
+
+  label("tapInitialize");
+  emitMarker(slot("tapInitMarker"), 1);
+  emitMarker(slot("initOrder"), 2);
+  emitWord(ret());
+
   label("tick");
   emitTick();
 
@@ -493,6 +522,8 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("delegate") ?? 0),
     bases.textBase + (code.labels.get("initialize") ?? 0),
     bases.textBase + (code.labels.get("load") ?? 0),
+    bases.textBase + (code.labels.get("baseInitialize") ?? 0),
+    bases.textBase + (code.labels.get("tapInitialize") ?? 0),
     bases.textBase + (code.labels.get("tick") ?? 0),
     bases.textBase + (code.labels.get("tapBegan") ?? 0),
     bases.textBase + (code.labels.get("tapSuperBegan") ?? 0),
@@ -524,6 +555,17 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       { name: "_loadMarker", value: dataAddress(plan.slotOffsets.loadMarker), sectionIndex: 2 },
+      {
+        name: "_baseInitMarker",
+        value: dataAddress(plan.slotOffsets.baseInitMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_tapInitMarker",
+        value: dataAddress(plan.slotOffsets.tapInitMarker),
+        sectionIndex: 2,
+      },
+      { name: "_initOrder", value: dataAddress(plan.slotOffsets.initOrder), sectionIndex: 2 },
     ],
   };
 
@@ -739,6 +781,8 @@ function emitData(
   delegateImp: number,
   initializeImp: number,
   loadImp: number,
+  baseInitializeImp: number,
+  tapInitializeImp: number,
   tickImp: number,
   tapBeganImp: number,
   tapSuperBeganImp: number,
@@ -857,7 +901,7 @@ function emitData(
   rebase(plan.tapRo + 40, address(plan.tapProtocols));
   rebase(plan.tapRo + 48, address(plan.tapIvars));
   rebase(plan.tapMetaRo + 24, address(plan.stringOffsets[DEMO_VIEW_CLASS_NAME]!));
-  rebase(plan.tapMetaRo + 32, address(plan.tapEmptyMethods));
+  rebase(plan.tapMetaRo + 32, address(plan.tapClassMethods));
 
   rebase(plan.tapClass, address(plan.tapMeta));
   rebase(plan.tapClass + 8, address(plan.baseClass));
@@ -890,6 +934,18 @@ function emitData(
   u32(plan.baseMetaRo + 8, 40);
   u32(plan.baseMethods, 24);
   u32(plan.baseMethods + 4, 1);
+  u32(plan.tapClassMethods, 24);
+  u32(plan.tapClassMethods + 4, 1);
+  const tapInitializeEntry = plan.tapClassMethods + 8;
+  rebase(tapInitializeEntry, selector(SELECTORS.initialize));
+  rebase(tapInitializeEntry + 8, selector(TYPES));
+  rebase(tapInitializeEntry + 16, tapInitializeImp);
+  u32(plan.baseClassMethods, 24);
+  u32(plan.baseClassMethods + 4, 1);
+  const baseInitializeEntry = plan.baseClassMethods + 8;
+  rebase(baseInitializeEntry, selector(SELECTORS.initialize));
+  rebase(baseInitializeEntry + 8, selector(TYPES));
+  rebase(baseInitializeEntry + 16, baseInitializeImp);
   const baseEntry = plan.baseMethods + 8;
   rebase(baseEntry, selector(SELECTORS.touchesBegan));
   rebase(baseEntry + 8, selector(TYPES));
@@ -897,7 +953,7 @@ function emitData(
   rebase(plan.baseRo + 24, address(plan.stringOffsets[DEMO_BASE_CLASS_NAME]!));
   rebase(plan.baseRo + 32, address(plan.baseMethods));
   rebase(plan.baseMetaRo + 24, address(plan.stringOffsets[DEMO_BASE_CLASS_NAME]!));
-  rebase(plan.baseMetaRo + 32, address(plan.appEmptyMethods));
+  rebase(plan.baseMetaRo + 32, address(plan.baseClassMethods));
   rebase(plan.baseClass, address(plan.baseMeta));
   bind(plan.baseClass + 8, "_OBJC_CLASS_$_UIView");
   rebase(plan.baseClass + 32, address(plan.baseRo));
@@ -920,7 +976,7 @@ function emitData(
   bind(plan.slotOffsets.weakSet, "_objc_storeWeak");
   bind(plan.slotOffsets.weakLoad, "_objc_loadWeakRetained");
   bind(plan.slotOffsets.msgSendSuper, "_objc_msgSendSuper2");
-  rebase(plan.slotOffsets.superStruct + 8, address(plan.baseClass));
+  rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
   rebase(plan.slotOffsets.classTapView, address(plan.tapClass));

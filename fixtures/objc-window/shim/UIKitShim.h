@@ -48,6 +48,7 @@ static inline CGRect CGRectMake(CGFloat x, CGFloat y, CGFloat width, CGFloat hei
 __attribute__((objc_root_class))
 @interface NSObject
 + (id)alloc;
++ (id)class;
 - (id)init;
 - (id)self;
 @end

@@ -12,17 +12,31 @@ void objc_setAssociatedObject(id object, const void *key, id value, unsigned lon
 id objc_getAssociatedObject(id object, const void *key);
 
 static char kColorKey;
+static int gBaseInit;
+static int gTapInit;
+static int gInitOrder;
 
 @protocol Tappable
 @end
 
 @interface BaseView : UIView
++ (void)initialize;
 @end
 
 @implementation BaseView
++ (void)initialize {
+  if (self == [BaseView class]) {
+    gBaseInit = 1;
+    gInitOrder = 1;
+  }
+}
 - (void)touchesBegan:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;
+  if (!(gBaseInit && gTapInit && gInitOrder == 2)) {
+    self.backgroundColor = [UIColor purpleColor];
+    return;
+  }
   __weak UIColor *weakColor;
   @autoreleasepool {
     UIColor *temporary = [UIColor redColor];
@@ -46,6 +60,12 @@ static char kColorKey;
 @end
 
 @implementation TapView
++ (void)initialize {
+  if (self == [TapView class]) {
+    gTapInit = 1;
+    gInitOrder = 2;
+  }
+}
 - (void)touchesBegan:(id)touches withEvent:(id)event {
   [super touchesBegan:touches withEvent:event];
 }

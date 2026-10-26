@@ -38,6 +38,14 @@ describe("ObjC UIKit demo", () => {
     expect(loadMarker).not.toBeNull();
     expect(result.program.memory.read(loadMarker!, 8)).toBe(1n);
 
+    // TapView inherits from BaseView; both +initialize methods run, root first.
+    const baseInit = result.program.resolveExport("_baseInitMarker");
+    const tapInit = result.program.resolveExport("_tapInitMarker");
+    const initOrder = result.program.resolveExport("_initOrder");
+    expect(result.program.memory.read(baseInit!, 8)).toBe(1n);
+    expect(result.program.memory.read(tapInit!, 8)).toBe(1n);
+    expect(result.program.memory.read(initOrder!, 8)).toBe(2n);
+
     const frame = result.frames[0]!;
     expect(frame.width).toBe(DEMO_SCREEN.width);
     expect(frame.height).toBe(DEMO_SCREEN.height);
