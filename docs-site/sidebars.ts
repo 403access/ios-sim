@@ -27,6 +27,7 @@ const sidebars: SidebarsConfig = {
         "native/abi",
         "native/limitations",
         "native/provenance",
+        "native/quickstart",
       ],
     },
     {

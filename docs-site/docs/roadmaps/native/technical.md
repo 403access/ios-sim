@@ -490,7 +490,9 @@ adds a machine-readable provenance ledger, a docs page, and a checker that verif
 path and required claim. OBS-005 adds `trace` (NDJSON/Chrome, optional file) and `why` (loader
 diagnostic + boot summary) CLI commands; event redaction applies to both. DX-003 makes the doctor
 report a versioned capability schema (`schemaVersion: 1`, per-feature `yes/partial/no`, explicit
-`simulator: false`) with a JSON Schema and validator. DX-005 (native quickstart) is next.
+`simulator: false`) with a JSON Schema and validator. DX-005 adds `bun run quickstart`, which
+runs the generated demo, writes doctor/demo JSON, and optionally builds/exercises the real-clang
+fixture with a visible skip on non-macOS. OBS-006 (fault diagnostics) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

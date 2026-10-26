@@ -1,0 +1,22 @@
+{
+  "pid": 100,
+  "exitStatus": 42,
+  "stdout": "hello from darwin\n",
+  "stderr": "",
+  "instructions": 9,
+  "elapsedMs": 1,
+  "images": [
+    {
+      "path": "/demo",
+      "base": "0x100000000"
+    }
+  ],
+  "fixups": {
+    "images": 1,
+    "fixups": 0,
+    "binds": 0,
+    "rebases": 0,
+    "cacheHits": 0
+  },
+  "unsupportedSyscalls": {}
+}

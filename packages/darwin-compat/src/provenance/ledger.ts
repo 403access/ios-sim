@@ -248,6 +248,13 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "bunx vitest run packages/darwin-compat/src/arm64/disassemble.test.ts",
   },
   {
+    id: "DX-005",
+    claim: "Provides a one-command quickstart for the generated demo and optional clang fixture.",
+    status: "implemented",
+    evidence: ["scripts/quickstart.sh", "docs-site/docs/native/quickstart.md"],
+    command: "bun run quickstart",
+  },
+  {
     id: "UI-000",
     claim: "Shows a clean-room UIKit-compatible blank window in native X11.",
     status: "partial",

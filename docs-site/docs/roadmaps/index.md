@@ -85,7 +85,7 @@ single commit.
   (`THR-010`), a docs link gate (`REL-005`), packaged CLI/runtime tarballs (`REL-003`), and
   Chrome Trace event export (`OBS-004`), an AArch64 disassembler (`DX-001`), and a verified
   provenance ledger (`LEG-001`), `trace`/`why` CLI commands (`OBS-005`), and a versioned
-  capability doctor (`DX-003`).
+  capability doctor (`DX-003`), and a one-command quickstart (`DX-005`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,
