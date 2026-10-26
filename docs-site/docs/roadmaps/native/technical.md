@@ -461,8 +461,10 @@ reference behaviour.
 **Status:** QA-001 provides `src/testing/fuzz.ts` and `scripts/fuzz-darwin.ts`, a deterministic
 outcome-guided mutator with a corpus. `bun run fuzz:1m` runs 1,000,000 mutations per target:
 Mach-O 0 crashes / 371 outcomes, plist 0 crashes / 19 outcomes, XPC 0 crashes / 11 outcomes. The
-run exposed and fixed a non-`CompatError` UTF-8 failure in the XPC codec. QA-003 (generated
-corpus) is next.
+run exposed and fixed a non-`CompatError` UTF-8 failure in the XPC codec. QA-003 generates 23
+Mach-O corpus cases (16 valid, 7 invalid) covering 15 load commands, all five chained pointer
+formats, legacy streams, signatures, filesets, fat headers, and expected error codes;
+`bun run corpus` materializes them under `build/corpus`. QA-004 (benchmarks) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

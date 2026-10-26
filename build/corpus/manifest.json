@@ -1,0 +1,212 @@
+{
+  "generatedBy": "scripts/build-corpus.ts",
+  "cases": [
+    {
+      "name": "execute-minimal",
+      "file": "execute-minimal.bin",
+      "target": "macho",
+      "tags": ["MH_EXECUTE", "LC_MAIN", "LC_UUID"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 49152
+    },
+    {
+      "name": "dylib-dependencies",
+      "file": "dylib-dependencies.bin",
+      "target": "macho",
+      "tags": ["MH_DYLIB", "LC_ID_DYLIB", "LC_LOAD_DYLIB", "LC_LOAD_WEAK_DYLIB", "LC_SYMTAB"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 49152
+    },
+    {
+      "name": "chained-fixups",
+      "file": "chained-fixups.bin",
+      "target": "macho",
+      "tags": ["LC_DYLD_CHAINED_FIXUPS", "LC_DYLD_EXPORTS_TRIE"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 49152
+    },
+    {
+      "name": "legacy-all-streams",
+      "file": "legacy-all-streams.bin",
+      "target": "macho",
+      "tags": ["LC_DYLD_INFO_ONLY", "rebases", "binds", "lazy", "weak"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 49152
+    },
+    {
+      "name": "module-init-term",
+      "file": "module-init-term.bin",
+      "target": "macho",
+      "tags": ["__mod_init_func", "__mod_term_func"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 49152
+    },
+    {
+      "name": "interpose",
+      "file": "interpose.bin",
+      "target": "macho",
+      "tags": ["__interpose"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 49152
+    },
+    {
+      "name": "signed-fileset",
+      "file": "signed-fileset.bin",
+      "target": "macho",
+      "tags": ["LC_CODE_SIGNATURE", "LC_FILESET_ENTRY"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 49152
+    },
+    {
+      "name": "fat-arm64",
+      "file": "fat-arm64.bin",
+      "target": "fat",
+      "tags": ["FAT_MAGIC"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 53248
+    },
+    {
+      "name": "chained-format-2",
+      "file": "chained-format-2.bin",
+      "target": "chained",
+      "tags": ["PTR_2"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 16384
+    },
+    {
+      "name": "chained-format-6",
+      "file": "chained-format-6.bin",
+      "target": "chained",
+      "tags": ["PTR_6"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 16384
+    },
+    {
+      "name": "chained-format-1",
+      "file": "chained-format-1.bin",
+      "target": "chained",
+      "tags": ["PTR_1"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 16384
+    },
+    {
+      "name": "chained-format-9",
+      "file": "chained-format-9.bin",
+      "target": "chained",
+      "tags": ["PTR_9"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 16384
+    },
+    {
+      "name": "chained-format-12",
+      "file": "chained-format-12.bin",
+      "target": "chained",
+      "tags": ["PTR_12"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 16384
+    },
+    {
+      "name": "chained-format-unknown",
+      "file": "chained-format-unknown.bin",
+      "target": "chained",
+      "tags": ["PTR_99"],
+      "valid": false,
+      "expectedCode": "unsupported_pointer_format",
+      "bytes": 16384
+    },
+    {
+      "name": "legacy-rebase-opcodes",
+      "file": "legacy-rebase-opcodes.bin",
+      "target": "legacy",
+      "tags": ["rebase"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 5
+    },
+    {
+      "name": "legacy-bind-opcodes",
+      "file": "legacy-bind-opcodes.bin",
+      "target": "legacy",
+      "tags": ["bind"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 10
+    },
+    {
+      "name": "legacy-invalid-opcode",
+      "file": "legacy-invalid-opcode.bin",
+      "target": "legacy",
+      "tags": ["invalid-opcode"],
+      "valid": false,
+      "expectedCode": "legacy_fixups_unknown_opcode",
+      "bytes": 1
+    },
+    {
+      "name": "signature-superblob",
+      "file": "signature-superblob.bin",
+      "target": "signature",
+      "tags": ["CSMAGIC_EMBEDDED_SIGNATURE"],
+      "valid": true,
+      "expectedCode": null,
+      "bytes": 247
+    },
+    {
+      "name": "signature-bad-magic",
+      "file": "signature-bad-magic.bin",
+      "target": "signature",
+      "tags": ["bad-magic"],
+      "valid": false,
+      "expectedCode": "bad_code_signature_magic",
+      "bytes": 247
+    },
+    {
+      "name": "invalid-magic",
+      "file": "invalid-magic.bin",
+      "target": "macho",
+      "tags": ["bad-magic"],
+      "valid": false,
+      "expectedCode": "bad_magic",
+      "bytes": 49152
+    },
+    {
+      "name": "invalid-truncated-header",
+      "file": "invalid-truncated-header.bin",
+      "target": "macho",
+      "tags": ["truncated"],
+      "valid": false,
+      "expectedCode": "truncated_header",
+      "bytes": 16
+    },
+    {
+      "name": "invalid-command-size",
+      "file": "invalid-command-size.bin",
+      "target": "macho",
+      "tags": ["bad-command-size"],
+      "valid": false,
+      "expectedCode": "bad_command_size",
+      "bytes": 49152
+    },
+    {
+      "name": "invalid-fat-slice",
+      "file": "invalid-fat-slice.bin",
+      "target": "fat",
+      "tags": ["bad-slice"],
+      "valid": false,
+      "expectedCode": "fat_slice_out_of_bounds",
+      "bytes": 53248
+    }
+  ]
+}

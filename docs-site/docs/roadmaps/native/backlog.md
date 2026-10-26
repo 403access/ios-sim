@@ -17,12 +17,12 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009/012 done; QA-003 is next.                                      |
+| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009/012 done; QA-004 is next.                                      |
 | A2 loader/runtime | **Started.** LDR-001..004 done; namespaces, fuzzing, diagnostics, and signing remain.                       |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 53 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 54 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -45,13 +45,13 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `QA-003` is the next task;
-`QA-004` remains in the quality lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `QA-004` is the next task;
+`OBS-001` remains in the observability lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-22 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
-THR-012 stress, and the fuzz harness). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-23 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
+THR-012 stress, fuzzing, and the generated corpus). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -182,8 +182,8 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | proposed  | OBS-002          | Loopback-only                                              |
 | `QA-001`   | Fuzz harness                   | P0       | M    | **done**  | A0               | 1M mutations, 0 crashes, corpus retained                   |
 | `QA-002`   | Differential harness           | P0       | L    | blocked   | QA-001, Mac      | ≥100 cases match                                           |
-| `QA-003`   | Generated Mach-O corpus        | P1       | M    | **next**  | A0               | Covers commands/fixups                                     |
-| `QA-004`   | Performance benchmarks         | P1       | M    | **ready** | A0               | Machine metadata + budgets                                 |
+| `QA-003`   | Generated Mach-O corpus        | P1       | M    | **done**  | A0               | 23 cases, 15 commands, 5 pointer formats                   |
+| `QA-004`   | Performance benchmarks         | P1       | M    | **next**  | A0               | Machine metadata + budgets                                 |
 | `QA-005`   | Concurrency/stress suite       | P1       | M    | blocked   | THR-012          | No deadlock/leak                                           |
 | `QA-006`   | Leak/resource checks           | P1       | M    | blocked   | QA-004           | 24h soak flat                                              |
 | `QA-007`   | Coverage targets               | P2       | S    | blocked   | REL-001          | ≥90% parsers                                               |
