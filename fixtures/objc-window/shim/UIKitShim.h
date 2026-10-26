@@ -136,6 +136,27 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 @end
 
 // Text accepts an NSString or a bare C string; the host reads either.
+@interface NSNumber : NSObject
++ (id)numberWithInt:(int)value;
++ (id)numberWithInteger:(long)value;
+- (int)intValue;
+- (long)integerValue;
+- (BOOL)boolValue;
+@end
+
+@interface NSArray : NSObject
++ (id)array;
+- (unsigned long)count;
+- (id)objectAtIndex:(unsigned long)index;
+- (id)firstObject;
+- (id)lastObject;
+@end
+
+@interface NSMutableArray : NSArray
+- (void)addObject:(id)object;
+- (void)removeAllObjects;
+@end
+
 @interface UILabel : UIView
 - (void)setText:(id)text;
 - (id)text;

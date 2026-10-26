@@ -60,6 +60,12 @@ const SELECTORS = {
   text: "text",
   length: "length",
   isEqualToString: "isEqualToString:",
+  array: "array",
+  addObject: "addObject:",
+  count: "count",
+  objectAtIndex: "objectAtIndex:",
+  numberWithInt: "numberWithInt:",
+  intValue: "intValue",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -162,7 +168,12 @@ type SlotName =
   | "classString"
   | "stringText"
   | "stringLength"
-  | "stringEqual";
+  | "stringEqual"
+  | "classMutableArray"
+  | "classNumber"
+  | "array"
+  | "arrayCount"
+  | "numberValue";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -319,6 +330,11 @@ function planData(): Plan {
     "stringText",
     "stringLength",
     "stringEqual",
+    "classMutableArray",
+    "classNumber",
+    "array",
+    "arrayCount",
+    "numberValue",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -710,8 +726,10 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(stpPre(19, 20, 31, -16));
   emitPointer(0, slot("mainView"));
   emitWord(movReg(19, 0));
-  emitPointer(0, slot("classColor"));
-  emitAddress(1, selector(SELECTORS.purpleColor));
+  // UIColor *color = [colors objectAtIndex:1];
+  emitPointer(0, slot("array"));
+  emitAddress(1, selector(SELECTORS.objectAtIndex));
+  emitWord(movz(2, 1));
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
   emitWord(movReg(2, 0));
@@ -806,6 +824,16 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_lifecycleMarker",
         value: dataAddress(plan.slotOffsets.lifecycleMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_arrayCount",
+        value: dataAddress(plan.slotOffsets.arrayCount),
+        sectionIndex: 2,
+      },
+      {
+        name: "_numberValue",
+        value: dataAddress(plan.slotOffsets.numberValue),
         sectionIndex: 2,
       },
       {
@@ -1336,6 +1364,52 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // NSMutableArray *colors = [NSMutableArray array];
+    emitPointer(0, slot("classMutableArray"));
+    emitAddress(1, selector(SELECTORS.array));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("array"));
+    // [colors addObject:[UIColor redColor]];
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.redColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitPointer(0, slot("array"));
+    emitAddress(1, selector(SELECTORS.addObject));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    // [colors addObject:[UIColor purpleColor]];
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.purpleColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitPointer(0, slot("array"));
+    emitAddress(1, selector(SELECTORS.addObject));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    // (void)[colors count];
+    emitPointer(0, slot("array"));
+    emitAddress(1, selector(SELECTORS.count));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("arrayCount"));
+    // NSNumber *number = [NSNumber numberWithInt:5]; (void)[number intValue];
+    emitPointer(0, slot("classNumber"));
+    emitAddress(1, selector(SELECTORS.numberWithInt));
+    emitWord(movz(2, 5));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.intValue));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(addImm(0, 0, 1));
+    emitStore(0, slot("numberValue"));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -1743,6 +1817,8 @@ function emitData(
   bind(plan.slotOffsets.classDefaults, "_OBJC_CLASS_$_NSUserDefaults");
   bind(plan.slotOffsets.classController, "_OBJC_CLASS_$_UIViewController");
   bind(plan.slotOffsets.classString, "_OBJC_CLASS_$_NSString");
+  bind(plan.slotOffsets.classMutableArray, "_OBJC_CLASS_$_NSMutableArray");
+  bind(plan.slotOffsets.classNumber, "_OBJC_CLASS_$_NSNumber");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));

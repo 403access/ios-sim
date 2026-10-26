@@ -20,6 +20,8 @@ static int gInitOrder;
 static int gLifecycle;
 static int gAppear;
 static int gString;
+static int gCollections;
+static NSMutableArray *gColors;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
@@ -58,7 +60,8 @@ static int gString;
 - (void)touchesBegan:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;
-  if (!(gBaseInit && gTapInit && gInitOrder == 2 && gLifecycle == 1 && gString == 1)) {
+  if (!(gBaseInit && gTapInit && gInitOrder == 2 && gLifecycle == 1 && gString == 1 &&
+        gCollections == 1)) {
     self.backgroundColor = [UIColor purpleColor];
     return;
   }
@@ -165,6 +168,13 @@ static unsigned gTick;
   UIViewController *controller = [[UIViewController alloc] init];
   [window setRootViewController:controller];
   UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(20, 400, 300, 40)];
+  gColors = [NSMutableArray array];
+  [gColors addObject:[UIColor redColor]];
+  [gColors addObject:[UIColor purpleColor]];
+  NSNumber *number = [NSNumber numberWithInt:5];
+  if ([gColors count] == 2 && [number intValue] + 1 == 6) {
+    gCollections = 1;
+  }
   NSString *text = [NSString stringWithUTF8String:"HELLO 42"];
   [label setText:text];
   if ([[label text] isEqualToString:text] && [[label text] length] == 8) {
@@ -201,7 +211,8 @@ static unsigned gTick;
   (void)notification;
   // load before appearance, and the two appearance callbacks in order.
   BOOL ready = gLifecycle == 1 && gAppear == 12;
-  gView.backgroundColor = ready ? [UIColor purpleColor] : [UIColor blackColor];
+  UIColor *color = [gColors objectAtIndex:1];
+  gView.backgroundColor = ready ? color : [UIColor blackColor];
 }
 
 - (void)tick:(id)ignored {

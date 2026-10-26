@@ -95,6 +95,9 @@ const LABEL_INSTANCE_SIZE = 96;
 const STRING_POINTER = 8;
 const STRING_INSTANCE_SIZE = 16;
 
+const NUMBER_VALUE = 8;
+const NUMBER_INSTANCE_SIZE = 16;
+
 const CONTROLLER_VIEW = 8;
 const CONTROLLER_INSTANCE_SIZE = 16;
 
@@ -224,6 +227,7 @@ export class ObjcHost {
   private notificationCenter: bigint | null = null;
   private userDefaults: bigint | null = null;
   private readonly defaults = new Map<string, bigint>();
+  private readonly arrays = new Map<bigint, bigint[]>();
   private readonly notificationPage: bigint;
   private notificationCursor: bigint;
   private readonly lifecyclePage: bigint;
@@ -975,6 +979,172 @@ export class ObjcHost {
       ],
     });
     this.registerClass(string);
+
+    const number = this.defineClass({
+      name: "NSNumber",
+      superclass: "NSObject",
+      instanceSize: NUMBER_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "integerValue",
+          types: "q16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(NUMBER_VALUE), 8)),
+        },
+        {
+          selector: "intValue",
+          types: "i16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(
+              0,
+              BigInt(
+                Number(BigInt.asIntN(32, this.memory.read(receiver + BigInt(NUMBER_VALUE), 8))),
+              ),
+            ),
+        },
+        {
+          selector: "boolValue",
+          types: "B16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(
+              0,
+              this.memory.read(receiver + BigInt(NUMBER_VALUE), 8) === 0n ? 0n : 1n,
+            ),
+        },
+        {
+          selector: "doubleValue",
+          types: "d16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeVectorDouble(0, Number(this.memory.read(receiver + BigInt(NUMBER_VALUE), 8))),
+        },
+      ],
+      classMethods: [
+        {
+          selector: "numberWithInt:",
+          types: "@20@0:8i16",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "numberWithInt: is not a class");
+            }
+            cpu.writeRegister(0, this.newNumber(BigInt.asIntN(32, cpu.readRegister(2))));
+          },
+        },
+        {
+          selector: "numberWithInteger:",
+          types: "@24@0:8q16",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "numberWithInteger: is not a class");
+            }
+            cpu.writeRegister(0, this.newNumber(cpu.readRegister(2)));
+          },
+        },
+        {
+          selector: "numberWithBool:",
+          types: "@20@0:8B16",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "numberWithBool: is not a class");
+            }
+            cpu.writeRegister(0, this.newNumber(cpu.readRegister(2) === 0n ? 0n : 1n));
+          },
+        },
+      ],
+    });
+    this.registerClass(number);
+
+    const array = this.defineClass({
+      name: "NSArray",
+      superclass: "NSObject",
+      instanceSize: 8,
+      methods: [
+        {
+          selector: "count",
+          types: "Q16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, BigInt(this.arrayOf(receiver).length)),
+        },
+        {
+          selector: "objectAtIndex:",
+          types: "@24@0:8Q16",
+          run: (cpu, receiver) => {
+            const list = this.arrayOf(receiver);
+            const index = Number(cpu.readRegister(2));
+            if (!Number.isInteger(index) || index < 0 || index >= list.length) {
+              throw new ObjcError(
+                "range_error",
+                `objectAtIndex: ${index} is outside 0..${list.length - 1}`,
+              );
+            }
+            cpu.writeRegister(0, list[index]!);
+          },
+        },
+        {
+          selector: "firstObject",
+          types: "@16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, this.arrayOf(receiver)[0] ?? 0n),
+        },
+        {
+          selector: "lastObject",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const list = this.arrayOf(receiver);
+            cpu.writeRegister(0, list[list.length - 1] ?? 0n);
+          },
+        },
+      ],
+      classMethods: [
+        {
+          selector: "array",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass) throw new ObjcError("bad_receiver", "array receiver is not a class");
+            const instance = this.allocateInstance(klass);
+            this.arrays.set(instance, []);
+            cpu.writeRegister(0, instance);
+          },
+        },
+      ],
+    });
+    this.registerClass(array);
+
+    const mutableArray = this.defineClass({
+      name: "NSMutableArray",
+      superclass: "NSArray",
+      instanceSize: 8,
+      methods: [
+        {
+          selector: "init",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            this.arrays.set(receiver, []);
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "addObject:",
+          types: "v24@0:8@16",
+          run: (cpu, receiver) => {
+            const list = this.arrayOf(receiver);
+            const object = cpu.readRegister(2);
+            if (object === 0n) throw new ObjcError("nil_argument", "addObject: does not take nil");
+            if (list.length >= 1024) {
+              throw new ObjcError("array_limit", "an array already holds 1024 objects");
+            }
+            list.push(object);
+          },
+        },
+        {
+          selector: "removeAllObjects",
+          types: "v16@0:8",
+          run: (_cpu, receiver) => {
+            this.arrays.set(receiver, []);
+          },
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(mutableArray);
 
     const defaults = this.defineClass({
       name: "NSUserDefaults",
@@ -2091,6 +2261,22 @@ export class ObjcHost {
   private describe(receiver: bigint): string {
     const klass = this.byAddress.get(this.classOf(receiver));
     return klass ? `<${klass.name}>` : `<object 0x${receiver.toString(16)}>`;
+  }
+
+  /** Allocate an NSNumber holding a signed 64-bit value. */
+  private newNumber(value: bigint): bigint {
+    const numberClass = this.classes.get("NSNumber");
+    if (!numberClass) throw new ObjcError("internal_error", "NSNumber is missing");
+    const instance = this.allocateInstance(numberClass);
+    this.memory.write(instance + BigInt(NUMBER_VALUE), 8, BigInt.asIntN(64, value));
+    return instance;
+  }
+
+  /** Arrays live in host memory; guest code sees only the object handle. */
+  private arrayOf(instance: bigint): bigint[] {
+    const list = this.arrays.get(instance);
+    if (!list) throw new ObjcError("bad_receiver", "object is not an array");
+    return list;
   }
 
   /** Allocate an NSString holding a copy-free pointer to a guest C string. */
