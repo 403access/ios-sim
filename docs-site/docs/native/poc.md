@@ -150,7 +150,7 @@ equality, not ivar offsets. A real app linked against a real UIKit would have bo
 
 ## Open problems (in order)
 
-1. Lazy class realisation, associated objects, and zeroing weak references.
+1. Lazy class realisation and zeroing weak references.
 2. Threads and blocking receives; the loop is a scripted list of taps/drags/ticks, not an event
    source.
 3. A real allocator/deallocator and exact ARC semantics.

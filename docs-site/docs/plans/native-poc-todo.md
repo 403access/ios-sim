@@ -38,9 +38,10 @@ started.
 - [x] Categories (`__objc_catlist`) merged into classes
 - [x] Absolute and relative ivar lists parsed and exposed
 - [x] Protocol lists, inherited protocols, and `conformsToProtocol:`
+- [x] Associated objects (`set`/`get`/`remove`, assign/retain policies)
 - [x] Runtime entry points: retain/release refcounts, autorelease pools, storeStrong, opt_self, sel_registerName
 - [x] Guest IMP tail call preserves arguments and return address
-- [~] Associated objects and weak references (absent, documented)
+- [~] Weak references (absent, documented)
 
 ## P2 — framework shim and frame
 

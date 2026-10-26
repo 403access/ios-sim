@@ -159,6 +159,7 @@ export class ObjcHost {
     autoreleases: 0,
     poolPushes: 0,
     poolPops: 0,
+    associations: 0,
   };
   readonly frames: CapturedFrame[] = [];
   readonly width: number;
@@ -184,6 +185,7 @@ export class ObjcHost {
   private readonly instances = new Map<bigint, ObjcClass>();
   private readonly initialized = new Set<bigint>();
   private readonly refcounts = new Map<bigint, number>();
+  private readonly associations = new Map<bigint, Map<bigint, Association>>();
   private readonly autoreleasePools: bigint[][] = [];
   private readonly initializeStubs = new Map<bigint, bigint>();
   private readonly initializePage: bigint;
@@ -381,6 +383,23 @@ export class ObjcHost {
     });
     this.registerSymbol("_objc_sync_enter", () => ({ value: 0n }));
     this.registerSymbol("_objc_sync_exit", () => ({ value: 0n }));
+
+    this.registerSymbol("_objc_setAssociatedObject", (cpu) => {
+      this.setAssociated(
+        cpu.readRegister(0),
+        cpu.readRegister(1),
+        cpu.readRegister(2),
+        Number(cpu.readRegister(3)),
+      );
+      return { value: 0n };
+    });
+    this.registerSymbol("_objc_getAssociatedObject", (cpu) => ({
+      value: this.getAssociated(cpu.readRegister(0), cpu.readRegister(1)),
+    }));
+    this.registerSymbol("_objc_removeAssociatedObjects", (cpu) => {
+      this.removeAssociated(cpu.readRegister(0));
+      return { value: 0n };
+    });
 
     this.registerSymbol("_objc_storeStrong", (cpu) => {
       const location = cpu.readRegister(0);
@@ -1153,6 +1172,38 @@ export class ObjcHost {
     return false;
   }
 
+  private setAssociated(object: bigint, key: bigint, value: bigint, policy: number): void {
+    if (!this.instances.has(object)) return;
+    let map = this.associations.get(object);
+    if (!map) {
+      map = new Map();
+      this.associations.set(object, map);
+    }
+    const previous = map.get(key);
+    if (previous && retainsAssociation(previous.policy)) this.releaseObject(previous.value);
+    if (value === 0n) {
+      map.delete(key);
+      if (map.size === 0) this.associations.delete(object);
+      return;
+    }
+    if (retainsAssociation(policy)) this.retainObject(value);
+    map.set(key, { value, policy });
+    this.stats.associations += 1;
+  }
+
+  private getAssociated(object: bigint, key: bigint): bigint {
+    return this.associations.get(object)?.get(key)?.value ?? 0n;
+  }
+
+  private removeAssociated(object: bigint): void {
+    const map = this.associations.get(object);
+    if (!map) return;
+    this.associations.delete(object);
+    for (const association of map.values()) {
+      if (retainsAssociation(association.policy)) this.releaseObject(association.value);
+    }
+  }
+
   private retainObject(object: bigint): void {
     if (!this.instances.has(object)) return;
     this.refcounts.set(object, (this.refcounts.get(object) ?? 1) + 1);
@@ -1168,6 +1219,7 @@ export class ObjcHost {
       // -dealloc is not called; the PoC process is short-lived and the docs
       // state this limitation.
       this.refcounts.delete(object);
+      this.removeAssociated(object);
       return;
     }
     this.refcounts.set(object, count);
@@ -1567,6 +1619,15 @@ function depth(classes: ReadonlyMap<bigint, ObjcClass>, klass: ObjcClass): numbe
     current = classes.get(current.superclass);
   }
   return levels;
+}
+
+interface Association {
+  readonly value: bigint;
+  readonly policy: number;
+}
+
+function retainsAssociation(policy: number): boolean {
+  return (policy & 0x1) !== 0;
 }
 
 function containsPoint(rect: Rect, point: { x: number; y: number }): boolean {

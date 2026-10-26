@@ -87,7 +87,9 @@ type SlotName =
   | "initializeMarker"
   | "loadMarker"
   | "currentView"
-  | "tickIndex";
+  | "tickIndex"
+  | "assocSet"
+  | "assocGet";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -190,6 +192,8 @@ function planData(): Plan {
     "loadMarker",
     "currentView",
     "tickIndex",
+    "assocSet",
+    "assocGet",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -621,6 +625,18 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitAddress(1, selector(SELECTORS.blueColor));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
+    // objc_setAssociatedObject(self, @protocol(Tappable), blue, RETAIN);
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 19));
+    emitAddress(1, dataAddress(plan.tappableProtocol));
+    emitWord(movz(3, 1));
+    emitPointer(16, slot("assocSet"));
+    emitWord(blr(16));
+    // blue = objc_getAssociatedObject(self, key);
+    emitWord(movReg(0, 19));
+    emitAddress(1, dataAddress(plan.tappableProtocol));
+    emitPointer(16, slot("assocGet"));
+    emitWord(blr(16));
     emitWord(movReg(2, 0));
     const jumpToApply = code.words.length;
     emitWord(0);
@@ -798,6 +814,8 @@ function emitData(
   bind(plan.slotOffsets.classWindow, "_OBJC_CLASS_$_UIWindow");
   bind(plan.slotOffsets.classColor, "_OBJC_CLASS_$_UIColor");
   bind(plan.slotOffsets.msgSend, "_objc_msgSend");
+  bind(plan.slotOffsets.assocSet, "_objc_setAssociatedObject");
+  bind(plan.slotOffsets.assocGet, "_objc_getAssociatedObject");
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
   rebase(plan.slotOffsets.classTapView, address(plan.tapClass));

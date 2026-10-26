@@ -8,6 +8,11 @@
 
 #import "UIKitShim.h"
 
+void objc_setAssociatedObject(id object, const void *key, id value, unsigned long policy);
+id objc_getAssociatedObject(id object, const void *key);
+
+static char kColorKey;
+
 @protocol Tappable
 @end
 

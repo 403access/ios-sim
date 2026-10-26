@@ -72,6 +72,7 @@ describe("ObjC UIKit demo", () => {
     expect(result.objcStats.allocations).toBeGreaterThanOrEqual(3);
     expect(result.objcStats.retains).toBeGreaterThanOrEqual(1);
     expect(result.objcStats.autoreleases).toBeGreaterThanOrEqual(1);
+    expect(result.objcStats.associations).toBeGreaterThanOrEqual(1);
   });
 
   it("delivers moved samples for a drag", () => {

@@ -73,6 +73,7 @@ export interface ProcessResult {
     autoreleases: number;
     poolPushes: number;
     poolPops: number;
+    associations: number;
   }>;
 }
 
@@ -273,6 +274,7 @@ export class DarwinProcess {
         autoreleases: 0,
         poolPushes: 0,
         poolPops: 0,
+        associations: 0,
       },
     };
   }
