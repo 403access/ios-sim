@@ -75,6 +75,8 @@ const SELECTORS = {
   load: "load",
   tick: "tick:",
   dealloc: "dealloc",
+  new: "new",
+  drain: "drain",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -101,7 +103,8 @@ type SlotName =
   | "baseInitMarker"
   | "tapInitMarker"
   | "initOrder"
-  | "deallocMarker";
+  | "deallocMarker"
+  | "classPool";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -221,6 +224,7 @@ function planData(): Plan {
     "tapInitMarker",
     "initOrder",
     "deallocMarker",
+    "classPool",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -695,6 +699,17 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // NSAutoreleasePool *pool = [NSAutoreleasePool new]; [pool drain];
+    emitPointer(0, slot("classPool"));
+    emitAddress(1, selector(SELECTORS.new));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.drain));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     emitWord(movz(0, 1));
     emitWord(ldpPost(19, 20, 31, 16));
     emitWord(ldpPost(29, 30, 31, 16));
@@ -1005,6 +1020,7 @@ function emitData(
   bind(plan.slotOffsets.weakSet, "_objc_storeWeak");
   bind(plan.slotOffsets.weakLoad, "_objc_loadWeakRetained");
   bind(plan.slotOffsets.msgSendSuper, "_objc_msgSendSuper2");
+  bind(plan.slotOffsets.classPool, "_OBJC_CLASS_$_NSAutoreleasePool");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));

@@ -196,6 +196,7 @@ export class ObjcHost {
   private readonly weakSlots = new Map<bigint, Set<bigint>>();
   private readonly weakOwners = new Map<bigint, bigint>();
   private readonly deadObjects = new Set<bigint>();
+  private readonly poolOwners = new Map<bigint, boolean>();
   private readonly deallocPage: bigint;
   private deallocCursor: bigint;
   private readonly autoreleasePools: bigint[][] = [];
@@ -789,6 +790,41 @@ export class ObjcHost {
     });
     this.registerClass(controller);
 
+    const pool = this.defineClass({
+      name: "NSAutoreleasePool",
+      superclass: "NSObject",
+      instanceSize: 16,
+      methods: [
+        {
+          selector: "drain",
+          types: "v16@0:8",
+          run: (_cpu, receiver) => this.drainPool(receiver),
+        },
+        {
+          selector: "release",
+          types: "v16@0:8",
+          run: (_cpu, receiver) => this.drainPool(receiver),
+        },
+      ],
+      classMethods: [
+        {
+          selector: "new",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass)
+              throw new ObjcError("bad_receiver", "NSAutoreleasePool receiver is not a class");
+            const instance = this.allocateInstance(klass);
+            this.autoreleasePools.push([]);
+            this.stats.poolPushes += 1;
+            this.poolOwners.set(instance, false);
+            cpu.writeRegister(0, instance);
+          },
+        },
+      ],
+    });
+    this.registerClass(pool);
+
     const color = this.defineClass({
       name: "UIColor",
       superclass: "NSObject",
@@ -1251,6 +1287,15 @@ export class ObjcHost {
       current = this.byAddress.get(current.superclass);
     }
     return false;
+  }
+
+  private drainPool(receiver: bigint): void {
+    if (this.poolOwners.get(receiver)) return;
+    this.poolOwners.set(receiver, true);
+    const drained = this.autoreleasePools.pop();
+    if (!drained) return;
+    this.stats.poolPops += 1;
+    for (const object of drained) this.releaseObject(object);
   }
 
   private setAssociated(object: bigint, key: bigint, value: bigint, policy: number): void {

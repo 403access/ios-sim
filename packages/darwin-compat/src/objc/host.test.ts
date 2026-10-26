@@ -87,6 +87,8 @@ describe("ObjC UIKit demo", () => {
     expect(result.objcStats.hostDispatches).toBeGreaterThan(0);
     expect(result.objcStats.guestDispatches).toBeGreaterThan(0);
     expect(result.objcStats.deallocs).toBeGreaterThanOrEqual(1);
+    expect(result.objcStats.poolPushes).toBeGreaterThanOrEqual(1);
+    expect(result.objcStats.poolPops).toBeGreaterThanOrEqual(1);
     const deallocMarker = result.program.resolveExport("_deallocMarker");
     expect(result.program.memory.read(deallocMarker!, 8)).toBe(1n);
   });
