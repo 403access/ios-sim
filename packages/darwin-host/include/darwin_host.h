@@ -154,6 +154,12 @@ int dh_selftest_blocking(void);
 int dh_selftest_interrupt(void);
 int dh_selftest_threads(void);
 
+/* Mach-trap parity table and dispatch. */
+uint32_t dh_trap_count(void);
+int32_t dh_trap_number(uint32_t index);
+int dh_trap_implemented(uint32_t index);
+int dh_trap_dispatch(uint32_t task, int32_t trap, uint32_t *out_value);
+
 #ifdef __cplusplus
 }
 #endif

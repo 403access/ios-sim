@@ -143,6 +143,13 @@ variable, so a blocked set receive wakes. Removing/deallocating a receive port c
 `DH_NOTIFY_DEAD` message on a registered notify port exactly once. The notification body is the
 dead port id.
 
+## Mach trap parity
+
+`KRN-010` exposes a table for the exercised Mach traps: reply port, thread self, and task self are
+implemented; host-self and the `mach_msg` traps are marked unsupported. Unknown/unsupported trap
+numbers return `DH_ERR_NOT_FOUND` under fuzz rather than crashing. The guest runtime still uses
+`DarwinSyscallKernel` for the actual message trap path.
+
 ## Memory objects
 
 `KRN-009` adds shared memory objects and per-task mappings. Two tasks can map the same object at

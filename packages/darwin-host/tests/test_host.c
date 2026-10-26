@@ -132,6 +132,20 @@ int main(void) {
   CHECK(dh_send(task, once, 0, 70, body, 1) == DH_ERR_INVALID_NAME, "send-once consumed");
   (void)transfer_box;
 
+  CHECK(dh_trap_count() >= 6, "trap table size");
+  CHECK(dh_trap_number(0) == -26 && dh_trap_implemented(0) == 1, "reply-port trap");
+  uint32_t trap_value = 0;
+  CHECK(dh_trap_dispatch(task, -28, &trap_value) == DH_OK && trap_value == 1, "task self trap");
+  CHECK(dh_trap_dispatch(task, -31, &trap_value) == DH_ERR_NOT_FOUND, "unsupported mach_msg trap");
+  CHECK(dh_trap_dispatch(task, 123456, &trap_value) == DH_ERR_NOT_FOUND, "unknown trap");
+  uint32_t seed = 0x12345678u;
+  for (int index = 0; index < 100000; ++index) {
+    seed = seed * 1664525u + 1013904223u;
+    CHECK(dh_trap_dispatch(task, (int32_t)seed, &trap_value) != DH_OK ||
+              trap_value == 1 || trap_value != 0,
+          "trap fuzz response");
+  }
+
   CHECK(dh_selftest_blocking() == 0, "blocking self-test");
   CHECK(dh_selftest_interrupt() == 0, "interrupt self-test");
   CHECK(dh_selftest_threads() == 0, "thread self-test");

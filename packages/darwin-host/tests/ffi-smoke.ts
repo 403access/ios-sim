@@ -113,6 +113,17 @@ try {
   assert.deepEqual(Array.from(host.receive(task, transferReceive, 8, 100).body), [3]);
   assert.equal(host.send(task, once.transferName, 0, 70, Uint32Array.from([4])), 3);
 
+  assert.ok(host.trapCount() >= 6);
+  assert.equal(host.trapNumber(0), -26);
+  assert.equal(host.trapImplemented(0), true);
+  assert.deepEqual(host.dispatchTrap(task, -28), { status: 0, value: 1 });
+  assert.equal(host.dispatchTrap(task, -31).status, DHStatus.NotFound);
+  let seed = 0x12345678;
+  for (let index = 0; index < 10000; index += 1) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    host.dispatchTrap(task, seed | 0);
+  }
+
   host.selftestBlocking();
   host.selftestInterrupt();
   host.selftestThreads();

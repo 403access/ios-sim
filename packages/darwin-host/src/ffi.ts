@@ -142,6 +142,10 @@ const SYMBOLS = {
   dh_selftest_blocking: { args: [], returns: "i32" },
   dh_selftest_interrupt: { args: [], returns: "i32" },
   dh_selftest_threads: { args: [], returns: "i32" },
+  dh_trap_count: { args: [], returns: "u32" },
+  dh_trap_number: { args: ["u32"], returns: "i32" },
+  dh_trap_implemented: { args: ["u32"], returns: "i32" },
+  dh_trap_dispatch: { args: ["u32", "i32", "ptr"], returns: "i32" },
 } as const;
 
 type NativeLibrary = ReturnType<typeof dlopen>;
@@ -396,6 +400,24 @@ export class NativeHost {
 
   selftestThreads(): void {
     this.check("selftest_threads", this.symbols.dh_selftest_threads!());
+  }
+
+  trapCount(): number {
+    return this.symbols.dh_trap_count!();
+  }
+
+  trapNumber(index: number): number {
+    return this.symbols.dh_trap_number!(index);
+  }
+
+  trapImplemented(index: number): boolean {
+    return this.symbols.dh_trap_implemented!(index) !== 0;
+  }
+
+  dispatchTrap(task: number, trap: number): { status: number; value: number } {
+    const out = new Uint32Array(1);
+    const status = this.symbols.dh_trap_dispatch!(task, trap, ptr(out));
+    return { status, value: out[0]! };
   }
 
   private check(operation: string, status: number): void {

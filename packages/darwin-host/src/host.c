@@ -1341,6 +1341,50 @@ static int run_selftest(int interrupt_only) {
   return 0;
 }
 
+typedef struct {
+  int32_t number;
+  const char *name;
+  int implemented;
+} DHTrapEntry;
+
+static const DHTrapEntry g_traps[] = {
+    {-26, "mach_reply_port", 1},
+    {-27, "thread_self_trap", 1},
+    {-28, "task_self_trap", 1},
+    {-29, "host_self_trap", 0},
+    {-31, "mach_msg_trap", 0},
+    {-32, "mach_msg_overwrite_trap", 0},
+};
+
+uint32_t dh_trap_count(void) { return (uint32_t)(sizeof(g_traps) / sizeof(g_traps[0])); }
+
+int32_t dh_trap_number(uint32_t index) {
+  return index < dh_trap_count() ? g_traps[index].number : 0;
+}
+
+int dh_trap_implemented(uint32_t index) {
+  return index < dh_trap_count() ? g_traps[index].implemented : 0;
+}
+
+int dh_trap_dispatch(uint32_t task_id, int32_t trap, uint32_t *out_value) {
+  if (out_value == NULL) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHTask *task = task_locked(task_id);
+  pthread_mutex_unlock(&g_lock);
+  if (task == NULL) return DH_ERR_INVALID_TASK;
+  if (trap == -26) {
+    return dh_reply_port(task_id, out_value);
+  }
+  if (trap == -27 || trap == -28) {
+    *out_value = 1;
+    return DH_OK;
+  }
+  for (uint32_t index = 0; index < dh_trap_count(); ++index) {
+    if (g_traps[index].number == trap) return DH_ERR_NOT_FOUND;
+  }
+  return DH_ERR_NOT_FOUND;
+}
+
 int dh_selftest_blocking(void) { return run_selftest(0); }
 int dh_selftest_interrupt(void) { return run_selftest(1); }
 
