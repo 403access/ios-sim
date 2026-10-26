@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-008",
+    claim: "Provides toll-free CF wrappers and a timer/source run loop.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/foundation/cf.ts",
+      "packages/darwin-compat/src/foundation/cf.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/foundation/cf.test.ts",
+    limitation: "Semantic bridge/run loop; no CoreFoundation ABI or Mach-port sources.",
+  },
+  {
     id: "RT-007",
     claim: "Round-trips jailed files, file URLs, JSON, and XML plists.",
     status: "implemented",
