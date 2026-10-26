@@ -55,16 +55,16 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-27 · tables, navigation, JSON",
+  updated: "2026-10-27 · transforms, tables, navigation",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
-  tests: 161,
+  tests: 162,
   gated: 6,
   g2: 8,
   m1Budget: 31,
   stats: [
-    { value: "161", label: "hermetic tests" },
+    { value: "162", label: "hermetic tests" },
     { value: "6", label: "macOS-gated" },
     { value: "33", label: "host classes" },
     { value: "36", label: "runtime symbols" },
@@ -147,20 +147,21 @@ export const architecture: Architecture = {
       id: "output",
       name: "Compositor & frames",
       kicker: "Deterministic software rendering",
-      percent: 48,
+      percent: 56,
       chips: [
         { label: "RGBA buffer", state: "done" },
         { label: "PNG/PPM", state: "done" },
         { label: "corner radius", state: "done" },
-        { label: "transforms", state: "planned" },
+        { label: "transforms", state: "done" },
+        { label: "masks", state: "planned" },
         { label: "window", state: "planned" },
       ],
       shipped: [
-        "Alpha rect fills, clipping, rounded corners, images, bitmap text",
+        "Alpha rect fills, clipping, rounded corners, transforms, images, text",
         "Stable digests, de-duplicated frames, bounded capture",
       ],
       open: [
-        "Layer transforms, masks, opacity composition",
+        "Layer masks, opacity composition, gradients",
         "CoreAnimation timing, CADisplayLink, GPU or faster software path",
         "JPEG/HEIC/Assets.car, CoreText metrics, host window or stream",
       ],
@@ -316,6 +317,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "0a84fd3", text: "Affine transforms on view backgrounds" },
     { hash: "af15ed7", text: "UITableView rows, selection, and scroll offset" },
     { hash: "4c1f090", text: "UINavigationController push/pop with host chrome" },
     { hash: "6033504", text: "NSJSONSerialization + dataUsingEncoding" },
