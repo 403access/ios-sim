@@ -82,6 +82,7 @@ __attribute__((objc_root_class))
 - (void)setFrame:(CGRect)frame;
 - (void)setBackgroundColor:(UIColor *)color;
 - (void)addSubview:(UIView *)view;
+- (void)setAlpha:(double)alpha;
 - (BOOL)conformsToProtocol:(id)protocol;
 - (void)touchesBegan:(id)touches withEvent:(id)event;
 - (void)touchesMoved:(id)touches withEvent:(id)event;

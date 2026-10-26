@@ -104,6 +104,10 @@ static unsigned gTick;
   gView = view;
   view.backgroundColor = [UIColor redColor];
   [window addSubview:view];
+  UIView *overlay = [[UIView alloc] initWithFrame:CGRectMake(250, 20, 100, 100)];
+  overlay.backgroundColor = [UIColor greenColor];
+  [overlay setAlpha:0.5];
+  [window addSubview:overlay];
   UIButton *button = [[UIButton alloc] initWithFrame:CGRectMake(20, 300, 200, 60)];
   [button addTarget:self
              action:@selector(buttonTapped:)

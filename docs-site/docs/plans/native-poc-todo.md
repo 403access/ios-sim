@@ -59,6 +59,7 @@ started.
 - [x] Taps and multi-sample drags (`touchesMoved:`)
 - [x] Scripted ticks (`tick:` to the delegate) with an animated view
 - [x] `UIButton` target/action dispatch on touch-up
+- [x] `UIView` alpha and parent-alpha compositing
 - [~] Real event source, timers, display link, text, a live window
 - [~] Run loop, input, text, CoreAnimation, a live host window (headless one-shot frame only)
 

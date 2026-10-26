@@ -61,6 +61,7 @@ describe("ObjC UIKit demo", () => {
     expect(at(30, 30)).toEqual([255, 0, 0, 255]);
     expect(at(10, 10)).toEqual([255, 255, 255, 255]);
     expect(at(DEMO_VIEW_RECT.x - 1, DEMO_VIEW_RECT.y - 1)).toEqual([255, 255, 255, 255]);
+    expect(at(300, 100)).toEqual([127, 255, 127, 255]);
   });
 
   it("delivers a scripted tap to the view and renders each state", () => {

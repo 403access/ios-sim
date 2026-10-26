@@ -69,7 +69,8 @@ const VIEW_FRAME_WIDTH = 24;
 const VIEW_FRAME_HEIGHT = 32;
 const VIEW_BACKGROUND = 40;
 const VIEW_HIDDEN = 48;
-const VIEW_INSTANCE_SIZE = 56;
+const VIEW_ALPHA = 56;
+const VIEW_INSTANCE_SIZE = 64;
 
 const COLOR_RED = 8;
 const COLOR_GREEN = 16;
@@ -698,6 +699,17 @@ export class ObjcHost {
           run: (cpu, receiver) => this.writeRectToRegisters(cpu, this.readStoredRect(receiver)),
         },
         {
+          selector: "setAlpha:",
+          types: "v24@0:8d16",
+          run: (cpu, receiver) =>
+            this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, cpu.readVectorBits(0, 64)),
+        },
+        {
+          selector: "alpha",
+          types: "d16@0:8",
+          run: (cpu, receiver) => cpu.writeVectorDouble(0, this.readDouble(receiver, VIEW_ALPHA)),
+        },
+        {
           selector: "setBackgroundColor:",
           types: "v24@0:8@16",
           run: (cpu, receiver) =>
@@ -1234,6 +1246,11 @@ export class ObjcHost {
     const size = Math.max(8, klass.instanceSize);
     const address = this.memory.allocate(size, { tag: "objc-instance", protection: 3 });
     this.memory.write(address, 8, klass.address);
+    if (this.isViewClass(klass)) {
+      // Parsed app classes may declare a smaller instanceSize than the shim's
+      // UIView layout; the page still has room for the alpha lane.
+      this.memory.write(address + BigInt(VIEW_ALPHA), 8, doubleBits(1));
+    }
     this.instances.set(address, klass);
     this.refcounts.set(address, 1);
     this.stats.allocations += 1;
@@ -1546,6 +1563,17 @@ export class ObjcHost {
     if (pool) pool.push(object);
   }
 
+  private isViewClass(klass: ObjcClass): boolean {
+    let current: ObjcClass | undefined = klass;
+    let levels = 0;
+    while (current && levels < 64) {
+      if (current.name === "UIView") return true;
+      current = this.byAddress.get(current.superclass);
+      levels += 1;
+    }
+    return false;
+  }
+
   private conformsToProtocol(receiver: bigint, protocol: bigint): boolean {
     if (protocol === 0n) return false;
     const name = this.memory.read(protocol + 8n, 8);
@@ -1824,7 +1852,7 @@ export class ObjcHost {
     const clip = { x: 0, y: 0, width: this.width, height: this.height };
     const framebuffer = new Framebuffer(this.width, this.height);
     framebuffer.clear(WHITE);
-    this.paint(window, framebuffer, clip);
+    this.paint(window, framebuffer, clip, 1);
     const digest = framebuffer.digest();
     if (this.frames.at(-1)?.digest === digest) return;
     this.frames.push({
@@ -1839,15 +1867,26 @@ export class ObjcHost {
     view: bigint,
     framebuffer: Framebuffer,
     clip: { x: number; y: number; width: number; height: number },
+    parentAlpha: number,
   ): void {
     if (this.memory.read(view + BigInt(VIEW_HIDDEN), 1) !== 0n) return;
     const rect = this.readStoredRect(view);
-    if (rect.width <= 0 || rect.height <= 0) return;
+    const alpha = Math.max(0, Math.min(1, this.readDouble(view, VIEW_ALPHA))) * parentAlpha;
+    if (alpha <= 0 || rect.width <= 0 || rect.height <= 0) return;
     const color = this.colorOf(view);
     if (color && color.a > 0) {
-      framebuffer.fillRect(rect.x, rect.y, rect.width, rect.height, color, clip);
+      framebuffer.fillRect(
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height,
+        { ...color, a: color.a * alpha },
+        clip,
+      );
     }
-    for (const child of this.children.get(view) ?? []) this.paint(child, framebuffer, clip);
+    for (const child of this.children.get(view) ?? []) {
+      this.paint(child, framebuffer, clip, alpha);
+    }
   }
 
   private colorOf(view: bigint): Rgba | null {

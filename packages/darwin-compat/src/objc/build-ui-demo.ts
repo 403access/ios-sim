@@ -82,6 +82,7 @@ const SELECTORS = {
   orangeColor: "orangeColor",
   buttonTapped: "buttonTapped:",
   addTarget: "addTarget:action:forControlEvents:",
+  setAlpha: "setAlpha:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -111,7 +112,8 @@ type SlotName =
   | "deallocMarker"
   | "classPool"
   | "classButton"
-  | "delegateSelf";
+  | "delegateSelf"
+  | "classView";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -147,6 +149,8 @@ interface Plan {
   readonly viewRect: number;
   readonly rectTable: number;
   readonly buttonRect: number;
+  readonly overlayRect: number;
+  readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
 }
@@ -235,6 +239,7 @@ function planData(): Plan {
     "classPool",
     "classButton",
     "delegateSelf",
+    "classView",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -343,6 +348,10 @@ function planData(): Plan {
   cursor += 4 * 32;
   const buttonRect = cursor;
   cursor += 32;
+  const overlayRect = cursor;
+  cursor += 32;
+  const half = cursor;
+  cursor += 8;
 
   const sections: BuildDataSection[] = [
     {
@@ -397,7 +406,7 @@ function planData(): Plan {
     {
       name: "__const",
       offset: windowRect,
-      size: 64 + 4 * 32 + 32,
+      size: 64 + 4 * 32 + 32 + 32 + 8,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -437,6 +446,8 @@ function planData(): Plan {
     viewRect,
     rectTable,
     buttonRect,
+    overlayRect,
+    half,
     size: cursor,
     sections,
   };
@@ -722,6 +733,40 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.addSubview));
     emitWord(movReg(2, 20));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // UIView *overlay = [[UIView alloc] initWithFrame:CGRectMake(250,20,100,100)];
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.overlayRect));
+    emitDouble(1, dataAddress(plan.overlayRect + 8));
+    emitDouble(2, dataAddress(plan.overlayRect + 16));
+    emitDouble(3, dataAddress(plan.overlayRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.greenColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setAlpha));
+    emitDouble(0, dataAddress(plan.half));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
@@ -1108,6 +1153,7 @@ function emitData(
   bind(plan.slotOffsets.msgSendSuper, "_objc_msgSendSuper2");
   bind(plan.slotOffsets.classPool, "_OBJC_CLASS_$_NSAutoreleasePool");
   bind(plan.slotOffsets.classButton, "_OBJC_CLASS_$_UIButton");
+  bind(plan.slotOffsets.classView, "_OBJC_CLASS_$_UIView");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
@@ -1126,6 +1172,11 @@ function emitData(
   f64(plan.buttonRect + 8, 300);
   f64(plan.buttonRect + 16, 200);
   f64(plan.buttonRect + 24, 60);
+  f64(plan.overlayRect, 250);
+  f64(plan.overlayRect + 8, 20);
+  f64(plan.overlayRect + 16, 100);
+  f64(plan.overlayRect + 24, 100);
+  f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {
     const rect = plan.rectTable + index * 32;
     f64(rect, DEMO_VIEW_RECT.x + index * 40);
