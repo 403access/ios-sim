@@ -510,8 +510,9 @@ statement coverage is 90.03% (1590/1766) and CI fails below 90%. RT-001 adds a c
 class/selector/method registry with superclass lookup, per-class dispatch caches, ivars, nil
 receivers, and stable unknown-selector errors. RT-002 adds the full dispatch matrix, super calls,
 cache hit/miss stats, cache invalidation, and a forwarding hook. RT-003 adds synthesized properties,
-strong/weak ivars, retain/release, autorelease pools, and dealloc zeroing. RT-004
-(categories/protocols/exceptions) is next.
+strong/weak ivars, retain/release, autorelease pools, and dealloc zeroing. RT-004 adds category
+method overriding, inherited protocol conformance, required-method checks, and semantic exception
+unwinding through thrown ObjcErrors. RT-005 (blocks/associations) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

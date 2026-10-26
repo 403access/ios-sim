@@ -178,6 +178,18 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-004",
+    claim:
+      "Adds category method overriding, protocol conformance, and semantic exception unwinding.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/objc/runtime.ts",
+      "packages/darwin-compat/src/objc/extras.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/objc/extras.test.ts",
+    limitation: "Semantic exceptions; no Objective-C/C++ personality or frame unwinder.",
+  },
+  {
     id: "RT-003",
     claim:
       "Models strong/weak ivars, synthesized properties, retain/release, and autorelease pools.",

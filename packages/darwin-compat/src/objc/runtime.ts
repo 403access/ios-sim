@@ -108,6 +108,12 @@ export interface DispatchRecord {
   readonly calls: number;
 }
 
+export interface ObjcProtocol {
+  readonly name: string;
+  readonly required: readonly string[];
+  readonly optional: readonly string[];
+}
+
 export class ObjcRuntime {
   private readonly classes = new Map<string, ObjcClass>();
   private readonly selectors = new Set<string>();
@@ -116,6 +122,9 @@ export class ObjcRuntime {
   private cacheHits = 0;
   private cacheMisses = 0;
   private forwardHandler: ObjcForwardHandler | null = null;
+  private readonly categories = new Map<string, string[]>();
+  private readonly protocols = new Map<string, ObjcProtocol>();
+  private readonly conformances = new Map<string, Set<string>>();
 
   registerClass(name: string, superclassName?: string): ObjcClass {
     if (name.length === 0) throw new ObjcError("bad_class", "class name cannot be empty");
@@ -152,6 +161,83 @@ export class ObjcRuntime {
 
   allocate(className: string): ObjcObject {
     return new ObjcObject(this.requireClass(className));
+  }
+
+  /** Attach a category; methods override existing ones, later categories win. */
+  addCategory(
+    className: string,
+    categoryName: string,
+    methods: Readonly<Record<string, ObjcIMP>>,
+  ): void {
+    if (categoryName.length === 0)
+      throw new ObjcError("bad_category", "category name cannot be empty");
+    this.requireClass(className);
+    this.categories.set(className, [...(this.categories.get(className) ?? []), categoryName]);
+    for (const [selector, implementation] of Object.entries(methods)) {
+      this.addMethod(className, selector, implementation);
+    }
+  }
+
+  categoriesFor(className: string): readonly string[] {
+    const inherited: string[] = [];
+    for (
+      let cursor: ObjcClass | null = this.requireClass(className);
+      cursor;
+      cursor = cursor.superclass
+    ) {
+      inherited.push(...(this.categories.get(cursor.name) ?? []));
+    }
+    return inherited;
+  }
+
+  registerProtocol(
+    name: string,
+    required: readonly string[],
+    optional: readonly string[] = [],
+  ): ObjcProtocol {
+    if (this.protocols.has(name))
+      throw new ObjcError("duplicate_protocol", `protocol ${name} exists`);
+    const protocol: ObjcProtocol = { name, required: [...required], optional: [...optional] };
+    this.protocols.set(name, protocol);
+    return protocol;
+  }
+
+  addProtocol(className: string, protocolName: string): void {
+    this.requireClass(className);
+    if (!this.protocols.has(protocolName)) {
+      throw new ObjcError("unknown_protocol", `protocol ${protocolName} is not registered`);
+    }
+    const set = this.conformances.get(className) ?? new Set<string>();
+    set.add(protocolName);
+    this.conformances.set(className, set);
+  }
+
+  conformsTo(className: string, protocolName: string): boolean {
+    const protocol = this.protocols.get(protocolName);
+    if (!protocol)
+      throw new ObjcError("unknown_protocol", `protocol ${protocolName} is not registered`);
+    let declared = false;
+    for (
+      let cursor: ObjcClass | null = this.requireClass(className);
+      cursor;
+      cursor = cursor.superclass
+    ) {
+      if (this.conformances.get(cursor.name)?.has(protocolName)) {
+        declared = true;
+        break;
+      }
+    }
+    if (!declared) return false;
+    return protocol.required.every((selector) => this.requireClass(className).respondsTo(selector));
+  }
+
+  missingProtocolMethods(className: string, protocolName: string): readonly string[] {
+    const protocol = this.protocols.get(protocolName);
+    if (!protocol)
+      throw new ObjcError("unknown_protocol", `protocol ${protocolName} is not registered`);
+    return protocol.required.filter(
+      (selector) => !this.requireClass(className).respondsTo(selector),
+    );
   }
 
   selector(name: string): string {
