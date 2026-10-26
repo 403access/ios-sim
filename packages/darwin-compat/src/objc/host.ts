@@ -71,6 +71,7 @@ const VIEW_FRAME_HEIGHT = 32;
 const VIEW_BACKGROUND = 40;
 const VIEW_HIDDEN = 48;
 const VIEW_ALPHA = 56;
+const VIEW_CLIPS = 49;
 const VIEW_INSTANCE_SIZE = 64;
 
 const COLOR_RED = 8;
@@ -715,6 +716,22 @@ export class ObjcHost {
           selector: "alpha",
           types: "d16@0:8",
           run: (cpu, receiver) => cpu.writeVectorDouble(0, this.readDouble(receiver, VIEW_ALPHA)),
+        },
+        {
+          selector: "setClipsToBounds:",
+          types: "v20@0:8B16",
+          run: (cpu, receiver) =>
+            this.memory.write(
+              receiver + BigInt(VIEW_CLIPS),
+              1,
+              cpu.readRegister(2) === 0n ? 0n : 1n,
+            ),
+        },
+        {
+          selector: "clipsToBounds",
+          types: "B16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(VIEW_CLIPS), 1)),
         },
         {
           selector: "setBackgroundColor:",
@@ -1950,6 +1967,10 @@ export class ObjcHost {
     const frame = this.readStoredRect(view);
     const absoluteX = originX + frame.x;
     const absoluteY = originY + frame.y;
+    const clipped =
+      this.memory.read(view + BigInt(VIEW_CLIPS), 1) !== 0n &&
+      !containsPoint(frame, { x: point.x - originX, y: point.y - originY });
+    if (clipped) return null;
     const children = this.children.get(view) ?? [];
     for (let index = children.length - 1; index >= 0; index -= 1) {
       const child = children[index]!;
@@ -2032,8 +2053,17 @@ export class ObjcHost {
         });
       }
     }
+    const childClip =
+      this.memory.read(view + BigInt(VIEW_CLIPS), 1) === 0n
+        ? clip
+        : intersectClip(clip, {
+            x: absoluteX,
+            y: absoluteY,
+            width: rect.width,
+            height: rect.height,
+          });
     for (const child of this.children.get(view) ?? []) {
-      this.paint(child, framebuffer, absoluteX, absoluteY, clip, alpha);
+      this.paint(child, framebuffer, absoluteX, absoluteY, childClip, alpha);
     }
   }
 
@@ -2131,6 +2161,17 @@ interface Association {
 
 function retainsAssociation(policy: number): boolean {
   return (policy & 0x1) !== 0;
+}
+
+function intersectClip(
+  outer: { x: number; y: number; width: number; height: number },
+  inner: { x: number; y: number; width: number; height: number },
+): { x: number; y: number; width: number; height: number } {
+  const x = Math.max(outer.x, inner.x);
+  const y = Math.max(outer.y, inner.y);
+  const right = Math.min(outer.x + outer.width, inner.x + inner.width);
+  const bottom = Math.min(outer.y + outer.height, inner.y + inner.height);
+  return { x, y, width: Math.max(0, right - x), height: Math.max(0, bottom - y) };
 }
 
 function containsPoint(rect: Rect, point: { x: number; y: number }): boolean {

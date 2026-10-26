@@ -90,6 +90,7 @@ const SELECTORS = {
   didBecomeActive: "applicationDidBecomeActive:",
   willTerminate: "applicationWillTerminate:",
   setTextAlignment: "setTextAlignment:",
+  setClips: "setClipsToBounds:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -164,6 +165,7 @@ interface Plan {
   readonly containerRect: number;
   readonly nestedRect: number;
   readonly labelRect: number;
+  readonly clipRect: number;
   readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
@@ -375,6 +377,8 @@ function planData(): Plan {
   cursor += 32;
   const labelRect = cursor;
   cursor += 32;
+  const clipRect = cursor;
+  cursor += 32;
   const half = cursor;
   cursor += 8;
 
@@ -431,7 +435,7 @@ function planData(): Plan {
     {
       name: "__const",
       offset: windowRect,
-      size: 64 + 4 * 32 + 32 + 32 + 64 + 32 + 8,
+      size: 64 + 4 * 32 + 32 + 32 + 64 + 32 + 32 + 8,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -475,6 +479,7 @@ function planData(): Plan {
     containerRect,
     nestedRect,
     labelRect,
+    clipRect,
     half,
     size: cursor,
     sections,
@@ -876,6 +881,40 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(movReg(0, 22));
     emitAddress(1, selector(SELECTORS.addSubview));
     emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // UIView *clipChild = [[UIView alloc] initWithFrame:(150,50,100,40)];
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.clipRect));
+    emitDouble(1, dataAddress(plan.clipRect + 8));
+    emitDouble(2, dataAddress(plan.clipRect + 16));
+    emitDouble(3, dataAddress(plan.clipRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.redColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 22));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 22));
+    emitAddress(1, selector(SELECTORS.setClips));
+    emitWord(movz(2, 1));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
@@ -1349,6 +1388,10 @@ function emitData(
   f64(plan.labelRect + 8, 400);
   f64(plan.labelRect + 16, 300);
   f64(plan.labelRect + 24, 40);
+  f64(plan.clipRect, 150);
+  f64(plan.clipRect + 8, 50);
+  f64(plan.clipRect + 16, 100);
+  f64(plan.clipRect + 24, 40);
   f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {
     const rect = plan.rectTable + index * 32;

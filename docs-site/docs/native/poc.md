@@ -90,12 +90,14 @@ not mean the gate after it is reachable.
 The generated fixture and the clang fixture both render:
 
 ```text
-frame 375x667 sha256=fe70e09fce2f0e5aa52dd1eb6ec84bc8199e018bb47e32515b40fec5d2f71047
+frame 375x667 sha256=<deterministic>
 ```
 
-The digest is asserted by the hermetic test and by the gated clang test, so the two independent
-producers (this repository's writer and Apple clang) are compared on the same pixel output. A
-change in either path breaks the equality, which is the point.
+The digest is not pinned as a constant: it changes whenever the fixtures change. Instead the
+hermetic test asserts pixel properties and the gated clang test asserts that the two independent
+producers (this repository's writer and Apple clang) produce the **same** digest sequence for
+taps, drags, ticks, the button, and nested views. A change in either path breaks the equality,
+which is the point.
 
 With `--tap 30,30` the same app renders three frames: red, blue after `touchesBegan:`, green after
 `touchesEnded:`. A drag adds yellow `touchesMoved:` samples. Both producers are compared on the

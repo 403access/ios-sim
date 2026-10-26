@@ -62,6 +62,7 @@ started.
 - [x] Application lifecycle: didFinishLaunching, didBecomeActive, willTerminate
 - [x] `UIView` alpha and parent-alpha compositing
 - [x] Parent-relative frames with nested painting and hit-testing
+- [x] `clipsToBounds` clipping for painting and hit-testing
 - [x] `UILabel` with a 3×5 bitmap font (left/centre/right alignment)
 - [~] Real event source, timers, display link, text, a live window
 - [~] Run loop, input, text, CoreAnimation, a live host window (headless one-shot frame only)
@@ -75,7 +76,7 @@ started.
 ## Evidence
 
 - `bun apps/native/src/bin.ts uikit-demo --out frame.png` →
-  `frame 375x667 sha256=fe70e09fce2f0e5aa52dd1eb6ec84bc8199e018bb47e32515b40fec5d2f71047`
+  `frame 375x667 sha256=<deterministic>` (asserted by tests, not pinned)
 - `bunx vitest run tests/native/objc-clang.test.ts` → clang app digest equals the generated
   digest (macOS + Xcode only; prints its skip reason elsewhere).
 - `bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --out clang.png` →

@@ -85,6 +85,7 @@ __attribute__((objc_root_class))
 - (void)setBackgroundColor:(UIColor *)color;
 - (void)addSubview:(UIView *)view;
 - (void)setAlpha:(double)alpha;
+- (void)setClipsToBounds:(BOOL)clips;
 - (BOOL)conformsToProtocol:(id)protocol;
 - (void)touchesBegan:(id)touches withEvent:(id)event;
 - (void)touchesMoved:(id)touches withEvent:(id)event;

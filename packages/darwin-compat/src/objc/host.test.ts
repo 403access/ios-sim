@@ -141,6 +141,8 @@ describe("ObjC UIKit demo", () => {
     expect(at(1, 40, 160)).toEqual([0, 0, 255, 255]);
     expect(at(2, 40, 160)).toEqual([0, 255, 0, 255]);
     expect(at(0, 25, 145)).toEqual([128, 128, 128, 255]);
+    expect(at(0, 200, 200)).toEqual([255, 0, 0, 255]);
+    expect(at(0, 240, 200)).toEqual([255, 255, 255, 255]);
   });
 
   it("dispatches a UIButton target/action", () => {
