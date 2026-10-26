@@ -509,8 +509,9 @@ trace filters before NDJSON/Chrome export. QA-007 adds a coverage gate: aggregat
 statement coverage is 90.03% (1590/1766) and CI fails below 90%. RT-001 adds a clean-room
 class/selector/method registry with superclass lookup, per-class dispatch caches, ivars, nil
 receivers, and stable unknown-selector errors. RT-002 adds the full dispatch matrix, super calls,
-cache hit/miss stats, cache invalidation, and a forwarding hook. RT-003 (ivars/properties/ARC) is
-next.
+cache hit/miss stats, cache invalidation, and a forwarding hook. RT-003 adds synthesized properties,
+strong/weak ivars, retain/release, autorelease pools, and dealloc zeroing. RT-004
+(categories/protocols/exceptions) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

@@ -178,6 +178,18 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-003",
+    claim:
+      "Models strong/weak ivars, synthesized properties, retain/release, and autorelease pools.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/objc/arc.ts",
+      "packages/darwin-compat/src/objc/arc.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/objc/arc.test.ts",
+    limitation: "Explicit reference counting; not compiler-inserted ARC.",
+  },
+  {
     id: "RT-002",
     claim: "Dispatches a receiver×selector matrix with super calls, cache stats, and forwarding.",
     status: "implemented",

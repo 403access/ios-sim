@@ -14,6 +14,10 @@ import { CompatError } from "../errors.js";
 
 export type ObjcIMP = (receiver: ObjcObject, selector: string, args: readonly unknown[]) => unknown;
 
+export function isObjcObject(value: unknown): value is ObjcObject {
+  return value instanceof ObjcObject;
+}
+
 export class ObjcError extends CompatError {
   override name = "ObjcError";
 }
