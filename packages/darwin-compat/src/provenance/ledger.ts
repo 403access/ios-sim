@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-010",
+    claim: "Provides a guest first-fit heap and mem/str helpers for a future libSystem.",
+    status: "partial",
+    evidence: [
+      "packages/darwin-compat/src/libc/memory.ts",
+      "packages/darwin-compat/src/libc/memory.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/libc/memory.test.ts",
+    limitation: "No real C fixture linked against Apple libSystem yet.",
+  },
+  {
     id: "RT-009",
     claim: "Parses Swift 5 type and protocol descriptors from __swift5 sections.",
     status: "partial",

@@ -518,7 +518,8 @@ NSString/NSArray/NSDictionary containers with 100-operation conformance tests an
 errors. RT-007 adds jailed files, file URLs, JSON, and XML-plist round-trips. RT-008 adds
 toll-free CF wrappers with retain/release and a timer/source run loop. RT-009 parses `__swift5_types`
 and `__swift5_proto` descriptors; running a real Swift binary remains blocked on the Swift runtime
-and ABI. RT-010 (libSystem/libc) is next.
+and ABI. RT-010 adds a first-fit guest heap plus mem/str helpers; a real C fixture linked against
+libSystem is still blocked. RT-011 (runtime conformance) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

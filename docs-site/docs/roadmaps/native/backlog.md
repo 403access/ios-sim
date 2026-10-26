@@ -35,16 +35,16 @@ started by a human with host access, not by a Linux-only agent.
 |     2 | `LEG-002` | Legal      | M    | LEG-001 | Runtime legal review; written gate             |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `RT-010` is the next task;
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `RT-011` is the next task;
 `LEG-002` remains a human/legal gate, not an implementation task. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-59 are complete through RT-009 metadata (substrate, loader, threads, quality,
+Sessions 1-60 are complete through RT-010 primitives (substrate, loader, threads, quality,
 observability, release, provenance, quickstart, diagnostics, claims, roadmap validation, version
 policy, supply-chain checks, repro bundle, session roles, metrics, trace filtering, coverage, ObjC
 core, dispatch, ARC, categories/protocols, blocks/associations, Foundation, files, CF/run loop,
-and Swift metadata). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Swift metadata, and libc memory/strings). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
