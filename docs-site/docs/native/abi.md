@@ -203,8 +203,8 @@ These are original metadata with host IMP trampolines, not Apple classes:
 | `UIColor`          | `+redColor`, `+whiteColor`, `+blackColor`, `+clearColor`, `+colorWithRed:green:blue:alpha:`                                                                   |
 | `UIApplication`    | `+sharedApplication`, `-setDelegate:`, `-delegate`                                                                                                            |
 
-`UILabel` stores a C string (not `NSString`), a colour object at offset 72, and a scale at offset
-80; its instance size is 96. The renderer draws text with a built-in 3×5 uppercase/digit bitmap
+`UILabel` stores a C string (not `NSString`), a colour object at offset 72, a scale at offset 80,
+and alignment at offset 88 (0 left, 1 centre, 2 right); its instance size is 96. The renderer draws text with a built-in 3×5 uppercase/digit bitmap
 font at the label's frame. This is a proof of text reaching the framebuffer, not CoreText.
 `UIButton` stores one target/action pair; only touch-up dispatch is performed. Action methods receive
 the button as the sender. `UIView` ivars are fixed by this shim: frame doubles at 8/16/24/32, background object at 40,

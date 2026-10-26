@@ -89,6 +89,7 @@ const SELECTORS = {
   setTextColor: "setTextColor:",
   didBecomeActive: "applicationDidBecomeActive:",
   willTerminate: "applicationWillTerminate:",
+  setTextAlignment: "setTextAlignment:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -931,6 +932,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(movReg(2, 0));
     emitWord(movReg(0, 21));
     emitAddress(1, selector(SELECTORS.setTextColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setTextAlignment));
+    emitWord(movz(2, 1));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
     emitWord(movReg(0, 19));

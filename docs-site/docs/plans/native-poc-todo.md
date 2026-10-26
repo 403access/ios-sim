@@ -62,7 +62,7 @@ started.
 - [x] Application lifecycle: didFinishLaunching, didBecomeActive, willTerminate
 - [x] `UIView` alpha and parent-alpha compositing
 - [x] Parent-relative frames with nested painting and hit-testing
-- [x] `UILabel` with a 3×5 bitmap font
+- [x] `UILabel` with a 3×5 bitmap font (left/centre/right alignment)
 - [~] Real event source, timers, display link, text, a live window
 - [~] Run loop, input, text, CoreAnimation, a live host window (headless one-shot frame only)
 

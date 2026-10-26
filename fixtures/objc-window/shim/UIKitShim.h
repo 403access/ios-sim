@@ -94,6 +94,7 @@ __attribute__((objc_root_class))
 @interface UILabel : UIView
 - (void)setText:(const char *)text;
 - (void)setTextColor:(UIColor *)color;
+- (void)setTextAlignment:(long)alignment;
 @end
 
 @interface UIButton : UIView

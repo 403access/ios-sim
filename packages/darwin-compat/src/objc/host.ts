@@ -18,7 +18,7 @@ import { Arm64Cpu, type SyscallResult } from "../arm64/cpu.js";
 import type { LoadedProgram } from "../dyld/loader.js";
 import type { VirtualMemory } from "../dyld/vm.js";
 import { BLACK, Framebuffer, WHITE, type Rgba } from "../ui/framebuffer.js";
-import { drawText } from "../ui/font.js";
+import { drawText, textWidth } from "../ui/font.js";
 import {
   adrp,
   b,
@@ -82,6 +82,7 @@ const COLOR_INSTANCE_SIZE = 40;
 const LABEL_TEXT = 64;
 const LABEL_COLOR = 72;
 const LABEL_SCALE = 80;
+const LABEL_ALIGNMENT = 88;
 const LABEL_INSTANCE_SIZE = 96;
 
 const CONTROLLER_VIEW = 8;
@@ -889,6 +890,18 @@ export class ObjcHost {
           types: "v24@0:8d16",
           run: (cpu, receiver) =>
             this.memory.write(receiver + BigInt(LABEL_SCALE), 8, cpu.readVectorBits(0, 64)),
+        },
+        {
+          selector: "setTextAlignment:",
+          types: "v20@0:8q16",
+          run: (cpu, receiver) =>
+            this.memory.write(receiver + BigInt(LABEL_ALIGNMENT), 8, cpu.readRegister(2)),
+        },
+        {
+          selector: "textAlignment",
+          types: "q16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(LABEL_ALIGNMENT), 8)),
         },
         {
           selector: "fontSize",
@@ -2005,7 +2018,15 @@ export class ObjcHost {
         const colorPointer = this.memory.read(view + BigInt(LABEL_COLOR), 8);
         const color = colorPointer === 0n ? BLACK : (this.colorAtPointer(colorPointer) ?? BLACK);
         const scale = Math.max(1, Math.min(8, Math.round(this.readDouble(view, LABEL_SCALE) || 2)));
-        drawText(framebuffer, absoluteX + scale * 2, absoluteY + scale * 2, text, {
+        const width = textWidth(text, scale);
+        const alignment = Number(this.memory.read(view + BigInt(LABEL_ALIGNMENT), 8));
+        const offset =
+          alignment === 1
+            ? Math.max(0, (rect.width - width) / 2)
+            : alignment === 2
+              ? Math.max(0, rect.width - width - scale * 2)
+              : scale * 2;
+        drawText(framebuffer, absoluteX + offset, absoluteY + scale * 2, text, {
           scale,
           color,
         });

@@ -119,6 +119,7 @@ static unsigned gTick;
   UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(20, 400, 300, 40)];
   [label setText:"HELLO 42"];
   [label setTextColor:[UIColor blackColor]];
+  [label setTextAlignment:1];
   [window addSubview:label];
   UIButton *button = [[UIButton alloc] initWithFrame:CGRectMake(20, 300, 200, 60)];
   [button addTarget:self

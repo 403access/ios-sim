@@ -73,6 +73,15 @@ describe("ObjC UIKit demo", () => {
       }
     }
     expect(blackPixels).toBeGreaterThan(0);
+    let firstBlackX = 1000;
+    for (let y = 400; y < 440; y += 1) {
+      for (let x = 20; x < 320; x += 1) {
+        if (at(x, y)[0] === 0 && at(x, y)[1] === 0 && at(x, y)[2] === 0 && x < firstBlackX) {
+          firstBlackX = x;
+        }
+      }
+    }
+    expect(firstBlackX).toBeGreaterThan(100);
   });
 
   it("delivers a scripted tap to the view and renders each state", () => {
