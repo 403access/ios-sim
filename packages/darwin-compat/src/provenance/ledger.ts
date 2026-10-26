@@ -178,6 +178,18 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "LDR-007",
+    claim:
+      "Applies page-aligned slides and resolves sub-cache/image membership on synthetic caches.",
+    status: "partial",
+    evidence: [
+      "packages/darwin-compat/src/dyld/shared-cache.ts",
+      "packages/darwin-compat/src/dyld/shared-cache.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/dyld/shared-cache.test.ts",
+    limitation: "Synthetic fixtures only; real split Apple caches are unverified.",
+  },
+  {
     id: "LDR-006",
     claim:
       "Parses dyld cache headers, mappings, images, and sub-cache arrays with synthetic fixtures.",

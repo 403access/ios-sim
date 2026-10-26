@@ -528,7 +528,8 @@ LEG-002/human legal review. LDR-009 adds dyld env parsing, `DYLD_LIBRARY_PATH` l
 `DYLD_INSERT_LIBRARIES` preload, print callbacks, and an ordered dependency closure. LDR-011 adds
 entitlement require/deny/expected-value policy hooks, loader denial, and boot-report visibility.
 LDR-006 adds a synthetic shared-cache header/mapping/image/sub-cache parser and `ios-sim-native
-cache`; a real licensed Apple cache has not been verified, so it remains partial. The user-space
+cache`; LDR-007 adds page-aligned slide application and sub-cache/image resolution over synthetic
+caches. Real licensed Apple cache evidence is still missing, so both remain partial. The user-space
 roadmap is complete apart from LDR-006/RT-009/RT-010 partials, Mac-gated evidence, and LEG-002/human
 legal review.
 

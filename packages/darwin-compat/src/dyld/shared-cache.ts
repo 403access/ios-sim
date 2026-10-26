@@ -51,6 +51,55 @@ const MAX_MAPPINGS = 4096;
 const MAX_IMAGES = 200_000;
 const MAX_SUBCACHES = 64;
 
+/** Apply a valid slide to mappings and image addresses (LDR-007). */
+export function applyCacheSlide(cache: SharedCacheInfo, slide: bigint): SharedCacheInfo {
+  if (slide < 0n || slide > cache.maxSlide) {
+    throw new SharedCacheError(
+      "cache_bad_slide",
+      `slide 0x${slide.toString(16)} exceeds max 0x${cache.maxSlide.toString(16)}`,
+    );
+  }
+  if (slide % 0x1000n !== 0n) {
+    throw new SharedCacheError("cache_bad_slide", "slide must be page-aligned");
+  }
+  return {
+    ...cache,
+    mappings: cache.mappings.map((mapping) => ({ ...mapping, address: mapping.address + slide })),
+    images: cache.images.map((image) => ({ ...image, address: image.address + slide })),
+  };
+}
+
+/** Find the sub-cache whose VM offset is nearest at or below a cache address. */
+export function subCacheForAddress(cache: SharedCacheInfo, address: bigint): CacheSubCache | null {
+  let best: CacheSubCache | null = null;
+  for (const sub of cache.subCaches) {
+    if (sub.cacheVMOffset <= address && (!best || sub.cacheVMOffset > best.cacheVMOffset))
+      best = sub;
+  }
+  return best;
+}
+
+export function imageAtAddress(cache: SharedCacheInfo, address: bigint): CacheImage | null {
+  for (const image of cache.images) if (image.address === address) return image;
+  return null;
+}
+
+export function imageForPath(cache: SharedCacheInfo, path: string): CacheImage | null {
+  return cache.images.find((image) => image.path === path) ?? null;
+}
+
+/** Images belonging to a sub-cache, using its VM offset as the lower bound. */
+export function imagesForSubCache(cache: SharedCacheInfo, subCache: CacheSubCache): CacheImage[] {
+  const ordered = [...cache.subCaches].sort((a, b) => (a.cacheVMOffset < b.cacheVMOffset ? -1 : 1));
+  const index = ordered.findIndex((entry) => entry.uuid === subCache.uuid);
+  const next = index >= 0 ? ordered[index + 1] : undefined;
+  return cache.images.filter(
+    (image) =>
+      image.address >= subCache.cacheVMOffset &&
+      (next === undefined || image.address < next.cacheVMOffset),
+  );
+}
+
 export function parseSharedCache(bytes: Uint8Array): SharedCacheInfo {
   if (bytes.length < HEADER_MIN) {
     throw new SharedCacheError(

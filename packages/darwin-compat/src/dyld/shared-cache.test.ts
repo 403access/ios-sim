@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { buildSyntheticSharedCache, parseSharedCache, SharedCacheError } from "./shared-cache.js";
+import {
+  applyCacheSlide,
+  buildSyntheticSharedCache,
+  imageAtAddress,
+  imageForPath,
+  imagesForSubCache,
+  parseSharedCache,
+  SharedCacheError,
+  subCacheForAddress,
+} from "./shared-cache.js";
 
 describe("dyld shared cache parser", () => {
   it("reads mappings, images, and sub-caches from a synthetic cache", () => {
@@ -51,5 +60,39 @@ describe("dyld shared cache parser", () => {
     expect(() =>
       buildSyntheticSharedCache({ subCaches: [{ uuid: "nope", cacheVMOffset: 0n }] }),
     ).toThrow(/invalid UUID/);
+  });
+});
+
+describe("cache slide and sub-cache resolution", () => {
+  it("applies a valid slide and rejects invalid ones", () => {
+    const cache = parseSharedCache(buildSyntheticSharedCache());
+    const slid = applyCacheSlide(cache, 0x2000n);
+    expect(slid.mappings[0]?.address).toBe(0x180002000n);
+    expect(slid.images[0]?.address).toBe(0x180003000n);
+    expect(() => applyCacheSlide(cache, 0x1_0000_0001n)).toThrow(/exceeds/);
+    expect(() => applyCacheSlide(cache, 0x100n)).toThrow(/page-aligned/);
+  });
+
+  it("resolves images, paths, and sub-cache membership", () => {
+    const cache = parseSharedCache(
+      buildSyntheticSharedCache({
+        images: [
+          { address: 0x1000n, modTime: 0n, inode: 1n },
+          { address: 0x9000n, modTime: 0n, inode: 2n },
+          { address: 0x11000n, modTime: 0n, inode: 3n },
+        ],
+        imagePaths: ["/a", "/b", "/c"],
+        subCaches: [
+          { uuid: "00000000-0000-0000-0000-000000000001", cacheVMOffset: 0n },
+          { uuid: "00000000-0000-0000-0000-000000000002", cacheVMOffset: 0x8000n },
+        ],
+      }),
+    );
+    expect(imageAtAddress(cache, 0x9000n)?.path).toBe("/b");
+    expect(imageForPath(cache, "/c")?.address).toBe(0x11000n);
+    expect(imageAtAddress(cache, 0x42n)).toBeNull();
+    expect(subCacheForAddress(cache, 0x9000n)?.cacheVMOffset).toBe(0x8000n);
+    const second = cache.subCaches[1]!;
+    expect(imagesForSubCache(cache, second).map((image) => image.path)).toEqual(["/b", "/c"]);
   });
 });
