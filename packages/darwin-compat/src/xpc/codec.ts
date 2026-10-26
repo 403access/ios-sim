@@ -270,7 +270,11 @@ function decodeValue(reader: Reader, depth: number): XpcValue {
       const length = reader.u32();
       if (length > XPC_MAX_BYTES)
         throw new XpcError("xpc_too_large", `XPC string length ${length} is too large`);
-      return new TextDecoder("utf-8", { fatal: true }).decode(reader.bytesOf(length));
+      try {
+        return new TextDecoder("utf-8", { fatal: true }).decode(reader.bytesOf(length));
+      } catch {
+        throw new XpcError("invalid_utf8", "XPC string is not valid UTF-8");
+      }
     }
     case XpcType.Data: {
       const length = reader.u32();

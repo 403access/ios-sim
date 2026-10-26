@@ -17,41 +17,41 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009/012 done; QA-001 is next.                                      |
+| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009/012 done; QA-003 is next.                                      |
 | A2 loader/runtime | **Started.** LDR-001..004 done; namespaces, fuzzing, diagnostics, and signing remain.                       |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 52 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 53 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
 Pick from the top. A task marked with `*` needs a licensed-Mac observation window; it can be
 started by a human with host access, not by a Linux-only agent.
 
-| Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                    |
-| ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------------------------------- |
-|     1 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
-|     2 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                |
-|     3 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                |
-|     4 | `THR-010` | Threads       | M    | KRN-009 | Jetsam/memory pressure; pressure/kill policy                                |
-|     5 | `THR-011` | Threads       | M    | THR-006 | Roles/sessions/contracts; job identity and teardown                         |
-|     4 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
-|     5 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                               |
-|     6 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                          |
-|     7 | `REL-001` | Release       | S    | A0      | Native CI job on Linux; skip reasons visible                                |
-|     8 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                |
-|     9 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                |
-|    10 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
+| Order | ID        | Workstream    | Size | Depends     | Deliverable / acceptance                                                    |
+| ----: | --------- | ------------- | ---- | ----------- | --------------------------------------------------------------------------- |
+|     1 | `QA-003`  | Quality       | M    | A0          | Generated Mach-O corpus covering load commands/fixup formats                |
+|     2 | `QA-002`  | Quality       | L    | QA-001, Mac | Differential harness; ≥100 cases match                                      |
+|     3 | `QA-004`  | Quality       | M    | A0          | Performance baseline suite with machine metadata and budgets                |
+|     4 | `THR-010` | Threads       | M    | KRN-009     | Jetsam/memory pressure; pressure/kill policy                                |
+|     5 | `THR-011` | Threads       | M    | THR-006     | Roles/sessions/contracts; job identity and teardown                         |
+|     4 | `QA-001`  | Quality       | M    | A0          | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
+|     5 | `OBS-001` | Observability | S    | A0          | Versioned event schema with JSON output tests                               |
+|     6 | `LEG-001` | Legal         | S    | A0          | Provenance ledger for every runtime claim/artifact                          |
+|     7 | `REL-001` | Release       | S    | A0          | Native CI job on Linux; skip reasons visible                                |
+|     8 | `QA-003`  | Quality       | M    | A0          | Generated Mach-O corpus covering load commands/fixup formats                |
+|     9 | `QA-004`  | Quality       | M    | A0          | Performance baseline suite with machine metadata and budgets                |
+|    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `QA-001` is the next task;
-`QA-003` remains in the quality lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `QA-003` is the next task;
+`QA-004` remains in the quality lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-21 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader, and
-THR-012 stress). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-22 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
+THR-012 stress, and the fuzz harness). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -180,9 +180,9 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `OBS-005`  | `trace/stats/why` CLI          | P2       | M    | blocked   | OBS-004          | Commands + redaction                                       |
 | `OBS-006`  | Fault diagnostics              | P1       | M    | blocked   | OBS-001          | PC/encoding/maps on fault                                  |
 | `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | proposed  | OBS-002          | Loopback-only                                              |
-| `QA-001`   | Fuzz harness                   | P0       | M    | **next**  | A0               | 1M mutations, no host crash                                |
+| `QA-001`   | Fuzz harness                   | P0       | M    | **done**  | A0               | 1M mutations, 0 crashes, corpus retained                   |
 | `QA-002`   | Differential harness           | P0       | L    | blocked   | QA-001, Mac      | ≥100 cases match                                           |
-| `QA-003`   | Generated Mach-O corpus        | P1       | M    | **ready** | A0               | Covers commands/fixups                                     |
+| `QA-003`   | Generated Mach-O corpus        | P1       | M    | **next**  | A0               | Covers commands/fixups                                     |
 | `QA-004`   | Performance benchmarks         | P1       | M    | **ready** | A0               | Machine metadata + budgets                                 |
 | `QA-005`   | Concurrency/stress suite       | P1       | M    | blocked   | THR-012          | No deadlock/leak                                           |
 | `QA-006`   | Leak/resource checks           | P1       | M    | blocked   | QA-004           | 24h soak flat                                              |

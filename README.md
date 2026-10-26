@@ -164,6 +164,8 @@ bun run build:uikit     # build the native X11 UIKitLite window
 bun run test:uikit      # Linux X11 CLI/window integration (Docker)
 bun run test:kernel     # native C11 kernel boundary + Bun FFI smoke
 bun run test:kernel:linux
+bun run fuzz             # deterministic parser fuzzing (1M/target by default)
+bun run fuzz:1m          # explicit alias for the 1M evidence run
 bun run native          # build and run the native CLI
 bun run docs:build
 bun run verify          # local full check

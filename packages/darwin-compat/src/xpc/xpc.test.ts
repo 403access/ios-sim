@@ -30,6 +30,9 @@ describe("XPC codec", () => {
     const encoded = encodeXpcValue({ ok: true });
     expect(() => decodeXpcValue(encoded.subarray(0, encoded.length - 1))).toThrow();
     expect(() => decodeXpcValue(new Uint8Array([...encoded, 0]))).toThrow(/trailing/);
+    expect(() => decodeXpcValue(Uint8Array.from([6, 2, 0, 0, 0, 0xff, 0xfe]))).toThrow(
+      /not valid UTF-8/,
+    );
   });
 
   it("envelopes requests and replies", () => {

@@ -75,7 +75,8 @@ single commit.
   (`LDR-003`), reference-counted dynamic image handles (`LDR-004`), and interposition/collision
   order (`LDR-005`), embedded code-signature parsing without verification (`LDR-010`), and
   actionable loader diagnostics (`LDR-013`), bundle/fileset/dSYM metadata (`LDR-012`), and
-  64-thread/64-process stress (`THR-012`).
+  64-thread/64-process stress (`THR-012`), and a 1M-mutation deterministic fuzz harness
+  (`QA-001`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,

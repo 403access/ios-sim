@@ -458,6 +458,12 @@ debugger.
 **Mission:** turn "it works on my fixture" into evidence across inputs, concurrency, and
 reference behaviour.
 
+**Status:** QA-001 provides `src/testing/fuzz.ts` and `scripts/fuzz-darwin.ts`, a deterministic
+outcome-guided mutator with a corpus. `bun run fuzz:1m` runs 1,000,000 mutations per target:
+Mach-O 0 crashes / 371 outcomes, plist 0 crashes / 19 outcomes, XPC 0 crashes / 11 outcomes. The
+run exposed and fixed a non-`CompatError` UTF-8 failure in the XPC codec. QA-003 (generated
+corpus) is next.
+
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
 | QA-001 | Fuzz harness for all parsers  | M    | A0                 | Deterministic + coverage-guided harness      | 1M mutations without host crash; corpus retained |
