@@ -471,7 +471,9 @@ finished in 3-66 ms against a 3-5 s budget. OBS-001 adds schema-v1 runtime event
 values, redaction, NDJSON round-trip, and process start/exit emission. OBS-002 adds monotonic
 runtime counters and `ios-sim-native stats` text/JSON output. REL-001 adds a dedicated Linux native-substrate CI job
 that runs native tests, the gated clang test (printing its skip reason), the generated corpus, a
-100k-per-target fuzz pass, and a scaled benchmark. QA-005 (broader concurrency suite) is next.
+100k-per-target fuzz pass, and a scaled benchmark. QA-005 adds a broader concurrency suite:
+32 Mach receivers woken by 32 senders, 8 processes with 8 threads each forked and reaped, and 16
+parked receivers interrupted. QA-006 (leak/resource checks) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
