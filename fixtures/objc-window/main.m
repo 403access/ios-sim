@@ -22,6 +22,7 @@ static int gAppear;
 static int gString;
 static int gCollections;
 static NSMutableArray *gColors;
+static NSMutableDictionary *gTheme;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
@@ -171,8 +172,10 @@ static unsigned gTick;
   gColors = [NSMutableArray array];
   [gColors addObject:[UIColor redColor]];
   [gColors addObject:[UIColor purpleColor]];
+  gTheme = [NSMutableDictionary dictionary];
+  [gTheme setObject:[gColors objectAtIndex:1] forKey:"theme"];
   NSNumber *number = [NSNumber numberWithInt:5];
-  if ([gColors count] == 2 && [number intValue] + 1 == 6) {
+  if ([gColors count] == 2 && [gTheme count] == 1 && [number intValue] + 1 == 6) {
     gCollections = 1;
   }
   NSString *text = [NSString stringWithUTF8String:"HELLO 42"];
@@ -211,7 +214,7 @@ static unsigned gTick;
   (void)notification;
   // load before appearance, and the two appearance callbacks in order.
   BOOL ready = gLifecycle == 1 && gAppear == 12;
-  UIColor *color = [gColors objectAtIndex:1];
+  UIColor *color = [gTheme objectForKey:"theme"];
   gView.backgroundColor = ready ? color : [UIColor blackColor];
 }
 

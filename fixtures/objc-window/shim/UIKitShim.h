@@ -157,6 +157,19 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)removeAllObjects;
 @end
 
+// Dictionary keys are C strings in this shim; Apple's API takes NSString.
+@interface NSDictionary : NSObject
++ (id)dictionary;
+- (unsigned long)count;
+- (id)objectForKey:(const char *)key;
+@end
+
+@interface NSMutableDictionary : NSDictionary
+- (void)setObject:(id)object forKey:(const char *)key;
+- (void)removeObjectForKey:(id)key;
+- (void)removeAllObjects;
+@end
+
 @interface UILabel : UIView
 - (void)setText:(id)text;
 - (id)text;

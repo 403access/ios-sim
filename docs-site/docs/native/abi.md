@@ -219,8 +219,9 @@ generated guest stub, so the message that triggered them still returns normally.
 controller's view sits at the bottom of the window's subview stack; anything added later stays
 on top for painting and hit-testing.
 
-Numbers hold a signed 64-bit value in the object; arrays keep their elements in host memory, so
-guest code sees only the object handle. Out-of-range `objectAtIndex:` and `nil` `addObject:`
+Numbers hold a signed 64-bit value in the object; arrays and dictionaries keep their contents in
+host memory, so guest code sees only the object handle. Dictionary keys are compared by string
+value and accept an `NSString` or a C string. Out-of-range `objectAtIndex:` and `nil` `addObject:`
 raise typed host errors instead of returning garbage.
 
 The shim's `NSString` is a small object holding a pointer to guest bytes; `-length` counts UTF-8

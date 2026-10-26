@@ -66,6 +66,9 @@ const SELECTORS = {
   objectAtIndex: "objectAtIndex:",
   numberWithInt: "numberWithInt:",
   intValue: "intValue",
+  dictionary: "dictionary",
+  setObjectForKey: "setObject:forKey:",
+  objectForKey: "objectForKey:",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -173,7 +176,10 @@ type SlotName =
   | "classNumber"
   | "array"
   | "arrayCount"
-  | "numberValue";
+  | "numberValue"
+  | "classDictionary"
+  | "dictionary"
+  | "dictionaryCount";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -335,6 +341,9 @@ function planData(): Plan {
     "array",
     "arrayCount",
     "numberValue",
+    "classDictionary",
+    "dictionary",
+    "dictionaryCount",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -365,6 +374,7 @@ function planData(): Plan {
     "ThemeChanged",
     "Seen",
     "Count",
+    "theme",
     "Lifecycle",
     "Tappable",
     "_pressed",
@@ -726,10 +736,10 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(stpPre(19, 20, 31, -16));
   emitPointer(0, slot("mainView"));
   emitWord(movReg(19, 0));
-  // UIColor *color = [colors objectAtIndex:1];
-  emitPointer(0, slot("array"));
-  emitAddress(1, selector(SELECTORS.objectAtIndex));
-  emitWord(movz(2, 1));
+  // UIColor *color = [theme objectForKey:"theme"];
+  emitPointer(0, slot("dictionary"));
+  emitAddress(1, selector(SELECTORS.objectForKey));
+  emitAddress(2, dataAddress(plan.stringOffsets.theme!));
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
   emitWord(movReg(2, 0));
@@ -824,6 +834,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_lifecycleMarker",
         value: dataAddress(plan.slotOffsets.lifecycleMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_dictionaryCount",
+        value: dataAddress(plan.slotOffsets.dictionaryCount),
         sectionIndex: 2,
       },
       {
@@ -1396,6 +1411,30 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
     emitStore(0, slot("arrayCount"));
+    // NSMutableDictionary *theme = [NSMutableDictionary dictionary];
+    emitPointer(0, slot("classDictionary"));
+    emitAddress(1, selector(SELECTORS.dictionary));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("dictionary"));
+    // [theme setObject:[colors objectAtIndex:1] forKey:"theme"];
+    emitPointer(0, slot("array"));
+    emitAddress(1, selector(SELECTORS.objectAtIndex));
+    emitWord(movz(2, 1));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitPointer(0, slot("dictionary"));
+    emitAddress(1, selector(SELECTORS.setObjectForKey));
+    emitAddress(3, dataAddress(plan.stringOffsets.theme!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    // (void)[theme count];
+    emitPointer(0, slot("dictionary"));
+    emitAddress(1, selector(SELECTORS.count));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("dictionaryCount"));
     // NSNumber *number = [NSNumber numberWithInt:5]; (void)[number intValue];
     emitPointer(0, slot("classNumber"));
     emitAddress(1, selector(SELECTORS.numberWithInt));
@@ -1590,6 +1629,7 @@ function emitData(
     "ThemeChanged",
     "Seen",
     "Count",
+    "theme",
     "Lifecycle",
     "Tappable",
     "_pressed",
@@ -1819,6 +1859,7 @@ function emitData(
   bind(plan.slotOffsets.classString, "_OBJC_CLASS_$_NSString");
   bind(plan.slotOffsets.classMutableArray, "_OBJC_CLASS_$_NSMutableArray");
   bind(plan.slotOffsets.classNumber, "_OBJC_CLASS_$_NSNumber");
+  bind(plan.slotOffsets.classDictionary, "_OBJC_CLASS_$_NSMutableDictionary");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));

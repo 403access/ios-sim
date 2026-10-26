@@ -228,6 +228,7 @@ export class ObjcHost {
   private userDefaults: bigint | null = null;
   private readonly defaults = new Map<string, bigint>();
   private readonly arrays = new Map<bigint, bigint[]>();
+  private readonly dictionaries = new Map<bigint, Map<string, bigint>>();
   private readonly notificationPage: bigint;
   private notificationCursor: bigint;
   private readonly lifecyclePage: bigint;
@@ -1145,6 +1146,89 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(mutableArray);
+
+    const dictionary = this.defineClass({
+      name: "NSDictionary",
+      superclass: "NSObject",
+      instanceSize: 8,
+      methods: [
+        {
+          selector: "count",
+          types: "Q16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, BigInt(this.dictionaryOf(receiver).size)),
+        },
+        {
+          selector: "objectForKey:",
+          types: "@24@0:8@16",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(
+              0,
+              this.dictionaryOf(receiver).get(this.stringValue(cpu.readRegister(2))) ?? 0n,
+            ),
+        },
+      ],
+      classMethods: [
+        {
+          selector: "dictionary",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass) throw new ObjcError("bad_receiver", "dictionary receiver is not a class");
+            const instance = this.allocateInstance(klass);
+            this.dictionaries.set(instance, new Map());
+            cpu.writeRegister(0, instance);
+          },
+        },
+      ],
+    });
+    this.registerClass(dictionary);
+
+    const mutableDictionary = this.defineClass({
+      name: "NSMutableDictionary",
+      superclass: "NSDictionary",
+      instanceSize: 8,
+      methods: [
+        {
+          selector: "init",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            this.dictionaries.set(receiver, new Map());
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "setObject:forKey:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => {
+            const map = this.dictionaryOf(receiver);
+            const object = cpu.readRegister(2);
+            const key = this.stringValue(cpu.readRegister(3));
+            if (object === 0n)
+              throw new ObjcError("nil_argument", "setObject:forKey: takes no nil");
+            if (!map.has(key) && map.size >= 1024) {
+              throw new ObjcError("dictionary_limit", "a dictionary already holds 1024 keys");
+            }
+            map.set(key, object);
+          },
+        },
+        {
+          selector: "removeObjectForKey:",
+          types: "v24@0:8@16",
+          run: (cpu, receiver) => {
+            this.dictionaryOf(receiver).delete(this.stringValue(cpu.readRegister(2)));
+          },
+        },
+        {
+          selector: "removeAllObjects",
+          types: "v16@0:8",
+          run: (_cpu, receiver) => {
+            this.dictionaries.set(receiver, new Map());
+          },
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(mutableDictionary);
 
     const defaults = this.defineClass({
       name: "NSUserDefaults",
@@ -2270,6 +2354,13 @@ export class ObjcHost {
     const instance = this.allocateInstance(numberClass);
     this.memory.write(instance + BigInt(NUMBER_VALUE), 8, BigInt.asIntN(64, value));
     return instance;
+  }
+
+  /** Dictionaries also live in host memory, keyed by their string value. */
+  private dictionaryOf(instance: bigint): Map<string, bigint> {
+    const map = this.dictionaries.get(instance);
+    if (!map) throw new ObjcError("bad_receiver", "object is not a dictionary");
+    return map;
   }
 
   /** Arrays live in host memory; guest code sees only the object handle. */
