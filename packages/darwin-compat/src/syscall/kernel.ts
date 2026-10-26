@@ -25,6 +25,7 @@ import type { Arm64Cpu, SyscallResult } from "../arm64/cpu.js";
 import type { VirtualMemory } from "../dyld/vm.js";
 import type { BlockingMachBridge } from "../runtime/blocking.js";
 import type { GuestThread } from "../runtime/scheduler.js";
+import { MallocHeap } from "../libc/memory.js";
 import {
   KERN_INVALID_ARGUMENT,
   KERN_MESSAGE_TOO_LARGE,
@@ -66,6 +67,13 @@ import {
   SYS_GETUID,
   SYS_HOST_SELF_TRAP,
   SYS_ISSETUGID,
+  SYS_LIBC_CALLOC,
+  SYS_LIBC_FREE,
+  SYS_LIBC_MALLOC,
+  SYS_LIBC_MEMCPY,
+  SYS_LIBC_MEMSET,
+  SYS_LIBC_REALLOC,
+  SYS_LIBC_STRLEN,
   SYS_LSEEK,
   SYS_MACH_MSG_OVERWRITE_TRAP,
   SYS_MACH_MSG_TRAP,
@@ -171,6 +179,7 @@ export class DarwinSyscallKernel {
   readonly task: MachTask;
   readonly strict: boolean;
   readonly blocking: BlockingMachBridge | undefined;
+  private libcHeap: MallocHeap | null = null;
   exitStatus: number | null = null;
   readonly unsupported = new Map<number, number>();
   private readonly trace: SyscallKernelOptions["trace"];
@@ -221,6 +230,23 @@ export class DarwinSyscallKernel {
         this.exitStatus = status;
         return { value: 0, halt: true };
       }
+      case SYS_LIBC_MALLOC:
+        return this.ok(Number(this.heap().malloc(Number(args[0]!))));
+      case SYS_LIBC_FREE:
+        this.heap().free(args[0]!);
+        return this.ok(0);
+      case SYS_LIBC_MEMCPY:
+        this.heap().memcpy(args[0]!, args[1]!, Number(args[2]!));
+        return this.ok(Number(args[0]!));
+      case SYS_LIBC_STRLEN:
+        return this.ok(this.heap().strlen(args[0]!));
+      case SYS_LIBC_MEMSET:
+        this.heap().memset(args[0]!, Number(args[1]!), Number(args[2]!));
+        return this.ok(Number(args[0]!));
+      case SYS_LIBC_REALLOC:
+        return this.ok(Number(this.heap().realloc(args[0]!, Number(args[1]!))));
+      case SYS_LIBC_CALLOC:
+        return this.ok(Number(this.heap().calloc(Number(args[0]!), Number(args[1]!))));
       case SYS_WRITE:
         return this.write(Number(args[0]!), args[1]!, Number(args[2]!));
       case SYS_READ:
@@ -299,6 +325,11 @@ export class DarwinSyscallKernel {
 
   private ok(value: number | bigint): SyscallResult {
     return { value };
+  }
+
+  private heap(): MallocHeap {
+    if (!this.libcHeap) this.libcHeap = new MallocHeap(this.memory, 8 * 1024 * 1024);
+    return this.libcHeap;
   }
 
   private errno(code: number): SyscallResult {

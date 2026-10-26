@@ -226,9 +226,12 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     evidence: [
       "packages/darwin-compat/src/libc/memory.ts",
       "packages/darwin-compat/src/libc/memory.test.ts",
+      "fixtures/darwin-libc/hello.c",
+      "tests/native/c-libc.test.ts",
     ],
-    command: "bunx vitest run packages/darwin-compat/src/libc/memory.test.ts",
-    limitation: "No real C fixture linked against Apple libSystem yet.",
+    command: "bun run test:native",
+    limitation:
+      "Freestanding C fixture uses custom guest-libc traps; Apple libSystem ABI is incomplete.",
   },
   {
     id: "RT-009",

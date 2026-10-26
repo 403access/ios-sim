@@ -20,6 +20,7 @@
     "build:uikit": "./scripts/build-uikit-native.sh",
     "test:uikit": "./scripts/test-uikit-linux.sh",
     "build:kernel": "./scripts/build-darwin-host.sh",
+    "build:libc": "./scripts/build-libc-fixture.sh",
     "test:kernel": "./scripts/test-darwin-host.sh",
     "test:kernel:linux": "./scripts/test-kernel-linux.sh",
     "dev:host": "bun run --cwd apps/host dev",

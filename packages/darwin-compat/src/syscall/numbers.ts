@@ -119,3 +119,12 @@ export const DARWIN_PROT_EXEC = 0x4;
 export const DARWIN_SEEK_SET = 0;
 export const DARWIN_SEEK_CUR = 1;
 export const DARWIN_SEEK_END = 2;
+
+/** Option A guest-libc shims; not Apple syscall numbers. */
+export const SYS_LIBC_MALLOC = 0x200;
+export const SYS_LIBC_FREE = 0x201;
+export const SYS_LIBC_MEMCPY = 0x202;
+export const SYS_LIBC_STRLEN = 0x203;
+export const SYS_LIBC_MEMSET = 0x204;
+export const SYS_LIBC_REALLOC = 0x205;
+export const SYS_LIBC_CALLOC = 0x206;
