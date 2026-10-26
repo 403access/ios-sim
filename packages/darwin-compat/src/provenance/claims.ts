@@ -93,14 +93,14 @@ export function auditRepository(root = process.cwd()): ClaimFinding[] {
   const files: string[] = [];
   const visit = (path: string): void => {
     for (const entry of readdirSync(path)) {
-      if (entry === "node_modules" || entry === "build" || entry.startsWith(".")) continue;
+      if (["node_modules", "build", "dist", "coverage"].includes(entry) || entry.startsWith(".")) continue;
       const full = join(path, entry);
       if (statSync(full).isDirectory()) visit(full);
       else if (auditable(entry)) files.push(full);
     }
   };
   for (const entry of readdirSync(root)) {
-    if (entry === "node_modules" || entry === "build" || entry.startsWith(".")) continue;
+    if (["node_modules", "build", "dist", "coverage"].includes(entry) || entry.startsWith(".")) continue;
     const full = join(root, entry);
     if (statSync(full).isDirectory()) {
       if (entry === "docs-site" || entry === "apps" || entry === "packages") visit(full);

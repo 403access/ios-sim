@@ -105,6 +105,13 @@ describe("ios-sim-native CLI", () => {
     const trace = JSON.parse(traceIo.out.join(""));
     expect(trace.traceEvents.length).toBeGreaterThan(0);
 
+    const filteredIo = capture();
+    expect(await main(["trace", file, "--type", "process.*", "--chrome"], filteredIo)).toBe(42);
+    const filtered = JSON.parse(filteredIo.out.join(""));
+    expect(filtered.traceEvents.every((event: { name: string }) => event.name === "process")).toBe(
+      true,
+    );
+
     const whyIo = capture();
     expect(await main(["why", file, "--json"], whyIo)).toBe(0);
     const why = JSON.parse(whyIo.out.join(""));

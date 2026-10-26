@@ -273,6 +273,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     limitation: "This is a clean-room API subset and software renderer, not Apple UIKit.",
   },
   {
+    id: "DX-002",
+    claim: "Filters runtime events by type/level/pid/thread and caps trace export.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/observability/trace-filter.ts",
+      "packages/darwin-compat/src/observability/trace-filter.test.ts",
+      "apps/native/src/cli.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/observability/trace-filter.test.ts",
+  },
+  {
     id: "OBS-007",
     claim: "Offers an opt-in 127.0.0.1 metrics endpoint with optional bearer auth.",
     status: "implemented",

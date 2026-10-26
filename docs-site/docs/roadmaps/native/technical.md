@@ -504,7 +504,8 @@ lockfile presence, ignored build output, and a documented frozen install. DX-004
 tar.gz with doctor/versions/environment/corpus/bench data and a SHA-256 manifest, so another
 host can reproduce and compare. THR-011 adds session identity, roles, port/service ownership,
 and idempotent teardown callbacks. OBS-007 adds an opt-in loopback-only metrics server with
-Prometheus text, `/healthz`, and optional bearer auth. DX-002 (trace filtering) is next.
+Prometheus text, `/healthz`, and optional bearer auth. DX-002 adds type/level/pid/thread/limit
+trace filters before NDJSON/Chrome export. QA-007 (coverage targets) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

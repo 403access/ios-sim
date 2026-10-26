@@ -24,8 +24,10 @@ import {
   disassembleRange,
   describeLoaderError,
   formatDisassembly,
+  filterEvents,
   formatFault,
   formatInspectReport,
+  parseList,
   formatLoaderDiagnostic,
   inspectMachO,
   parseLaunchdManifest,
@@ -156,23 +158,48 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .argument("<file>", "Mach-O executable")
     .option("--chrome", "emit Chrome Trace Event JSON")
     .option("--out <path>", "write the trace to a file instead of stdout")
-    .action((file: string, options: { chrome?: boolean; out?: string }) => {
-      const absolute = resolve(file);
-      const recorder = new EventRecorder();
-      const runtime = new DarwinRuntime({ rootDir: dirname(absolute) });
-      const result = runtime.run(absolute, {
-        argv: [absolute],
-        events: recorder,
-        stdout: new CaptureSink(),
-        stderr: new CaptureSink(),
-      });
-      const text = options.chrome
-        ? `${chromeTraceJSON(recorder.list())}\n`
-        : `${recorder.toNDJSON()}\n`;
-      if (options.out) writeFileSync(resolve(options.out), text);
-      else io.stdout(text);
-      if (result.exitStatus !== 0) requestedExit = result.exitStatus;
-    });
+    .option("--type <patterns>", "comma-separated event types; trailing * is a prefix")
+    .option("--level <levels>", "comma-separated debug/info/warn/error")
+    .option("--pid <pid>", "only this pid", parseInteger)
+    .option("--thread <id>", "only this thread", parseInteger)
+    .option("--limit <count>", "keep at most this many events", parseInteger)
+    .action(
+      (
+        file: string,
+        options: {
+          chrome?: boolean;
+          out?: string;
+          type?: string;
+          level?: string;
+          pid?: number;
+          thread?: number;
+          limit?: number;
+        },
+      ) => {
+        const absolute = resolve(file);
+        const recorder = new EventRecorder();
+        const runtime = new DarwinRuntime({ rootDir: dirname(absolute) });
+        const result = runtime.run(absolute, {
+          argv: [absolute],
+          events: recorder,
+          stdout: new CaptureSink(),
+          stderr: new CaptureSink(),
+        });
+        const filtered = filterEvents(recorder.list(), {
+          types: parseList(options.type),
+          levels: parseList(options.level) as never,
+          pid: options.pid,
+          thread: options.thread,
+          limit: options.limit,
+        });
+        const text = options.chrome
+          ? `${chromeTraceJSON(filtered)}\n`
+          : `${filtered.map((event) => JSON.stringify(event)).join("\n")}\n`;
+        if (options.out) writeFileSync(resolve(options.out), text);
+        else io.stdout(text);
+        if (result.exitStatus !== 0) requestedExit = result.exitStatus;
+      },
+    );
 
   program
     .command("why")
