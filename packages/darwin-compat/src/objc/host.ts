@@ -160,6 +160,9 @@ export class ObjcHost {
     poolPushes: 0,
     poolPops: 0,
     associations: 0,
+    weakStores: 0,
+    weakLoads: 0,
+    weakZeroings: 0,
   };
   readonly frames: CapturedFrame[] = [];
   readonly width: number;
@@ -186,6 +189,8 @@ export class ObjcHost {
   private readonly initialized = new Set<bigint>();
   private readonly refcounts = new Map<bigint, number>();
   private readonly associations = new Map<bigint, Map<bigint, Association>>();
+  private readonly weakSlots = new Map<bigint, Set<bigint>>();
+  private readonly weakOwners = new Map<bigint, bigint>();
   private readonly autoreleasePools: bigint[][] = [];
   private readonly initializeStubs = new Map<bigint, bigint>();
   private readonly initializePage: bigint;
@@ -382,6 +387,15 @@ export class ObjcHost {
       return { value: 0n };
     });
     this.registerSymbol("_objc_sync_enter", () => ({ value: 0n }));
+    // Exception handling is not implemented. The personality routine is
+    // referenced by ARC cleanup tables; unwinding itself fails loudly.
+    this.registerSymbol("___objc_personality_v0", () => ({ value: 0n }));
+    this.registerSymbol("__Unwind_Resume", () => {
+      throw new ObjcError(
+        "unimplemented_unwind",
+        "Objective-C exception unwinding is not implemented",
+      );
+    });
     this.registerSymbol("_objc_sync_exit", () => ({ value: 0n }));
 
     this.registerSymbol("_objc_setAssociatedObject", (cpu) => {
@@ -411,13 +425,25 @@ export class ObjcHost {
       return { value };
     });
     this.registerSymbol("_objc_storeWeak", (cpu) => {
-      this.memory.write(cpu.readRegister(0), 8, cpu.readRegister(1));
+      this.storeWeak(cpu.readRegister(0), cpu.readRegister(1));
       return { value: cpu.readRegister(1) };
     });
+    this.registerSymbol("_objc_initWeak", (cpu) => {
+      this.storeWeak(cpu.readRegister(0), cpu.readRegister(1));
+      return { value: cpu.readRegister(0) };
+    });
     this.registerSymbol("_objc_loadWeakRetained", (cpu) => ({
-      value: this.memory.read(cpu.readRegister(0), 8),
+      value: this.loadWeakRetained(cpu.readRegister(0)),
     }));
-    this.registerSymbol("_objc_destroyWeak", () => ({ value: 0n }));
+    this.registerSymbol("_objc_loadWeak", (cpu) => {
+      const value = this.loadWeakRetained(cpu.readRegister(0));
+      this.autoreleaseObject(value);
+      return { value };
+    });
+    this.registerSymbol("_objc_destroyWeak", (cpu) => {
+      this.destroyWeak(cpu.readRegister(0));
+      return { value: 0n };
+    });
 
     this.registerSymbol("_sel_registerName", (cpu) => ({ value: cpu.readRegister(0) }));
     this.registerSymbol("_objc_getClass", (cpu) => {
@@ -1204,6 +1230,52 @@ export class ObjcHost {
     }
   }
 
+  private storeWeak(slot: bigint, value: bigint): void {
+    const previous = this.weakOwners.get(slot);
+    if (previous !== undefined) {
+      this.weakSlots.get(previous)?.delete(slot);
+      this.weakOwners.delete(slot);
+    }
+    this.memory.write(slot, 8, value);
+    if (value === 0n || !this.instances.has(value)) return;
+    let slots = this.weakSlots.get(value);
+    if (!slots) {
+      slots = new Set();
+      this.weakSlots.set(value, slots);
+    }
+    slots.add(slot);
+    this.weakOwners.set(slot, value);
+    this.stats.weakStores += 1;
+  }
+
+  private loadWeakRetained(slot: bigint): bigint {
+    const value = this.memory.read(slot, 8);
+    this.stats.weakLoads += 1;
+    if (value === 0n || !this.instances.has(value)) return 0n;
+    this.retainObject(value);
+    return value;
+  }
+
+  private destroyWeak(slot: bigint): void {
+    const previous = this.weakOwners.get(slot);
+    if (previous !== undefined) {
+      this.weakSlots.get(previous)?.delete(slot);
+      this.weakOwners.delete(slot);
+    }
+    this.memory.write(slot, 8, 0n);
+  }
+
+  private zeroWeakSlots(object: bigint): void {
+    const slots = this.weakSlots.get(object);
+    if (!slots) return;
+    this.weakSlots.delete(object);
+    for (const slot of slots) {
+      this.memory.write(slot, 8, 0n);
+      this.weakOwners.delete(slot);
+      this.stats.weakZeroings += 1;
+    }
+  }
+
   private retainObject(object: bigint): void {
     if (!this.instances.has(object)) return;
     this.refcounts.set(object, (this.refcounts.get(object) ?? 1) + 1);
@@ -1219,6 +1291,7 @@ export class ObjcHost {
       // -dealloc is not called; the PoC process is short-lived and the docs
       // state this limitation.
       this.refcounts.delete(object);
+      this.zeroWeakSlots(object);
       this.removeAssociated(object);
       return;
     }

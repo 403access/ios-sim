@@ -30,6 +30,7 @@ import {
   b,
   blr,
   cbz,
+  cbnz,
   ldpPost,
   ldrDouble,
   ldrUnsigned,
@@ -89,7 +90,10 @@ type SlotName =
   | "currentView"
   | "tickIndex"
   | "assocSet"
-  | "assocGet";
+  | "assocGet"
+  | "weakSlot"
+  | "weakSet"
+  | "weakLoad";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -194,6 +198,9 @@ function planData(): Plan {
     "tickIndex",
     "assocSet",
     "assocGet",
+    "weakSlot",
+    "weakSet",
+    "weakLoad",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -604,6 +611,25 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(stpPre(29, 30, 31, -16));
     emitWord(stpPre(19, 20, 31, -16));
     emitWord(movReg(19, 0));
+    // Weak reference must be zeroed when its object is released.
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.redColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitAddress(0, slot("weakSlot"));
+    emitWord(movReg(1, 20));
+    emitPointer(16, slot("weakSet"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.release));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitAddress(0, slot("weakSlot"));
+    emitPointer(16, slot("weakLoad"));
+    emitWord(blr(16));
+    const weakFail = code.words.length;
+    emitWord(0);
     // Exercise retain/release bookkeeping without changing the colour.
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.retain));
@@ -656,6 +682,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(ret());
     code.words[skipBlue] = cbz(0, (purple - skipBlue) * 4);
     code.words[jumpToApply] = b((apply - jumpToApply) * 4);
+    code.words[weakFail] = cbnz(0, (purple - weakFail) * 4);
   }
 }
 
@@ -816,6 +843,8 @@ function emitData(
   bind(plan.slotOffsets.msgSend, "_objc_msgSend");
   bind(plan.slotOffsets.assocSet, "_objc_setAssociatedObject");
   bind(plan.slotOffsets.assocGet, "_objc_getAssociatedObject");
+  bind(plan.slotOffsets.weakSet, "_objc_storeWeak");
+  bind(plan.slotOffsets.weakLoad, "_objc_loadWeakRetained");
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
   rebase(plan.slotOffsets.classTapView, address(plan.tapClass));

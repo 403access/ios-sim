@@ -176,6 +176,7 @@ Recognised runtime entry points: `objc_retain`, `objc_release`, `objc_autoreleas
 `objc_retainAutoreleasedReturnValue`, `objc_autoreleaseReturnValue`, `objc_opt_self`,
 `objc_opt_class`, `objc_opt_isKindOfClass`, `objc_alloc`, `sel_registerName`, `objc_getClass`,
 `objc_setAssociatedObject`, `objc_getAssociatedObject`, `objc_removeAssociatedObjects`,
+`objc_storeWeak`, `objc_loadWeakRetained`, `objc_loadWeak`, `objc_destroyWeak`,
 `objc_sync_enter/exit`. Retain/release update a host-side refcount (objects start at 1), and
 autorelease pools are real stacks drained on pop. Objects are never reclaimed and `-dealloc` is
 not called; the PoC process is short-lived and the docs state the limitation. Counts are exposed

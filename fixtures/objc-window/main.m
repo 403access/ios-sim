@@ -25,11 +25,20 @@ static char kColorKey;
 - (void)touchesBegan:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;
-  if ([self conformsToProtocol:@protocol(Tappable)]) {
-    self.backgroundColor = [UIColor blueColor];
-  } else {
-    self.backgroundColor = [UIColor purpleColor];
+  __weak UIColor *weakColor;
+  @autoreleasepool {
+    UIColor *temporary = [UIColor redColor];
+    weakColor = temporary;
   }
+  if (weakColor != nil) {
+    self.backgroundColor = [UIColor purpleColor];
+    return;
+  }
+  BOOL tappable = [self conformsToProtocol:@protocol(Tappable)];
+  UIColor *color = tappable ? [UIColor blueColor] : [UIColor purpleColor];
+  objc_setAssociatedObject(self, &kColorKey, color, 1);
+  UIColor *stored = objc_getAssociatedObject(self, &kColorKey);
+  self.backgroundColor = stored ? stored : [UIColor purpleColor];
 }
 - (void)touchesMoved:(id)touches withEvent:(id)event {
   (void)touches;

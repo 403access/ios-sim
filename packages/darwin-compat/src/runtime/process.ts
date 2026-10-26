@@ -74,6 +74,9 @@ export interface ProcessResult {
     poolPushes: number;
     poolPops: number;
     associations: number;
+    weakStores: number;
+    weakLoads: number;
+    weakZeroings: number;
   }>;
 }
 
@@ -275,6 +278,9 @@ export class DarwinProcess {
         poolPushes: 0,
         poolPops: 0,
         associations: 0,
+        weakStores: 0,
+        weakLoads: 0,
+        weakZeroings: 0,
       },
     };
   }

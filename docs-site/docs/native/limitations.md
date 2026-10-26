@@ -70,14 +70,14 @@ macOS-gated test runs compiler output end to end.
   a bounded loop over CLI-supplied taps, drags, and ticks, rendering after each callback. There is
   no real event source, display link, wall-clock timer, multitouch, gesture recognisers, or host
   window.
-- **ARC is approximated, not implemented.** Retain/release update a refcount and autorelease
-  pools drain on pop, but zero-count objects are not reclaimed, `-dealloc` is not called, and weak
-  references are not zeroed. Objects live until the process exits; the PoC is short-lived.
+- **ARC is approximated, not implemented.** Retain/release update a refcount, autorelease pools
+  drain on pop, and weak slots are zeroed at zero count, but zero-count objects are not reclaimed
+  and `-dealloc` is not called. Objects live until the process exits; the PoC is short-lived.
 - **Selectors are C strings.** The shim follows the modern direct-selector convention; a selector
   registered as an opaque `objc_selector` struct is not supported.
-- **Classes are realised eagerly.** `+load`, categories, `+initialize`, protocol conformance, and
-  associated objects are implemented; weak references are not. A missing method fails with
-  `unrecognized_selector`, not a message-send crash.
+- **Classes are realised eagerly.** `+load`, categories, `+initialize`, protocol conformance,
+  associated objects, and zeroing weak references are implemented. Exceptions are not. A missing
+  method fails with `unrecognized_selector`, not a message-send crash.
 - **Ivar metadata is parsed, not synthesised.** Instances get an `isa` and the class's
   `instanceSize`; compiler-assigned ivar offsets work because the guest uses its own layout. The
   shim does not provide reflective ivar access, and its own ivars are fixed offsets.

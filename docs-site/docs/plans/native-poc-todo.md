@@ -39,9 +39,10 @@ started.
 - [x] Absolute and relative ivar lists parsed and exposed
 - [x] Protocol lists, inherited protocols, and `conformsToProtocol:`
 - [x] Associated objects (`set`/`get`/`remove`, assign/retain policies)
+- [x] Zeroing weak references (`storeWeak`/`loadWeakRetained`/`destroyWeak`)
 - [x] Runtime entry points: retain/release refcounts, autorelease pools, storeStrong, opt_self, sel_registerName
 - [x] Guest IMP tail call preserves arguments and return address
-- [~] Weak references (absent, documented)
+- [~] Exceptions (personality stub; unwind fails by name)
 
 ## P2 — framework shim and frame
 
