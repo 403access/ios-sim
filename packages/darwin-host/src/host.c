@@ -66,6 +66,21 @@ typedef struct {
   uint32_t port_id;
 } DHService;
 
+typedef struct {
+  uint32_t used;
+  uint32_t id;
+  uint32_t size;
+  uint8_t *data;
+} DHMemory;
+
+typedef struct {
+  uint32_t used;
+  uint32_t task_id;
+  uint32_t memory_id;
+  uint64_t address;
+  uint32_t size;
+} DHMapping;
+
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_cond = PTHREAD_COND_INITIALIZER;
 static DHTask g_tasks[DH_MAX_TASKS];
@@ -73,6 +88,9 @@ static DHMessagePort g_ports[DH_MAX_PORTS];
 static DHService g_services[DH_MAX_SERVICES];
 static DHThread g_threads[DH_MAX_THREADS];
 static DHSet g_sets[DH_MAX_PORT_SETS];
+static DHMemory g_memory[DH_MAX_MEMORY_OBJECTS];
+static DHMapping g_mappings[DH_MAX_MAPPINGS];
+static uint64_t g_next_mapping_address = 0x10000000ull;
 static uint32_t g_next_task_id = 1;
 static uint32_t g_next_thread_id = 1;
 static uint32_t g_boot_port_id = 0;
@@ -241,6 +259,12 @@ static void kernel_reset_locked(void) {
   memset(g_services, 0, sizeof(g_services));
   memset(g_threads, 0, sizeof(g_threads));
   memset(g_sets, 0, sizeof(g_sets));
+  for (size_t index = 0; index < DH_MAX_MEMORY_OBJECTS; ++index) {
+    free(g_memory[index].data);
+  }
+  memset(g_memory, 0, sizeof(g_memory));
+  memset(g_mappings, 0, sizeof(g_mappings));
+  g_next_mapping_address = 0x10000000ull;
   g_next_task_id = 1;
   g_next_thread_id = 1;
   g_message_count = 0;
@@ -318,6 +342,11 @@ int dh_task_destroy(uint32_t task_id) {
       if (port != NULL && port->receive_owner == task->id) destroy_port_locked(port);
     }
     remove_name_locked(task, name);
+  }
+  for (size_t index = 0; index < DH_MAX_MAPPINGS; ++index) {
+    if (g_mappings[index].used && g_mappings[index].task_id == task->id) {
+      g_mappings[index].used = 0;
+    }
   }
   for (size_t index = 0; index < DH_MAX_THREADS; ++index) {
     if (g_threads[index].used && g_threads[index].task_id == task->id) {
@@ -677,6 +706,244 @@ int dh_port_register_dead_name(uint32_t task_id, uint32_t port_name, uint32_t no
     return DH_ERR_INVALID_NAME;
   }
   port->dead_notify_port = notify_entry->port_id;
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+static DHMemory *memory_locked(uint32_t id) {
+  for (size_t index = 0; index < DH_MAX_MEMORY_OBJECTS; ++index) {
+    if (g_memory[index].used && g_memory[index].id == id) return &g_memory[index];
+  }
+  return NULL;
+}
+
+int dh_memory_create(uint32_t size, uint32_t *out_id) {
+  if (out_id == NULL || size == 0 || size > 16u * 1024u * 1024u) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  for (size_t index = 0; index < DH_MAX_MEMORY_OBJECTS; ++index) {
+    if (!g_memory[index].used) {
+      uint8_t *data = calloc(1, size);
+      if (data == NULL) {
+        pthread_mutex_unlock(&g_lock);
+        return DH_ERR_NO_SPACE;
+      }
+      g_memory[index].used = 1;
+      g_memory[index].id = (uint32_t)index + 1;
+      g_memory[index].size = size;
+      g_memory[index].data = data;
+      *out_id = g_memory[index].id;
+      pthread_mutex_unlock(&g_lock);
+      return DH_OK;
+    }
+  }
+  pthread_mutex_unlock(&g_lock);
+  return DH_ERR_NO_SPACE;
+}
+
+int dh_memory_destroy(uint32_t id) {
+  pthread_mutex_lock(&g_lock);
+  DHMemory *memory = memory_locked(id);
+  if (memory == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  for (size_t index = 0; index < DH_MAX_MAPPINGS; ++index) {
+    if (g_mappings[index].used && g_mappings[index].memory_id == id) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_STATE;
+    }
+  }
+  free(memory->data);
+  memset(memory, 0, sizeof(*memory));
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_memory_size(uint32_t id, uint32_t *out_size) {
+  if (out_size == NULL) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHMemory *memory = memory_locked(id);
+  if (memory == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  *out_size = memory->size;
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_memory_write(uint32_t id, uint32_t offset, const uint8_t *data, uint32_t length) {
+  if (length > 0 && data == NULL) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHMemory *memory = memory_locked(id);
+  if (memory == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  if (offset > memory->size || length > memory->size - offset) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_ARGUMENT;
+  }
+  if (length > 0) memcpy(memory->data + offset, data, length);
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_memory_read(uint32_t id, uint32_t offset, uint8_t *data, uint32_t capacity, uint32_t *out_length) {
+  if (out_length == NULL || (capacity > 0 && data == NULL)) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHMemory *memory = memory_locked(id);
+  if (memory == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  if (offset > memory->size) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_ARGUMENT;
+  }
+  uint32_t length = memory->size - offset;
+  if (length > capacity) length = capacity;
+  if (length > 0) memcpy(data, memory->data + offset, length);
+  *out_length = length;
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_memory_clone(uint32_t id, uint32_t *out_id) {
+  if (out_id == NULL) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHMemory *source = memory_locked(id);
+  if (source == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  for (size_t index = 0; index < DH_MAX_MEMORY_OBJECTS; ++index) {
+    if (!g_memory[index].used) {
+      uint8_t *data = malloc(source->size);
+      if (data == NULL) {
+        pthread_mutex_unlock(&g_lock);
+        return DH_ERR_NO_SPACE;
+      }
+      memcpy(data, source->data, source->size);
+      g_memory[index].used = 1;
+      g_memory[index].id = (uint32_t)index + 1;
+      g_memory[index].size = source->size;
+      g_memory[index].data = data;
+      *out_id = g_memory[index].id;
+      pthread_mutex_unlock(&g_lock);
+      return DH_OK;
+    }
+  }
+  pthread_mutex_unlock(&g_lock);
+  return DH_ERR_NO_SPACE;
+}
+
+int dh_memory_map(uint32_t task_id, uint32_t id, uint64_t address, uint32_t *out_address) {
+  if (out_address == NULL) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHTask *task = task_locked(task_id);
+  DHMemory *memory = memory_locked(id);
+  if (task == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_TASK;
+  }
+  if (memory == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  DHMapping *slot = NULL;
+  for (size_t index = 0; index < DH_MAX_MAPPINGS; ++index) {
+    if (!g_mappings[index].used) {
+      slot = &g_mappings[index];
+      break;
+    }
+  }
+  if (slot == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_NO_SPACE;
+  }
+  if (address == 0) {
+    address = (g_next_mapping_address + 0xfffull) & ~0xfffull;
+  }
+  for (size_t index = 0; index < DH_MAX_MAPPINGS; ++index) {
+    DHMapping *other = &g_mappings[index];
+    if (other->used && other->task_id == task_id && address < other->address + other->size &&
+        address + memory->size > other->address) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_STATE;
+    }
+  }
+  slot->used = 1;
+  slot->task_id = task_id;
+  slot->memory_id = id;
+  slot->address = address;
+  slot->size = memory->size;
+  g_next_mapping_address = address + memory->size;
+  *out_address = address;
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+static DHMapping *mapping_locked(uint32_t task_id, uint64_t address) {
+  for (size_t index = 0; index < DH_MAX_MAPPINGS; ++index) {
+    DHMapping *mapping = &g_mappings[index];
+    if (mapping->used && mapping->task_id == task_id && address >= mapping->address &&
+        address < mapping->address + mapping->size) {
+      return mapping;
+    }
+  }
+  return NULL;
+}
+
+int dh_memory_unmap(uint32_t task_id, uint64_t address) {
+  pthread_mutex_lock(&g_lock);
+  DHMapping *mapping = mapping_locked(task_id, address);
+  if (mapping == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  mapping->used = 0;
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_memory_write_at(uint32_t task_id, uint64_t address, const uint8_t *data, uint32_t length) {
+  if (length > 0 && data == NULL) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHMapping *mapping = mapping_locked(task_id, address);
+  if (mapping == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  uint32_t offset = (uint32_t)(address - mapping->address);
+  DHMemory *memory = memory_locked(mapping->memory_id);
+  if (memory == NULL || length > memory->size - offset) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_ARGUMENT;
+  }
+  if (length > 0) memcpy(memory->data + offset, data, length);
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_memory_read_at(uint32_t task_id, uint64_t address, uint8_t *data, uint32_t capacity, uint32_t *out_length) {
+  if (out_length == NULL || (capacity > 0 && data == NULL)) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHMapping *mapping = mapping_locked(task_id, address);
+  if (mapping == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  uint32_t offset = (uint32_t)(address - mapping->address);
+  DHMemory *memory = memory_locked(mapping->memory_id);
+  if (memory == NULL || offset > memory->size) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_ARGUMENT;
+  }
+  uint32_t length = memory->size - offset;
+  if (length > capacity) length = capacity;
+  if (length > 0) memcpy(data, memory->data + offset, length);
+  *out_length = length;
   pthread_mutex_unlock(&g_lock);
   return DH_OK;
 }

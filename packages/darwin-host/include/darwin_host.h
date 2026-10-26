@@ -29,6 +29,8 @@ extern "C" {
 #define DH_MAX_SERVICES 256u
 #define DH_MAX_THREADS 1024u
 #define DH_MAX_PORT_SETS 256u
+#define DH_MAX_MEMORY_OBJECTS 256u
+#define DH_MAX_MAPPINGS 1024u
 #define DH_MAX_SET_MEMBERS 64u
 #define DH_LABEL_MAX 64u
 #define DH_SERVICE_MAX 256u
@@ -103,6 +105,18 @@ int dh_port_set_remove(uint32_t task, uint32_t set_name, uint32_t port_name);
 
 /* Register a send port for a one-shot dead-name notification. */
 int dh_port_register_dead_name(uint32_t task, uint32_t port_name, uint32_t notify_name);
+
+/* Shared memory objects and per-task mappings. */
+int dh_memory_create(uint32_t size, uint32_t *out_id);
+int dh_memory_destroy(uint32_t id);
+int dh_memory_size(uint32_t id, uint32_t *out_size);
+int dh_memory_write(uint32_t id, uint32_t offset, const uint8_t *data, uint32_t length);
+int dh_memory_read(uint32_t id, uint32_t offset, uint8_t *data, uint32_t capacity, uint32_t *out_length);
+int dh_memory_clone(uint32_t id, uint32_t *out_id);
+int dh_memory_map(uint32_t task, uint32_t id, uint64_t address, uint32_t *out_address);
+int dh_memory_unmap(uint32_t task, uint64_t address);
+int dh_memory_write_at(uint32_t task, uint64_t address, const uint8_t *data, uint32_t length);
+int dh_memory_read_at(uint32_t task, uint64_t address, uint8_t *data, uint32_t capacity, uint32_t *out_length);
 
 int dh_service_register(uint32_t task, const char *service, uint32_t name);
 int dh_service_lookup(uint32_t task, const char *service, uint32_t *out_name);

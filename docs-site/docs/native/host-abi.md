@@ -143,6 +143,14 @@ variable, so a blocked set receive wakes. Removing/deallocating a receive port c
 `DH_NOTIFY_DEAD` message on a registered notify port exactly once. The notification body is the
 dead port id.
 
+## Memory objects
+
+`KRN-009` adds shared memory objects and per-task mappings. Two tasks can map the same object at
+distinct addresses; writes through one mapping are visible through the other. `dh_memory_clone`
+creates an isolated copy for COW-model tests. `unmap` invalidates the address; destroying a mapped
+object returns `DH_ERR_STATE`. The object store is host-side; wiring it into the guest
+`VirtualMemory` is the next integration step.
+
 ## Thread lifecycle
 
 `THR-001` adds thread objects and thread ports to the native boundary. They are lifecycle
@@ -154,7 +162,6 @@ therefore proves the kernel-side identity/port/teardown contract, not real guest
 
 - port/memory descriptors in messages (KRN-007)
 - Apple MIG wire compatibility (KRN-008)
-- memory objects/shared memory (KRN-009)
 - Mach trap-number parity (KRN-010)
 - quotas beyond fixed limits (KRN-011)
 - stress/soak automation (KRN-012)
