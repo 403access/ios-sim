@@ -84,7 +84,8 @@ started.
 - [x] `NSData` (file/bytes) and `+[UIImage imageWithData:]`
 - [x] `+[NSString stringWithFormat:]` and formatted `NSLog` (stack-passed varargs)
 - [x] `NSJSONSerialization` + `-[NSString dataUsingEncoding:]`
-- [~] `CALayer` corner radius on view backgrounds (masks/opacity stored, no transforms)
+- [~] `CALayer` corner radius on view backgrounds (masks/opacity stored)
+- [~] `UIView` affine transforms on backgrounds (children/hit-testing untransformed)
 - [x] `UISegmentedControl` selection, rendering, and value-changed actions
 - [x] `UINavigationController` push/pop with a host-built bar, title, and back button
 - [x] `UITableView` with host-managed rows, selection, and value-changed actions

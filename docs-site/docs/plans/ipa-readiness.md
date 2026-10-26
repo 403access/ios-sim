@@ -120,7 +120,7 @@ These items have visible value even if G2 never lands:
 
 **Renderer**
 
-- Layer transforms/masks/compositing (corner radius is in), richer text, JPEG/HEIC/`Assets.car`, gradients/masks/paths,
+- Layer masks/compositing (corner radius and background transforms are in), richer text, JPEG/HEIC/`Assets.car`, gradients/masks/paths,
   colour management, more than eight frames, a host window or streaming surface.
 
 ## Decisions that must precede more G2 code

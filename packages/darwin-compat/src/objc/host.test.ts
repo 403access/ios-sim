@@ -261,6 +261,20 @@ describe("ObjC UIKit demo", () => {
     expect(at(325, 215)).toEqual([127, 127, 127]);
   });
 
+  it("applies an affine transform to a view background", () => {
+    const result = runDemo([{ x: 60, y: 600 }]);
+    const frame = result.frames.at(-1)!;
+    const at = (x: number, y: number): number[] => {
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    // An 80x80 red view at detail (20,200), rotated 45 degrees about its centre.
+    expect(at(60, 284)).toEqual([255, 0, 0]);
+    expect(at(60, 240)).toEqual([255, 0, 0]);
+    // The original corner rotates out of the square, revealing the purple detail view.
+    expect(at(25, 249)).toEqual([128, 0, 128]);
+  });
+
   it("selects a table row and sends value-changed", () => {
     const result = runDemo([
       { x: 60, y: 600 },

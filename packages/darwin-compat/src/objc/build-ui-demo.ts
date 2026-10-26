@@ -104,6 +104,7 @@ const SELECTORS = {
   setRowHeight: "setRowHeight:",
   selectedRow: "selectedRow",
   rowSelected: "rowSelected:",
+  setTransform: "setTransform:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
   beginAnimations: "beginAnimations:context:",
@@ -274,7 +275,8 @@ type SlotName =
   | "classTable"
   | "tableRows"
   | "tableView"
-  | "tableSelection";
+  | "tableSelection"
+  | "rotatedView";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -332,6 +334,8 @@ interface Plan {
   readonly openLabelRect: number;
   readonly tableRect: number;
   readonly tableRowHeight: number;
+  readonly rotatedRect: number;
+  readonly rotation: number;
   readonly cornerRadius: number;
   readonly wrapRect: number;
   readonly animationDuration: number;
@@ -509,6 +513,7 @@ function planData(): Plan {
     "tableRows",
     "tableView",
     "tableSelection",
+    "rotatedView",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -693,6 +698,10 @@ function planData(): Plan {
   cursor += 32;
   const tableRowHeight = cursor;
   cursor += 8;
+  const rotatedRect = cursor;
+  cursor += 32;
+  const rotation = cursor;
+  cursor += 48;
   const cornerRadius = cursor;
   cursor += 8;
   const timerInterval = cursor;
@@ -814,6 +823,8 @@ function planData(): Plan {
     openLabelRect,
     tableRect,
     tableRowHeight,
+    rotatedRect,
+    rotation,
     cornerRadius,
     wrapRect,
     animationDuration,
@@ -2485,6 +2496,47 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UIView *rotated = [[UIView alloc] initWithFrame:(20,200,80,80)];
+    // [rotated setTransform:CGAffineTransformMakeRotation(pi/4)];
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.rotatedRect));
+    emitDouble(1, dataAddress(plan.rotatedRect + 8));
+    emitDouble(2, dataAddress(plan.rotatedRect + 16));
+    emitDouble(3, dataAddress(plan.rotatedRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.redColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setTransform));
+    emitAddress(2, dataAddress(plan.rotation));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(21, slot("rotatedView"));
+    emitPointer(0, slot("detailController"));
+    emitAddress(1, selector(SELECTORS.view));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitPointer(2, slot("rotatedView"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // UIButton *open = [[UIButton alloc] initWithFrame:(20,586,140,28)];
     emitPointer(0, slot("classButton"));
     emitAddress(1, selector(SELECTORS.alloc));
@@ -3122,6 +3174,17 @@ function emitData(
   f64(plan.tableRect + 16, 300);
   f64(plan.tableRect + 24, 120);
   f64(plan.tableRowHeight, 30);
+  f64(plan.rotatedRect, 20);
+  f64(plan.rotatedRect + 8, 200);
+  f64(plan.rotatedRect + 16, 80);
+  f64(plan.rotatedRect + 24, 80);
+  const cos45 = Math.SQRT1_2;
+  f64(plan.rotation, cos45);
+  f64(plan.rotation + 8, cos45);
+  f64(plan.rotation + 16, -cos45);
+  f64(plan.rotation + 24, cos45);
+  f64(plan.rotation + 32, 0);
+  f64(plan.rotation + 40, 0);
   f64(plan.cornerRadius, 12);
   f64(plan.imageRect, 250);
   f64(plan.imageRect + 8, 140);

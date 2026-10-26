@@ -208,6 +208,15 @@ first row. Painting offsets rows by the scroll position and draws a selection ba
 separators. A touch selects the row under its y (using the table's absolute origin) and sends
 value-changed through the control-action list, because there is no `UITableViewDelegate`.
 
+### Transforms
+
+`-setTransform:` applies a `CGAffineTransform` to a view's **background** about its centre: painting
+inverse-maps each pixel of the transformed bounding box and fills the local rectangle, so rotation
+and scale are visible without anti-aliasing. Children are not transformed, hit-testing still uses
+the untransformed frame, and the rounded-corner path is bypassed while a transform is set. The
+48-byte struct is passed by reference in `x2` and returned through the `x8` buffer, matching Apple's
+arm64 aggregate rules — the clang fixture caught an earlier register-passing assumption.
+
 ### Layers
 
 `-layer` returns a lazily created `CALayer` per view. Its corner radius rounds the view's own

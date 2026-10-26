@@ -355,6 +355,10 @@ export class ObjcHost {
   private readonly segments = new Map<bigint, string[]>();
   private readonly tableRows = new Map<bigint, string[]>();
   private readonly viewLayers = new Map<bigint, bigint>();
+  private readonly viewTransforms = new Map<
+    bigint,
+    { a: number; b: number; c: number; d: number; tx: number; ty: number }
+  >();
   private readonly navigationStacks = new Map<bigint, bigint[]>();
   private readonly navigationContent = new Map<bigint, bigint>();
   private readonly navigationChrome = new Map<
@@ -668,6 +672,15 @@ export class ObjcHost {
         const text = this.formatVariadic(this.memory.readCString(pointer, 4096), cpu);
         this.log(new TextEncoder().encode(`${text}\n`));
       }
+      return { value: 0n };
+    });
+
+    this.registerSymbol("_sin", (cpu) => {
+      cpu.writeVectorDouble(0, Math.sin(cpu.readVectorDouble(0)));
+      return { value: 0n };
+    });
+    this.registerSymbol("_cos", (cpu) => {
+      cpu.writeVectorDouble(0, Math.cos(cpu.readVectorDouble(0)));
       return { value: 0n };
     });
 
@@ -1006,6 +1019,63 @@ export class ObjcHost {
           selector: "removeFromSuperview",
           types: "v16@0:8",
           run: (_cpu, receiver) => this.detachView(receiver),
+        },
+        {
+          selector: "setTransform:",
+          types: "v64@0:8{CGAffineTransform=dddddd}16",
+          run: (cpu, receiver) => {
+            // A 48-byte struct is passed by reference in x2, not in vector
+            // registers (Apple arm64 aggregates over 16 bytes are indirect).
+            const pointer = cpu.readRegister(2);
+            if (pointer === 0n) return;
+            const transform = {
+              a: this.readDouble(pointer, 0),
+              b: this.readDouble(pointer, 8),
+              c: this.readDouble(pointer, 16),
+              d: this.readDouble(pointer, 24),
+              tx: this.readDouble(pointer, 32),
+              ty: this.readDouble(pointer, 40),
+            };
+            if (
+              transform.a === 1 &&
+              transform.b === 0 &&
+              transform.c === 0 &&
+              transform.d === 1 &&
+              transform.tx === 0 &&
+              transform.ty === 0
+            ) {
+              this.viewTransforms.delete(receiver);
+            } else {
+              this.viewTransforms.set(receiver, transform);
+            }
+          },
+        },
+        {
+          selector: "transform",
+          types: "{CGAffineTransform=dddddd}16@0:8",
+          run: (cpu, receiver) => {
+            const transform = this.viewTransforms.get(receiver) ?? {
+              a: 1,
+              b: 0,
+              c: 0,
+              d: 1,
+              tx: 0,
+              ty: 0,
+            };
+            // Large struct returns use a caller-provided buffer in x8.
+            const buffer = cpu.readRegister(8);
+            if (buffer === 0n) {
+              cpu.writeRegister(0, 0n);
+              return;
+            }
+            this.writeDouble(buffer, 0, transform.a);
+            this.writeDouble(buffer, 8, transform.b);
+            this.writeDouble(buffer, 16, transform.c);
+            this.writeDouble(buffer, 24, transform.d);
+            this.writeDouble(buffer, 32, transform.tx);
+            this.writeDouble(buffer, 40, transform.ty);
+            cpu.writeRegister(0, buffer);
+          },
         },
         {
           selector: "layer",
@@ -4597,17 +4667,31 @@ export class ObjcHost {
     if (alpha <= 0 || rect.width <= 0 || rect.height <= 0) return;
     const color = this.colorOf(view);
     if (color && color.a > 0) {
-      const cornerRadius = this.readDouble(this.viewLayer(view), LAYER_CORNER_RADIUS);
-      this.fillRoundedRect(
-        framebuffer,
-        absoluteX,
-        absoluteY,
-        rect.width,
-        rect.height,
-        cornerRadius,
-        { ...color, a: color.a * alpha },
-        clip,
-      );
+      const transform = this.viewTransforms.get(view);
+      if (transform) {
+        this.fillTransformedRect(
+          framebuffer,
+          absoluteX,
+          absoluteY,
+          rect.width,
+          rect.height,
+          transform,
+          { ...color, a: color.a * alpha },
+          clip,
+        );
+      } else {
+        const cornerRadius = this.readDouble(this.viewLayer(view), LAYER_CORNER_RADIUS);
+        this.fillRoundedRect(
+          framebuffer,
+          absoluteX,
+          absoluteY,
+          rect.width,
+          rect.height,
+          cornerRadius,
+          { ...color, a: color.a * alpha },
+          clip,
+        );
+      }
     }
     const klass = this.instances.get(view);
     if (klass?.name === "UISwitch") {
@@ -4754,6 +4838,58 @@ export class ObjcHost {
       const half = Math.sqrt(Math.max(0, radius * radius - dy * dy));
       if (half <= 0) continue;
       framebuffer.fillRect(centreX - half, centreY - radius + row, half * 2, 1, color, clip);
+    }
+  }
+
+  /**
+   * Fill a view's background through an affine transform about its centre.
+   * Children are not transformed and the rounded-corner path is bypassed.
+   */
+  private fillTransformedRect(
+    framebuffer: Framebuffer,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    transform: { a: number; b: number; c: number; d: number; tx: number; ty: number },
+    color: Rgba,
+    clip: { x: number; y: number; width: number; height: number },
+  ): void {
+    const { a, b, c, d, tx, ty } = transform;
+    const determinant = a * d - b * c;
+    if (Math.abs(determinant) < 1e-9) return;
+    const centreX = x + width / 2;
+    const centreY = y + height / 2;
+    const corners = [
+      [x, y],
+      [x + width, y],
+      [x, y + height],
+      [x + width, y + height],
+    ].map(([px, py]) => ({
+      x: centreX + a * (px! - centreX) + c * (py! - centreY) + tx,
+      y: centreY + b * (px! - centreX) + d * (py! - centreY) + ty,
+    }));
+    const minX = Math.max(0, clip.x, Math.floor(Math.min(...corners.map((corner) => corner.x))));
+    const maxX = Math.min(
+      framebuffer.width,
+      clip.x + clip.width,
+      Math.ceil(Math.max(...corners.map((corner) => corner.x))),
+    );
+    const minY = Math.max(0, clip.y, Math.floor(Math.min(...corners.map((corner) => corner.y))));
+    const maxY = Math.min(
+      framebuffer.height,
+      clip.y + clip.height,
+      Math.ceil(Math.max(...corners.map((corner) => corner.y))),
+    );
+    for (let py = minY; py < maxY; py += 1) {
+      for (let px = minX; px < maxX; px += 1) {
+        const dx = px + 0.5 - centreX - tx;
+        const dy = py + 0.5 - centreY - ty;
+        const localX = (d * dx - c * dy) / determinant + width / 2;
+        const localY = (-b * dx + a * dy) / determinant + height / 2;
+        if (localX < 0 || localX >= width || localY < 0 || localY >= height) continue;
+        framebuffer.fillRect(px, py, 1, 1, color, clip);
+      }
     }
   }
 

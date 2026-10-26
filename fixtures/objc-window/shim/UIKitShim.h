@@ -88,7 +88,28 @@ __attribute__((objc_root_class))
 - (BOOL)masksToBounds;
 @end
 
+typedef struct {
+  double a, b, c, d;
+  double tx, ty;
+} CGAffineTransform;
+
+extern double cos(double);
+extern double sin(double);
+
+static inline CGAffineTransform CGAffineTransformMakeRotation(double angle) {
+  CGAffineTransform transform;
+  transform.a = cos(angle);
+  transform.b = sin(angle);
+  transform.c = -sin(angle);
+  transform.d = cos(angle);
+  transform.tx = 0;
+  transform.ty = 0;
+  return transform;
+}
+
 @interface UIView : NSObject
+- (void)setTransform:(CGAffineTransform)transform;
+- (CGAffineTransform)transform;
 + (void)beginAnimations:(const char *)identifier context:(void *)context;
 + (void)setAnimationDuration:(double)duration;
 + (void)commitAnimations;
