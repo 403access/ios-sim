@@ -256,6 +256,8 @@ pid/thread, and JSON-safe data. Bigints become hex strings, byte arrays become b
 matching token/secret/password/credential/entitlement are redacted. `EventRecorder.toNDJSON()`
 and `parseEventStream()` round-trip; a version or level mismatch is an `ObservabilityError`.
 `DarwinRuntime` accepts an optional recorder and emits `process.start`/`process.exit`.
+`exportChromeTrace()` converts the stream to Chrome Trace Event Format: process start/exit become
+complete slices, other events become instants, and unmatched starts close with zero duration.
 
 `RuntimeStats` (`src/observability/stats.ts`) keeps monotonic counters for processes started/exited,
 images, instructions, syscalls, unsupported syscalls, loader errors, fixup binds/rebases, and
