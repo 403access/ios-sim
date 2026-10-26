@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-007",
+    claim: "Round-trips jailed files, file URLs, JSON, and XML plists.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/foundation/data.ts",
+      "packages/darwin-compat/src/foundation/data.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/foundation/data.test.ts",
+    limitation: "XML plist only; no binary plist or Apple URL semantics.",
+  },
+  {
     id: "RT-006",
     claim: "Provides clean-room NSString/NSArray/NSDictionary containers with conformance tests.",
     status: "implemented",

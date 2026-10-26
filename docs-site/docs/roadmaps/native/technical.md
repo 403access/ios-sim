@@ -515,7 +515,8 @@ method overriding, inherited protocol conformance, required-method checks, and s
 unwinding through thrown ObjcErrors. RT-005 adds block copy/retain/release lifetime and
 retain/copy/assign associated objects tied to dealloc. RT-006 adds clean-room
 NSString/NSArray/NSDictionary containers with 100-operation conformance tests and stable bounds
-errors. RT-007 (Foundation files/URL/JSON/plist) is next.
+errors. RT-007 adds jailed files, file URLs, JSON, and XML-plist round-trips. RT-008 (CF
+bridging/run loop) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
