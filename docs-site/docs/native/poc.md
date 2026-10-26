@@ -150,9 +150,11 @@ equality, not ivar offsets. A real app linked against a real UIKit would have bo
 
 ## Open problems (in order)
 
-1. `+load`, lazy realisation, protocols, associated objects, and weak references.
-2. Threads and blocking receives; the loop is a scripted list of taps, not an event source.
-3. Real ARC, autorelease semantics, and a run loop with input.
-4. Application ivar layout and general `NSObject` subclasses.
+1. Lazy class realisation, associated objects, and zeroing weak references.
+2. Threads and blocking receives; the loop is a scripted list of taps/drags/ticks, not an event
+   source.
+3. A real allocator/deallocator and exact ARC semantics.
+4. Compiler-resolved layout for the clang fixture (the stub libSystem link leaves superclass
+   layout unresolved).
 5. CoreGraphics paths, text, and a window on the host.
 6. Metal/IOSurface and the Apple runtime — still the multi-year blockers.
