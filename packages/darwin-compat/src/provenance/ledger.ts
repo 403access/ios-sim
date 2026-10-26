@@ -273,6 +273,16 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     limitation: "This is a clean-room API subset and software renderer, not Apple UIKit.",
   },
   {
+    id: "OBS-007",
+    claim: "Offers an opt-in 127.0.0.1 metrics endpoint with optional bearer auth.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/observability/metrics.ts",
+      "packages/darwin-compat/src/observability/metrics.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/observability/metrics.test.ts",
+  },
+  {
     id: "THR-011",
     claim: "Tracks session identity, roles, owned ports/services, and idempotent teardown.",
     status: "implemented",

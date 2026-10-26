@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 78 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 79 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -31,19 +31,18 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                   |
 | ----: | --------- | ------------- | ---- | ------- | ------------------------------------------ |
-|     1 | `OBS-007` | Observability | S    | OBS-002 | Metrics endpoint (optional); loopback-only |
-|     2 | `DX-002`  | Developer     | S    | OBS-005 | Trace UX; filtered trace                   |
-|     3 | `QA-007`  | Quality       | S    | REL-001 | Coverage targets; ≥90% parsers             |
+|     1 | `DX-002`  | Developer     | S    | OBS-005 | Trace UX; filtered trace                   |
+|     2 | `QA-007`  | Quality       | S    | REL-001 | Coverage targets; ≥90% parsers             |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `OBS-007` is the next task;
-`DX-002` remains in the developer-tooling lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `DX-002` is the next task;
+`QA-007` remains in the quality lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-47 are complete through THR-011 (substrate, loader, threads, quality, observability,
+Sessions 1-48 are complete through OBS-007 (substrate, loader, threads, quality, observability,
 release, provenance, quickstart, diagnostics, claims, roadmap validation, version policy,
-supply-chain checks, repro bundle, and session roles). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+supply-chain checks, repro bundle, session roles, and metrics). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -171,7 +170,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `OBS-004`  | Trace export                   | P2       | M    | **done**  | OBS-001          | Chrome/JSON trace                                          |
 | `OBS-005`  | `trace/stats/why` CLI          | P2       | M    | **done**  | OBS-004          | `trace`/`why` + existing `stats`                           |
 | `OBS-006`  | Fault diagnostics              | P1       | M    | **done**  | OBS-001          | Fault snapshot in errors                                   |
-| `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | **next**  | OBS-002          | Loopback-only                                              |
+| `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | **done**  | OBS-002          | Loopback-only, bearer optional                             |
 | `QA-001`   | Fuzz harness                   | P0       | M    | **done**  | A0               | 1M mutations, 0 crashes, corpus retained                   |
 | `QA-002`   | Differential harness           | P0       | L    | blocked   | QA-001, Mac      | ≥100 cases match                                           |
 | `QA-003`   | Generated Mach-O corpus        | P1       | M    | **done**  | A0               | 23 cases, 15 commands, 5 pointer formats                   |
@@ -193,7 +192,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `LEG-004`  | Claims audit                   | P1       | S    | **done**  | A0               | Negation-aware audit gates CI                              |
 | `LEG-005`  | Kill/continue log              | P1       | S    | blocked   | gates            | Written outcomes                                           |
 | `DX-001`   | Disassembler                   | P1       | M    | **done**  | A0               | `inspect --disasm`                                         |
-| `DX-002`   | Trace UX                       | P2       | S    | **ready** | OBS-005          | Filtered trace                                             |
+| `DX-002`   | Trace UX                       | P2       | S    | **next**  | OBS-005          | Filtered trace                                             |
 | `DX-003`   | Capability doctor              | P2       | S    | **done**  | A0               | Versioned schema, JSON Schema, validator                   |
 | `DX-004`   | Repro bundle                   | P2       | M    | **done**  | OBS-004          | Manifest + tar.gz on another host                          |
 | `DX-005`   | Native quickstart              | P1       | S    | **done**  | A0               | One command, visible clang skip                            |
