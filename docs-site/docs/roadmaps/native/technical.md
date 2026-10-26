@@ -191,7 +191,8 @@ ports, C + FFI tests). THR-002 is implemented as a cooperative guest CPU schedul
 is implemented as `runtime/blocking.ts` (park/wake/timeout/interrupt tests), and THR-003a wires
 it into `DarwinSyscallKernel` with a real `mach_msg_trap` park/resume test. THR-004 provides a
 pthread core shim (create/join/mutex/cond) with an 8-worker fixture; once/TLS/libc bindings remain
-RT-010. THR-005 (signals) is next.
+RT-010. THR-005 adds guest signal handlers, masks, raise/kill, default actions, and context
+save/restore; THR-006 (fork/exec/waitpid) is next and completes the SIGCHLD/waitpid path.
 
 | ID      | Task                               | Size | Depends          | Deliverable                                      | Acceptance                                                                     |
 | ------- | ---------------------------------- | ---- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
