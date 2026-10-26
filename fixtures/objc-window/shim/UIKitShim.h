@@ -111,6 +111,15 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)setContentSize:(CGSize)size;
 @end
 
+@interface NSNotificationCenter : NSObject
++ (id)defaultCenter;
+- (void)addObserver:(id)observer
+           selector:(SEL)selector
+               name:(const char *)name
+             object:(id)object;
+- (void)postNotificationName:(const char *)name object:(id)object;
+@end
+
 @interface UILabel : UIView
 - (void)setText:(const char *)text;
 - (void)setTextColor:(UIColor *)color;

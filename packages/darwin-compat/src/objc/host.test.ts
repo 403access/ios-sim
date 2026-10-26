@@ -156,7 +156,10 @@ describe("ObjC UIKit demo", () => {
       return [...frame.pixels.slice(offset, offset + 4)];
     };
     expect(at(0, 30, 30)).toEqual([255, 0, 0, 255]);
-    expect(at(1, 30, 30)).toEqual([255, 128, 0, 255]);
+    expect(at(1, 30, 30)).toEqual([128, 0, 128, 255]);
+    expect(
+      result.program.memory.read(result.program.resolveExport("_notificationMarker")!, 8),
+    ).toBe(1n);
   });
 
   it("moves the view on ticks", () => {

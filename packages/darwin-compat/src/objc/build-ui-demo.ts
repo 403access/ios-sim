@@ -93,6 +93,10 @@ const SELECTORS = {
   setClips: "setClipsToBounds:",
   setContentOffset: "setContentOffset:",
   setContentSize: "setContentSize:",
+  defaultCenter: "defaultCenter",
+  addObserver: "addObserver:selector:name:object:",
+  postNotification: "postNotificationName:object:",
+  themeChanged: "themeChanged:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -129,7 +133,9 @@ type SlotName =
   | "activeMarker"
   | "terminateMarker"
   | "nslog"
-  | "classScroll";
+  | "classScroll"
+  | "classCenter"
+  | "notificationMarker";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -270,6 +276,8 @@ function planData(): Plan {
     "terminateMarker",
     "nslog",
     "classScroll",
+    "classCenter",
+    "notificationMarker",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -297,6 +305,7 @@ function planData(): Plan {
     DEMO_BASE_CLASS_NAME,
     "HELLO 42",
     "hello from objc",
+    "ThemeChanged",
     "Tappable",
     "_pressed",
     "B",
@@ -316,7 +325,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 5 * 24;
+  cursor += 8 + 6 * 24;
   const appCategory = cursor;
   cursor += 48;
 
@@ -617,10 +626,28 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   label("tapButton");
   emitWord(stpPre(29, 30, 31, -16));
   emitWord(stpPre(19, 20, 31, -16));
+  emitPointer(0, slot("classCenter"));
+  emitAddress(1, selector(SELECTORS.defaultCenter));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(movReg(19, 0));
+  emitWord(movReg(0, 19));
+  emitAddress(1, selector(SELECTORS.postNotification));
+  emitAddress(2, dataAddress(plan.stringOffsets.ThemeChanged!));
+  emitWord(movz(3, 0));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(ldpPost(19, 20, 31, 16));
+  emitWord(ldpPost(29, 30, 31, 16));
+  emitWord(ret());
+
+  label("themeChanged");
+  emitWord(stpPre(29, 30, 31, -16));
+  emitWord(stpPre(19, 20, 31, -16));
   emitPointer(0, slot("mainView"));
   emitWord(movReg(19, 0));
   emitPointer(0, slot("classColor"));
-  emitAddress(1, selector(SELECTORS.orangeColor));
+  emitAddress(1, selector(SELECTORS.purpleColor));
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
   emitWord(movReg(2, 0));
@@ -628,6 +655,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitAddress(1, selector(SELECTORS.setBackgroundColor));
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
+  emitMarker(slot("notificationMarker"), 1);
   emitWord(ldpPost(19, 20, 31, 16));
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
@@ -660,6 +688,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("tapButton") ?? 0),
     bases.textBase + (code.labels.get("appActive") ?? 0),
     bases.textBase + (code.labels.get("appTerminate") ?? 0),
+    bases.textBase + (code.labels.get("themeChanged") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -705,6 +734,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_terminateMarker",
         value: dataAddress(plan.slotOffsets.terminateMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_notificationMarker",
+        value: dataAddress(plan.slotOffsets.notificationMarker),
         sectionIndex: 2,
       },
       {
@@ -1100,6 +1134,22 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // [[NSNotificationCenter defaultCenter] addObserver:self
+    //     selector:@selector(themeChanged:) name:"ThemeChanged" object:0];
+    emitPointer(0, slot("classCenter"));
+    emitAddress(1, selector(SELECTORS.defaultCenter));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.addObserver));
+    emitPointer(2, slot("delegateSelf"));
+    emitAddress(3, selector(SELECTORS.themeChanged));
+    emitAddress(4, dataAddress(plan.stringOffsets.ThemeChanged!));
+    emitWord(movz(5, 0));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -1257,6 +1307,7 @@ function emitData(
   tapButtonImp: number,
   appActiveImp: number,
   appTerminateImp: number,
+  themeChangedImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -1273,6 +1324,7 @@ function emitData(
     DEMO_BASE_CLASS_NAME,
     "HELLO 42",
     "hello from objc",
+    "ThemeChanged",
     "Tappable",
     "_pressed",
     "B",
@@ -1303,7 +1355,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 5);
+  u32(plan.appCategoryMethods + 4, 6);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -1335,6 +1387,10 @@ function emitData(
   rebase(terminateEntry, selector(SELECTORS.willTerminate));
   rebase(terminateEntry + 8, selector(TYPES));
   rebase(terminateEntry + 16, appTerminateImp);
+  const themeEntry = plan.appCategoryMethods + 128;
+  rebase(themeEntry, selector(SELECTORS.themeChanged));
+  rebase(themeEntry + 8, selector(TYPES));
+  rebase(themeEntry + 16, themeChangedImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }
@@ -1473,6 +1529,7 @@ function emitData(
   bind(plan.slotOffsets.classLabel, "_OBJC_CLASS_$_UILabel");
   bind(plan.slotOffsets.nslog, "_NSLog");
   bind(plan.slotOffsets.classScroll, "_OBJC_CLASS_$_UIScrollView");
+  bind(plan.slotOffsets.classCenter, "_OBJC_CLASS_$_NSNotificationCenter");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));

@@ -215,6 +215,10 @@ export class ObjcHost {
   private readonly deadObjects = new Set<bigint>();
   private readonly poolOwners = new Map<bigint, boolean>();
   private readonly buttonActions = new Map<bigint, { target: bigint; action: bigint }>();
+  private readonly observers = new Map<string, Array<{ observer: bigint; selector: bigint }>>();
+  private notificationCenter: bigint | null = null;
+  private readonly notificationPage: bigint;
+  private notificationCursor: bigint;
   private readonly deallocPage: bigint;
   private deallocCursor: bigint;
   private readonly autoreleasePools: bigint[][] = [];
@@ -261,6 +265,11 @@ export class ObjcHost {
     this.loadStubPage = this.memory.allocate(0x1000, { tag: "objc-load-stub", protection: 7 });
     this.deallocPage = this.memory.allocate(0x1000, { tag: "objc-dealloc-stubs", protection: 7 });
     this.deallocCursor = this.deallocPage;
+    this.notificationPage = this.memory.allocate(0x1000, {
+      tag: "objc-notification-stubs",
+      protection: 7,
+    });
+    this.notificationCursor = this.notificationPage;
 
     // Data symbols some metadata references directly.
     const emptyCache = this.allocBytes(16);
@@ -872,6 +881,83 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(button);
+
+    const notification = this.defineClass({
+      name: "NSNotification",
+      superclass: "NSObject",
+      instanceSize: 24,
+      methods: [
+        {
+          selector: "name",
+          types: "@16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, this.memory.read(receiver + 8n, 8)),
+        },
+        {
+          selector: "object",
+          types: "@16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, this.memory.read(receiver + 16n, 8)),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(notification);
+
+    const center = this.defineClass({
+      name: "NSNotificationCenter",
+      superclass: "NSObject",
+      instanceSize: 8,
+      methods: [
+        {
+          selector: "addObserver:selector:name:object:",
+          types: "v48@0:8@16:24*32@40",
+          run: (cpu) => {
+            const observer = cpu.readRegister(2);
+            const selector = cpu.readRegister(3);
+            const namePointer = cpu.readRegister(4);
+            const name = namePointer === 0n ? "" : this.readCString(namePointer);
+            const list = this.observers.get(name) ?? [];
+            list.push({ observer, selector });
+            this.observers.set(name, list);
+          },
+        },
+        {
+          selector: "removeObserver:",
+          types: "v24@0:8@16",
+          run: (cpu) => {
+            const observer = cpu.readRegister(2);
+            for (const [name, list] of this.observers) {
+              const remaining = list.filter((entry) => entry.observer !== observer);
+              if (remaining.length === 0) this.observers.delete(name);
+              else this.observers.set(name, remaining);
+            }
+          },
+        },
+        {
+          selector: "postNotificationName:object:",
+          types: "v32@0:8*16@24",
+          run: (cpu) => this.postNotification(cpu),
+        },
+        {
+          selector: "postNotificationName:object:userInfo:",
+          types: "v40@0:8*16@24@32",
+          run: (cpu) => this.postNotification(cpu),
+        },
+      ],
+      classMethods: [
+        {
+          selector: "defaultCenter",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass)
+              throw new ObjcError("bad_receiver", "defaultCenter receiver is not a class");
+            this.notificationCenter ??= this.allocateInstance(klass);
+            cpu.writeRegister(0, this.notificationCenter);
+          },
+        },
+      ],
+    });
+    this.registerClass(center);
 
     const scroll = this.defineClass({
       name: "UIScrollView",
@@ -1551,6 +1637,60 @@ export class ObjcHost {
    * -performSelector: family. The target method's `_cmd` is the requested
    * selector; extra object arguments move into x2/x3.
    */
+  private postNotification(cpu: Arm64Cpu): SyscallResult {
+    const namePointer = cpu.readRegister(2);
+    if (namePointer === 0n) return { value: 0n };
+    const name = this.readCString(namePointer);
+    const object = cpu.readRegister(3);
+    const list = [...(this.observers.get(name) ?? []), ...(this.observers.get("") ?? [])];
+    if (list.length === 0) return { value: 0n };
+    const klass = this.classes.get("NSNotification");
+    if (!klass) throw new ObjcError("internal_error", "NSNotification is missing");
+    const notification = this.allocateInstance(klass);
+    this.memory.write(notification + 8n, 8, namePointer);
+    this.memory.write(notification + 16n, 8, object);
+    cpu.pc = this.writeNotificationStub(list, notification);
+    return { value: 0n };
+  }
+
+  private writeNotificationStub(
+    observers: ReadonlyArray<{ observer: bigint; selector: bigint }>,
+    notification: bigint,
+  ): bigint {
+    const messageSend = this.symbols.get("_objc_msgSend");
+    if (!messageSend) throw new ObjcError("internal_error", "objc_msgSend is not registered");
+    const address = this.notificationCursor;
+    this.notificationCursor += 128n;
+    if (this.notificationCursor > this.notificationPage + 0x1000n) {
+      throw new ObjcError("stub_limit", "the notification stub page overflowed");
+    }
+    const code: number[] = [stpPre(29, 30, 31, -16)];
+    const literals: bigint[] = [];
+    const refs: Array<{ index: number; register: number; slot: number }> = [];
+    const addLiteral = (register: number, value: bigint): void => {
+      refs.push({ index: code.length, register, slot: literals.length });
+      literals.push(value);
+      code.push(0);
+    };
+    for (const entry of observers) {
+      addLiteral(0, entry.observer);
+      addLiteral(1, entry.selector);
+      addLiteral(2, notification);
+      addLiteral(16, messageSend);
+      code.push(blr(16));
+    }
+    code.push(ldpPost(29, 30, 31, 16), ret());
+    const literalStart = code.length * 4;
+    for (const ref of refs) {
+      code[ref.index] = ldrLiteral(ref.register, literalStart + ref.slot * 8 - ref.index * 4);
+    }
+    code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
+    literals.forEach((value, index) =>
+      this.memory.write(address + BigInt(literalStart + index * 8), 8, value),
+    );
+    return address;
+  }
+
   private performSelector(
     cpu: Arm64Cpu,
     receiver: bigint,

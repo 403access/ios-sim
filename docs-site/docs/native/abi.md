@@ -212,7 +212,9 @@ hidden byte at 48, clips-to-bounds byte at 49, alpha double at 56, instance size
 and hit-testing accumulate origins down the tree, so a child inside a container lands at
 `container.origin + child.origin`. `clipsToBounds` intersects a view's clip with its frame for
 child painting and hit-testing; it is off by default. `UIScrollView` always clips and subtracts
-its content offset from child painting and hit-testing origins. The renderer multiplies a view's alpha by its parent's and
+its content offset from child painting and hit-testing origins. Notification names are C strings;
+a post builds a small guest stub that sends the selector to every matching observer before
+returning to the poster. The renderer multiplies a view's alpha by its parent's and
 composites in order. `UIColor` stores four doubles at 8/16/24/32. Application
 classes get an `isa` and their declared `instanceSize`; the shim does not lay out arbitrary ivars.
 

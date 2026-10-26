@@ -97,6 +97,7 @@ static unsigned gTick;
 - (void)buttonTapped:(id)sender;
 - (void)applicationDidBecomeActive:(id)application;
 - (void)applicationWillTerminate:(id)application;
+- (void)themeChanged:(id)notification;
 @end
 
 @implementation AppDelegate
@@ -138,6 +139,10 @@ static unsigned gTick;
   [label setTextColor:[UIColor blackColor]];
   [label setTextAlignment:1];
   [window addSubview:label];
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                         selector:@selector(themeChanged:)
+                                             name:"ThemeChanged"
+                                           object:nil];
   UIButton *button = [[UIButton alloc] initWithFrame:CGRectMake(20, 300, 200, 60)];
   [button addTarget:self
              action:@selector(buttonTapped:)
@@ -155,7 +160,12 @@ static unsigned gTick;
 }
 - (void)buttonTapped:(id)sender {
   (void)sender;
-  gView.backgroundColor = [UIColor orangeColor];
+  [[NSNotificationCenter defaultCenter] postNotificationName:"ThemeChanged" object:nil];
+}
+
+- (void)themeChanged:(id)notification {
+  (void)notification;
+  gView.backgroundColor = [UIColor purpleColor];
 }
 
 - (void)tick:(id)ignored {
