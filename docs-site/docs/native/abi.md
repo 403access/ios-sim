@@ -246,3 +246,13 @@ Errors are `CompatError` subclasses with a stable `code`. Examples: `memory_faul
 `unsupported_instruction`, `unsupported_syscall`, `path_escape`, `dependency_not_found`,
 `symbol_not_found`, `legacy_fixups_*`, `legacy_threaded_bind_unimplemented`, `instruction_limit`, `deadline`,
 `xpc_truncated`, `plist_duplicate_key`. The CLI prints the code; tests assert on it.
+
+## Runtime events
+
+`src/observability/events.ts` defines schema version 1 runtime events:
+`process.start`, `process.exit`, `image.load`, `loader.error`, `syscall.unsupported`,
+`mach.message`, and `symbol.missing`. Each event has an id, ISO timestamp, level, optional
+pid/thread, and JSON-safe data. Bigints become hex strings, byte arrays become base64, and keys
+matching token/secret/password/credential/entitlement are redacted. `EventRecorder.toNDJSON()`
+and `parseEventStream()` round-trip; a version or level mismatch is an `ObservabilityError`.
+`DarwinRuntime` accepts an optional recorder and emits `process.start`/`process.exit`.

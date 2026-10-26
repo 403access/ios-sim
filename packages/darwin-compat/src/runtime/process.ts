@@ -9,6 +9,7 @@
  */
 
 import { RuntimeError } from "../errors.js";
+import { EventRecorder, EVENT_TYPES } from "../observability/events.js";
 import { writeInitialStack } from "./stack.js";
 import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
@@ -34,6 +35,7 @@ export interface ProcessOptions {
   readonly traceInstructions?: (pc: bigint, instruction: number, cpu: Arm64Cpu) => void;
   readonly searchPaths?: readonly string[];
   readonly extraRpaths?: readonly string[];
+  readonly events?: EventRecorder;
 }
 
 export interface RuntimeOptions {
@@ -151,6 +153,7 @@ export class DarwinRuntime {
       errorSink,
       maxInstructions: options.maxInstructions ?? this.maxInstructions,
       deadlineMs: options.deadlineMs ?? this.deadlineMs,
+      events: options.events,
     });
   }
 
@@ -175,6 +178,7 @@ interface ProcessInternals {
   errorSink: ByteSink;
   maxInstructions: number;
   deadlineMs: number;
+  events?: EventRecorder;
 }
 
 export class DarwinProcess {
@@ -193,6 +197,7 @@ export class DarwinProcess {
   private readonly errorSink: ByteSink;
   private readonly maxInstructions: number;
   private readonly deadlineMs: number;
+  private readonly events: EventRecorder | undefined;
   private consumed = false;
   private executed = 0;
 
@@ -212,6 +217,7 @@ export class DarwinProcess {
     this.errorSink = internals.errorSink;
     this.maxInstructions = internals.maxInstructions;
     this.deadlineMs = internals.deadlineMs;
+    this.events = internals.events;
   }
 
   run(): ProcessResult {
@@ -219,6 +225,15 @@ export class DarwinProcess {
       throw new RuntimeError("process_already_ran", `process ${this.pid} has already run`);
     this.consumed = true;
     const started = Date.now();
+    this.events?.emit(
+      EVENT_TYPES.processStart,
+      {
+        entry: this.entry,
+        images: this.program.images.map((image) => image.path),
+        initializers: this.program.initializers.length,
+      },
+      { pid: this.pid },
+    );
     let mainExit: number | null = null;
     try {
       for (const address of this.program.initializers) {
@@ -241,6 +256,11 @@ export class DarwinProcess {
     }
 
     const exitStatus = mainExit ?? this.syscalls.exitStatus ?? 0;
+    this.events?.emit(
+      EVENT_TYPES.processExit,
+      { status: exitStatus, instructions: this.executed, elapsedMs: Date.now() - started },
+      { pid: this.pid },
+    );
     return {
       pid: this.pid,
       exitStatus,

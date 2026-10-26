@@ -467,7 +467,9 @@ formats, legacy streams, signatures, filesets, fat headers, and expected error c
 `bun run corpus` materializes them under `build/corpus`. QA-004 adds `bun run bench`: machine
 metadata plus per-case budgets for Mach-O parse, chained parse, loader load, signature parse, XPC
 round-trip, VM map/read, and 64-thread scheduling. On an Apple M3/8-core, Bun 1.4.4, every case
-finished in 3-66 ms against a 3-5 s budget. OBS-001 (event schema) is next.
+finished in 3-66 ms against a 3-5 s budget. OBS-001 adds schema-v1 runtime events with JSON-safe
+values, redaction, NDJSON round-trip, and process start/exit emission. OBS-002 (runtime statistics)
+is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
