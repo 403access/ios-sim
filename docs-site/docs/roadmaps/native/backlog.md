@@ -18,39 +18,39 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..005 + THR-001..005 done; THR-006 is next.                                         |
+| A1 kernel/threads | **In progress.** KRN-001..005 + THR-001..006 done; THR-006a is next.                                        |
 | A2 loader/runtime | **Partially startable.** Legacy bindings, fuzzing, diagnostics, and signing parse can proceed in parallel.  |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 31 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 32 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
 Pick from the top. A task marked with `*` needs a licensed-Mac observation window; it can be
 started by a human with host access, not by a Linux-only agent.
 
-| Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                     |
-| ----: | --------- | ------------- | ---- | ------- | ---------------------------------------------------------------------------- |
-|     1 | `THR-006` | Threads       | L    | THR-001 | fork/exec/waitpid/process groups; child status and reaping                   |
-|     2 | `KRN-006` | Kernel        | M    | KRN-005 | Port sets and notifications; 100-port select; exactly-once notification      |
-|     3 | `KRN-007` | Kernel        | M    | KRN-004 | Port/memory descriptors in transit; COPY_SEND/MAKE_SEND_ONCE tests           |
-|     4 | `KRN-009` | Kernel        | L    | KRN-003 | Memory objects/shared memory; COW, unmap, two-task sharing                   |
-|     5 | `KRN-010` | Kernel        | M    | KRN-005 | Mach trap parity table; success/error vectors; fuzz                          |
-|     6 | `KRN-011` | Kernel        | S    | KRN-005 | Per-task port/message/memory quotas; teardown test                           |
-|     7 | `KRN-012` | Kernel        | M    | KRN-005 | 16-thread/1M-message stress; leak check                                      |
-|     8 | `LDR-001` | Loader        | M    | A0      | Legacy `LC_DYLD_INFO` rebase/bind decoder; opcode fixtures resolve correctly |
-|     9 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash  |
-|    10 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                                |
-|    11 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                           |
-|    12 | `REL-001` | Release       | S    | A0      | Native CI job on Linux (and macOS evidence job); skip reasons visible        |
-|    13 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                 |
-|    14 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                 |
-|    15 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)       |
+| Order | ID         | Workstream    | Size | Depends | Deliverable / acceptance                                                     |
+| ----: | ---------- | ------------- | ---- | ------- | ---------------------------------------------------------------------------- |
+|     1 | `THR-006a` | Threads       | M    | THR-006 | Wire process-table fork/exec/waitpid into guest syscalls/runtime             |
+|     2 | `KRN-006`  | Kernel        | M    | KRN-005 | Port sets and notifications; 100-port select; exactly-once notification      |
+|     3 | `KRN-007`  | Kernel        | M    | KRN-004 | Port/memory descriptors in transit; COPY_SEND/MAKE_SEND_ONCE tests           |
+|     4 | `KRN-009`  | Kernel        | L    | KRN-003 | Memory objects/shared memory; COW, unmap, two-task sharing                   |
+|     5 | `KRN-010`  | Kernel        | M    | KRN-005 | Mach trap parity table; success/error vectors; fuzz                          |
+|     6 | `KRN-011`  | Kernel        | S    | KRN-005 | Per-task port/message/memory quotas; teardown test                           |
+|     7 | `KRN-012`  | Kernel        | M    | KRN-005 | 16-thread/1M-message stress; leak check                                      |
+|     8 | `LDR-001`  | Loader        | M    | A0      | Legacy `LC_DYLD_INFO` rebase/bind decoder; opcode fixtures resolve correctly |
+|     9 | `QA-001`   | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash  |
+|    10 | `OBS-001`  | Observability | S    | A0      | Versioned event schema with JSON output tests                                |
+|    11 | `LEG-001`  | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                           |
+|    12 | `REL-001`  | Release       | S    | A0      | Native CI job on Linux (and macOS evidence job); skip reasons visible        |
+|    13 | `QA-003`   | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                 |
+|    14 | `QA-004`   | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                 |
+|    15 | `LDR-010`  | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)       |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
 `CS-001`, `INP-001`) are ready but require a licensed-Mac window.
-`THR-006` is the critical-path task. `KRN-006` and the remaining KRN tasks are the parallel
+`THR-006a` is the critical-path task. `KRN-006` and the remaining KRN tasks are the parallel
 lane. Do not start two critical-path tasks at once.
 
 ### First twelve sessions
@@ -61,18 +61,18 @@ non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                      |
 | ------- | ------------- | ---------------------- | ------------------------------------- |
-| 1       | `THR-006`     | `KRN-006`              | fork/exec/waitpid; port sets select   |
+| 1       | `THR-006a`    | `KRN-006`              | Process syscall wiring; port sets     |
 | 2       | `THR-007`     | `KRN-007`              | posix_spawn; descriptors              |
 | 3       | `THR-008`     | `KRN-009`              | kqueue/timers; memory objects         |
 | 4       | `THR-012`     | `KRN-010`              | Concurrency stress; trap parity table |
-| 5       | `THR-008`     | `KRN-011`              | kqueue/timers; quotas                 |
-| 6       | `THR-012`     | `KRN-012`              | Concurrency stress; native stress     |
-| 7       | `LDR-001`     | `OBS-001`              | Legacy dyld opcodes; event schema     |
-| 8       | `LDR-002`     | `QA-001`               | Lazy/weak binding; fuzz harness       |
-| 9       | `LDR-003`     | `QA-003`               | Initializers; generated corpus        |
-| 10      | `LDR-010`     | `REL-001`              | Signature parser; native CI           |
-| 11      | `QA-004`      | `LDR-013`              | Performance baseline; diagnostics     |
-| 12      | `LDR-014`     | `QA-002`               | Differential loader; reference cases  |
+| 5       | `LDR-001`     | `KRN-011`              | Legacy dyld opcodes; quotas           |
+| 6       | `LDR-002`     | `KRN-012`              | Lazy/weak binding; native stress      |
+| 7       | `LDR-003`     | `OBS-001`              | Initializers; event schema            |
+| 8       | `LDR-010`     | `QA-001`               | Signature parser; fuzz harness        |
+| 9       | `QA-004`      | `QA-003`               | Performance baseline; corpus          |
+| 10      | `LDR-014`     | `REL-001`              | Differential loader; native CI        |
+| 11      | `RT-001`      | `LDR-013`              | ObjC runtime core; diagnostics        |
+| 12      | `RT-002`      | `QA-002`               | Message send; reference cases         |
 
 After session 12, re-read the gate tables. Do not start A2 runtime (`RT-*`) until `LDR-004`
 exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evidence.
@@ -124,7 +124,7 @@ window/software renderer boundary while KRN/LDR/RT gates remain open.
 
 Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 
-### Threads — THR-001..005 (done)
+### Threads — THR-001..006 (done)
 
 | ID         | Task                                             | Evidence                                                                                    |
 | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
@@ -157,8 +157,9 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-003a` | Runtime blocking wiring        | P0       | M    | **done**  | THR-003          | `DarwinSyscallKernel` + real receive park/resume test      |
 | `THR-004`  | pthread/libSystem shim         | P1       | L    | **done**  | THR-003a         | create/join/mutex/cond; 8-worker fixture                   |
 | `THR-005`  | Signals                        | P1       | L    | **done**  | THR-001          | handler/mask/raise/kill, SIGCHLD model; waitpid in THR-006 |
-| `THR-006`  | fork/exec/waitpid/groups       | P1       | L    | **next**  | THR-001          | Parent/child status, groups                                |
-| `THR-007`  | posix_spawn attributes         | P2       | M    | blocked   | THR-006          | Redirected fds/argv/env                                    |
+| `THR-006`  | fork/exec/waitpid/groups       | P1       | L    | **done**  | THR-001          | ProcessTable fork/exec/waitpid/groups; status tests        |
+| `THR-006a` | Process syscall wiring         | P1       | M    | **next**  | THR-006          | fork/exec/waitpid guest traps; real status/groups          |
+| `THR-007`  | posix_spawn attributes         | P2       | M    | blocked   | THR-006a         | Redirected fds/argv/env                                    |
 | `THR-008`  | kqueue/timers                  | P2       | L    | blocked   | THR-003          | Precision/wakeup, no busy wait                             |
 | `THR-009`  | Clock/timebase                 | P2       | S    | blocked   | THR-003          | Timebase/sleep accuracy                                    |
 | `THR-010`  | Jetsam/memory pressure         | P2       | M    | blocked   | KRN-009          | Pressure/kill policy                                       |

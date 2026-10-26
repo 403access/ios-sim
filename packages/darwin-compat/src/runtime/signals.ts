@@ -119,6 +119,13 @@ export class SignalDispatcher {
 
   constructor(private readonly scheduler: GuestScheduler) {}
 
+  clone(scheduler: GuestScheduler): SignalDispatcher {
+    const copy = new SignalDispatcher(scheduler);
+    for (const [signal, action] of this.actions) copy.actions.set(signal, { ...action });
+    for (const [threadId, mask] of this.blocked) copy.blocked.set(threadId, mask);
+    return copy;
+  }
+
   signalName(signal: number): string {
     return SIGNAL_NAMES[signal] ?? `SIG${signal}`;
   }

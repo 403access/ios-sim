@@ -53,6 +53,18 @@ export class Arm64Cpu {
     this.onInstruction = options.onInstruction;
   }
 
+  clone(): Arm64Cpu {
+    const copy = new Arm64Cpu();
+    copy.registers.set(this.registers);
+    copy.sp = this.sp;
+    copy.pc = this.pc;
+    copy.nzcv = this.nzcv;
+    copy.halted = this.halted;
+    copy.exitStatus = this.exitStatus;
+    copy.instructions = this.instructions;
+    return copy;
+  }
+
   reset(entry: bigint, stackPointer: bigint): void {
     this.registers.fill(0n);
     this.pc = entry;

@@ -136,6 +136,20 @@ export class VirtualMemory {
     this.regions.push(...remaining);
   }
 
+  /** Deep-copy the address space (used by the process fork model). */
+  clone(): VirtualMemory {
+    const copy = new VirtualMemory({
+      pageSize: this.pageSize,
+      base: this.nextAddress,
+      limitBytes: this.limit,
+    });
+    for (const [page, data] of this.pages) copy.pages.set(page, data.slice());
+    copy.regions.push(...this.regions.map((region) => ({ ...region })));
+    copy.used = this.used;
+    copy.nextAddress = this.nextAddress;
+    return copy;
+  }
+
   isMapped(address: bigint, size = 1): boolean {
     if (size <= 0 || address < 0n) return false;
     const first = address >> PAGE_SHIFT;

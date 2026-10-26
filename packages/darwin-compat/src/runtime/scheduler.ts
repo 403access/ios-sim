@@ -107,6 +107,30 @@ export class GuestScheduler {
     return thread;
   }
 
+  /** Clone threads/CPU state into a new address space (process fork). */
+  clone(memory: VirtualMemory): GuestScheduler {
+    const copy = new GuestScheduler(memory, {
+      quantum: this.defaultQuantum,
+      onSwitch: this.onSwitch,
+    });
+    copy.nextId = this.nextId;
+    copy.switches = this.switches;
+    for (const thread of this.threads.values()) {
+      const cloned: GuestThread = {
+        id: thread.id,
+        label: thread.label,
+        cpu: thread.cpu.clone(),
+        state: thread.state === "running" ? "runnable" : thread.state,
+        quantum: thread.quantum,
+        blockedReason: thread.blockedReason,
+        exitStatus: thread.exitStatus,
+      };
+      copy.threads.set(cloned.id, cloned);
+      if (cloned.state === "runnable") copy.queue.push(cloned);
+    }
+    return copy;
+  }
+
   listThreads(): readonly GuestThread[] {
     return [...this.threads.values()];
   }
