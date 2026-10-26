@@ -7,6 +7,8 @@ import {
   buildDependentProgram,
   buildHello,
   buildHelperDylib,
+  buildInitializerLoopProgram,
+  buildInitializerProgram,
   buildLegacyDependentProgram,
   buildLegacyLazyProgram,
   buildLegacyRebaseProgram,
@@ -151,6 +153,34 @@ describe("dyld loader and runtime", () => {
     );
     expect(program.memory.read(BigInt(HELLO_DATA_BASE) + 8n, 8)).toBe(0n);
     expect(program.stats.binds).toBe(2);
+  });
+
+  it("runs module initializers dependency-first and terminators after main", () => {
+    const provider = new MapFileProvider(new Map([["/init", buildInitializerProgram().bytes]]));
+    const program = new ImageLoader({ provider }).load("/init");
+    expect(program.initializers).toHaveLength(2);
+    expect(program.terminators).toHaveLength(1);
+    expect(program.initializers[0]).toBeLessThan(program.initializers[1] ?? 0n);
+
+    const runtime = new DarwinRuntime({ provider, rootDir: root() });
+    const out = new CaptureSink();
+    const result = runtime.run("/init", { stdout: out });
+    expect(result.exitStatus).toBe(0);
+    expect(out.text()).toBe("init-1\ninit-2\nmain\nterm\n");
+  });
+
+  it("attributes an initializer failure to its stage", () => {
+    const provider = new MapFileProvider(new Map([["/loop", buildInitializerLoopProgram().bytes]]));
+    const runtime = new DarwinRuntime({ provider, rootDir: root() });
+    try {
+      runtime.run("/loop", { maxInstructions: 8 });
+      throw new Error("expected the initializer to hit the instruction limit");
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: "instruction_limit",
+        details: { stage: "initializer" },
+      });
+    }
   });
 
   it("reports a missing dependency with a stable code", () => {

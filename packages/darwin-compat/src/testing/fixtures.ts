@@ -121,6 +121,63 @@ export function buildLegacyRebaseProgram() {
 }
 
 /**
+ * Module-initializer fixture: two init functions run dependency-first, then
+ * `main`, then one terminator (LDR-003).
+ */
+export function buildInitializerProgram() {
+  const messages = "init-1\ninit-2\nterm\nmain\n";
+  const functionInstructions = 7;
+  const mainInstructions = 9;
+  const totalInstructions = functionInstructions * 3 + mainInstructions;
+  const cstringOffset = align(0x1000 + totalInstructions * 4, 16) - 0x1000;
+  const cstringAddress = HELLO_BASE + 0x1000 + cstringOffset;
+  const init1Address = HELLO_TEXT_BASE;
+  const init2Address = HELLO_TEXT_BASE + functionInstructions * 4;
+  const termAddress = HELLO_TEXT_BASE + functionInstructions * 8;
+  const mainAddress = HELLO_TEXT_BASE + functionInstructions * 12;
+  const write = (address: number, length: number, pc: number): number[] => [
+    movz(0, 1),
+    adrp(1, address, pc),
+    addImm(1, 1, address & 0xfff),
+    movz(2, length),
+    movz(16, 4),
+    svc(0x80),
+  ];
+  const text = words(
+    ...write(cstringAddress, 7, init1Address + 4),
+    0xd65f03c0, // ret
+    ...write(cstringAddress + 7, 7, init2Address + 4),
+    0xd65f03c0, // ret
+    ...write(cstringAddress + 14, 5, termAddress + 4),
+    0xd65f03c0, // ret
+    ...write(cstringAddress + 19, 5, mainAddress + 4),
+    movz(0, 0),
+    movz(16, 1),
+    svc(0x80),
+  );
+  return buildMachO({
+    text,
+    cstring: messages,
+    entryOffset: functionInstructions * 12,
+    moduleInitFunctions: [init1Address, init2Address],
+    moduleTermFunctions: [termAddress],
+    symbols: [{ name: "_start", value: mainAddress }],
+    exports: [{ name: "_start", address: mainAddress }],
+  });
+}
+
+/** Initializer that never returns, used to prove failures are attributed. */
+export function buildInitializerLoopProgram() {
+  const text = words(0x14000000, movz(0, 0), movz(16, 1), svc(0x80));
+  return buildMachO({
+    text,
+    moduleInitFunctions: [HELLO_TEXT_BASE],
+    symbols: [{ name: "_start", value: HELLO_TEXT_BASE + 4 }],
+    exports: [{ name: "_start", address: HELLO_TEXT_BASE + 4 }],
+  });
+}
+
+/**
  * Legacy lazy-bind fixture: `__DATA[0]` is a lazy site that the loader records
  * but leaves unbound until `bindLazy` is called (LDR-002).
  */

@@ -98,6 +98,10 @@ export interface BuildMachOOptions {
   readonly legacyLazyFixups?: readonly BuildFixup[];
   /** Legacy weak-bind stream (flat lookup; missing symbols become null). */
   readonly legacyWeakFixups?: readonly BuildFixup[];
+  /** Preferred addresses written to `__DATA,__mod_init_func`. */
+  readonly moduleInitFunctions?: readonly number[];
+  /** Preferred addresses written to `__DATA,__mod_term_func`. */
+  readonly moduleTermFunctions?: readonly number[];
   readonly dependencies?: readonly BuildDependency[];
   readonly installName?: string;
   readonly uuid?: Uint8Array;
@@ -150,7 +154,32 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   const cstring = options.cstring ? new TextEncoder().encode(options.cstring) : new Uint8Array();
   const cstringFileOffset = align(textFileOffset + options.text.length, 16);
   const textEnd = align(cstringFileOffset + cstring.length, pageSize);
-  const data = options.data ?? new Uint8Array(8);
+  const rawData = options.data ?? new Uint8Array(8);
+  const moduleInitFunctions = options.moduleInitFunctions ?? [];
+  const moduleTermFunctions = options.moduleTermFunctions ?? [];
+  const moduleInitOffset = align(rawData.length, 8);
+  const moduleTermOffset = align(moduleInitOffset + moduleInitFunctions.length * 8, 8);
+  const data = new Uint8Array(moduleTermOffset + moduleTermFunctions.length * 8);
+  data.set(rawData);
+  const dataView = new DataView(data.buffer);
+  moduleInitFunctions.forEach((address, index) => {
+    dataView.setBigUint64(moduleInitOffset + index * 8, BigInt(address), true);
+  });
+  moduleTermFunctions.forEach((address, index) => {
+    dataView.setBigUint64(moduleTermOffset + index * 8, BigInt(address), true);
+  });
+  const moduleRebases: BuildFixup[] = [
+    ...moduleInitFunctions.map((target, index) => ({
+      kind: "rebase" as const,
+      offset: moduleInitOffset + index * 8,
+      target,
+    })),
+    ...moduleTermFunctions.map((target, index) => ({
+      kind: "rebase" as const,
+      offset: moduleTermOffset + index * 8,
+      target,
+    })),
+  ];
   const dataFileOffset = textEnd;
   const dataEnd = align(dataFileOffset + Math.max(data.length, 8), pageSize);
   const dataVm = PREFERRED_BASE + dataFileOffset;
@@ -200,9 +229,14 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   const exportTrie =
     exports.length > 0 ? buildExportsTrie(exports, PREFERRED_BASE) : new Uint8Array();
   const chainedFixups =
-    fixups.length > 0 ? buildChainedFixups(fixups, dataFileOffset, data.length, pageSize) : null;
+    fixups.length > 0
+      ? buildChainedFixups([...fixups, ...moduleRebases], dataFileOffset, data.length, pageSize)
+      : null;
   const dataSegmentIndex = 2;
-  const legacyRebaseEntries = legacyFixups.filter((fixup) => fixup.kind === "rebase");
+  const legacyRebaseEntries = [
+    ...legacyFixups.filter((fixup) => fixup.kind === "rebase"),
+    ...(chainedFixups ? [] : moduleRebases),
+  ];
   const legacyRebases =
     legacyRebaseEntries.length > 0
       ? encodeLegacyRebases(
@@ -234,6 +268,7 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
       ? encodeLegacyBinds(legacyWeakFixups.map(toBind))
       : new Uint8Array();
   const hasLegacyStreams =
+    (!chainedFixups && moduleRebases.length > 0) ||
     legacyFixups.some((fixup) => fixup.kind === "rebase") ||
     legacyFixups.some((fixup) => fixup.kind === "bind") ||
     legacyLazyFixups.length > 0 ||
@@ -320,17 +355,15 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
       fileSize: dataEnd - dataFileOffset,
       maxProtection: VM_PROT_READ | VM_PROT_WRITE,
       initialProtection: VM_PROT_READ | VM_PROT_WRITE,
-      sections: [
-        {
-          name: "__data",
-          segmentName: "__DATA",
-          address: dataVm,
-          size: data.length,
-          fileOffset: dataFileOffset,
-          alignment: 3,
-          flags: S_REGULAR,
-        },
-      ],
+      sections: dataSections({
+        dataVm,
+        dataFileOffset,
+        dataSize: rawData.length,
+        moduleInitOffset,
+        moduleInitCount: moduleInitFunctions.length,
+        moduleTermOffset,
+        moduleTermCount: moduleTermFunctions.length,
+      }),
     }),
   );
 
@@ -488,6 +521,51 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
       fileSize,
     },
   };
+}
+
+function dataSections(input: {
+  dataVm: number;
+  dataFileOffset: number;
+  dataSize: number;
+  moduleInitOffset: number;
+  moduleInitCount: number;
+  moduleTermOffset: number;
+  moduleTermCount: number;
+}): SectionSpec[] {
+  const sections: SectionSpec[] = [
+    {
+      name: "__data",
+      segmentName: "__DATA",
+      address: input.dataVm,
+      size: input.dataSize,
+      fileOffset: input.dataFileOffset,
+      alignment: 3,
+      flags: S_REGULAR,
+    },
+  ];
+  if (input.moduleInitCount > 0) {
+    sections.push({
+      name: "__mod_init_func",
+      segmentName: "__DATA",
+      address: input.dataVm + input.moduleInitOffset,
+      size: input.moduleInitCount * 8,
+      fileOffset: input.dataFileOffset + input.moduleInitOffset,
+      alignment: 3,
+      flags: S_REGULAR,
+    });
+  }
+  if (input.moduleTermCount > 0) {
+    sections.push({
+      name: "__mod_term_func",
+      segmentName: "__DATA",
+      address: input.dataVm + input.moduleTermOffset,
+      size: input.moduleTermCount * 8,
+      fileOffset: input.dataFileOffset + input.moduleTermOffset,
+      alignment: 3,
+      flags: S_REGULAR,
+    });
+  }
+  return sections;
 }
 
 interface SectionSpec {

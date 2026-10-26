@@ -69,6 +69,10 @@ export interface LoadedImage {
   readonly dependencies: Array<LoadedImage | null>;
   readonly exports: ReadonlyMap<string, bigint>;
   readonly rawExports: ReadonlyMap<string, ExportEntry>;
+  /** Module initializer addresses in this image, in section order. */
+  readonly initializers: bigint[];
+  /** Module terminator addresses in this image, in section order. */
+  readonly terminators: bigint[];
 }
 
 export interface LoadStats {
@@ -94,6 +98,10 @@ export interface LoadedProgram {
   readonly stackSize: number;
   readonly stats: LoadStats;
   readonly provider: FileProvider;
+  /** Module initializers in dependency-first order. */
+  readonly initializers: readonly bigint[];
+  /** Module terminators in main-first order. */
+  readonly terminators: readonly bigint[];
   /** Lazy-bind sites decoded from `LC_DYLD_INFO`, in stream order. */
   readonly lazyBindings: readonly LazyBindingView[];
   resolveExport(name: string): bigint | null;
@@ -185,12 +193,16 @@ export class ImageLoader {
     const entry = entryPoint(main);
     const stackSize = main.image.main?.stackSize ?? 8 * 1024 * 1024;
     const lazyStates = context.lazyStates;
+    const initializers = dedupe([...this.order].reverse().flatMap((image) => image.initializers));
+    const terminators = dedupe(this.order.flatMap((image) => image.terminators));
     return {
       main,
       images: this.order,
       memory: this.memory,
       entry,
       stackSize,
+      initializers,
+      terminators,
       stats: { ...this.stats, images: this.order.length },
       provider: this.provider,
       get lazyBindings() {
@@ -266,6 +278,8 @@ export class ImageLoader {
       dependencies: [],
       exports,
       rawExports,
+      initializers: [],
+      terminators: [],
     };
     context.cache.set(path, loaded);
     context.order.push(loaded);
@@ -288,6 +302,7 @@ export class ImageLoader {
     }
 
     applyFixups(loaded, context, slice);
+    collectModuleFunctions(loaded, context);
     context.stats.images += 1;
     return loaded;
   }
@@ -456,6 +471,47 @@ function bindLazy(context: LoadContext, address: bigint): boolean {
   context.stats.binds += 1;
   context.stats.fixups += 1;
   return true;
+}
+
+function dedupe(addresses: readonly bigint[]): bigint[] {
+  const seen = new Set<string>();
+  const unique: bigint[] = [];
+  for (const address of addresses) {
+    const key = address.toString();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(address);
+  }
+  return unique;
+}
+
+function collectModuleFunctions(loaded: LoadedImage, context: LoadContext): void {
+  const routines = loaded.image.routines;
+  if (routines && routines.initAddress !== 0) {
+    const preferred = BigInt(loaded.image.preferredBase);
+    loaded.initializers.push(loaded.base + (BigInt(routines.initAddress) - preferred));
+  }
+
+  for (const section of loaded.image.sections) {
+    const target =
+      section.name === "__mod_init_func"
+        ? loaded.initializers
+        : section.name === "__mod_term_func"
+          ? loaded.terminators
+          : null;
+    if (!target) continue;
+    if (section.size % 8 !== 0) {
+      throw new LoaderError(
+        "bad_module_function_section",
+        `${loaded.path} ${section.name} size ${section.size} is not pointer-aligned`,
+      );
+    }
+    const start = loaded.base + BigInt(section.address - loaded.image.preferredBase);
+    for (let offset = 0; offset < section.size; offset += 8) {
+      const address = context.memory.read(start + BigInt(offset), 8);
+      if (address !== 0n) target.push(address);
+    }
+  }
 }
 
 function legacyAddress(loaded: LoadedImage, segmentIndex: number, offset: number): bigint {

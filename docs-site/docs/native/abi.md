@@ -135,6 +135,12 @@ trampolines yet. Weak-bind streams resolve in the flat namespace; a missing weak
 null. General weak-definition coalescing and real stub trampolines remain future work. dyld3
 threaded binds fail with `legacy_threaded_bind_unimplemented`.
 
+Module initializers come from `__DATA,__mod_init_func` (and the legacy
+`LC_ROUTINES_64` init address); terminators come from `__DATA,__mod_term_func`. The loader reads
+the pointer arrays after fixups, deduplicates addresses, runs initializers dependency-first
+(reverse load order), then `main`, then terminators main-first. The runtime attributes an
+instruction-limit or deadline failure to `stage: "initializer" | "terminator"`.
+
 ## MIG-lite
 
 `MigWriter`/`MigReader` are 4-byte aligned and bounded:

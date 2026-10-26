@@ -226,8 +226,9 @@ state.
 **Status:** LDR-001/002 are implemented in `packages/darwin-compat/src/macho/legacy-fixups.ts` and
 wired into `ImageLoader`. Rebase streams slide in-image pointers; bind streams resolve by ordinal;
 lazy sites are recorded and bound on first `bindLazy(address)`; weak binds resolve flat and
-missing symbols become null. LDR-003 (initializers) is next. Executable lazy-stub trampolines and
-general weak-definition coalescing are explicitly still absent.
+missing symbols become null. LDR-003 runs `__mod_init_func`/`__mod_term_func` around `main` with
+deduplication and stage-attributed failures. LDR-004 (`dlopen`) is next. Executable lazy-stub
+trampolines and general weak-definition coalescing are explicitly still absent.
 
 | ID      | Task                                     | Size | Depends          | Deliverable                                        | Acceptance                                                                    |
 | ------- | ---------------------------------------- | ---- | ---------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |

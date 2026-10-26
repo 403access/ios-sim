@@ -33,6 +33,7 @@ import {
   LC_SYMTAB,
   LC_UNIXTHREAD,
   LC_UUID,
+  LC_ROUTINES_64,
   LC_VERSION_MIN_IPHONEOS,
   LC_VERSION_MIN_MACOSX,
   LC_VERSION_MIN_TVOS,
@@ -161,6 +162,7 @@ export function parseMachO(input: Uint8Array, options: ParseOptions = {}): Parse
   let main: { entryOffset: number; stackSize: number } | null = null;
   let unixThread: UnixThreadState | null = null;
   let dyldInfo: DyldInfo | null = null;
+  let routines: MachOImage["routines"] = null;
   let chainedFixupsOffset: { offset: number; size: number } | null = null;
   let exportsTrieOffset: { offset: number; size: number } | null = null;
   let codeSignature: { dataOffset: number; dataSize: number } | null = null;
@@ -396,6 +398,14 @@ export function parseMachO(input: Uint8Array, options: ParseOptions = {}): Parse
         }
         break;
       }
+      case LC_ROUTINES_64: {
+        if (cmdsize < 72) throw new MachOError("bad_routines", "LC_ROUTINES_64 is truncated");
+        routines = {
+          initAddress: body.safeU64("routines init address"),
+          initModule: body.safeU64("routines init module"),
+        };
+        break;
+      }
       case LC_DYLD_INFO:
       case LC_DYLD_INFO_ONLY: {
         if (cmdsize < 48) throw new MachOError("bad_dyld_info", "LC_DYLD_INFO is truncated");
@@ -616,6 +626,7 @@ export function parseMachO(input: Uint8Array, options: ParseOptions = {}): Parse
     main,
     unixThread,
     dyldInfo,
+    routines,
     chainedFixups,
     exportsTrie,
     codeSignature,

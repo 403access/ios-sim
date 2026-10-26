@@ -141,6 +141,11 @@ export class DarwinRuntime {
       cpu,
       memory,
       program,
+      entry: program.entry,
+      stackPointer: layout.stackPointer,
+      argc: layout.argc,
+      argvPointer: layout.argvPointer,
+      envpPointer: layout.envpPointer,
       syscalls,
       outputSink,
       errorSink,
@@ -160,6 +165,11 @@ interface ProcessInternals {
   cpu: Arm64Cpu;
   memory: VirtualMemory;
   program: LoadedProgram;
+  entry: bigint;
+  stackPointer: bigint;
+  argc: number;
+  argvPointer: bigint;
+  envpPointer: bigint;
   syscalls: DarwinSyscallKernel;
   outputSink: ByteSink;
   errorSink: ByteSink;
@@ -173,12 +183,18 @@ export class DarwinProcess {
   readonly memory: VirtualMemory;
   readonly task: MachTask;
   private readonly cpu: Arm64Cpu;
+  private readonly entry: bigint;
+  private readonly stackPointer: bigint;
+  private readonly argc: number;
+  private readonly argvPointer: bigint;
+  private readonly envpPointer: bigint;
   private readonly syscalls: DarwinSyscallKernel;
   private readonly outputSink: ByteSink;
   private readonly errorSink: ByteSink;
   private readonly maxInstructions: number;
   private readonly deadlineMs: number;
   private consumed = false;
+  private executed = 0;
 
   constructor(internals: ProcessInternals) {
     this.pid = internals.pid;
@@ -186,6 +202,11 @@ export class DarwinProcess {
     this.cpu = internals.cpu;
     this.memory = internals.memory;
     this.program = internals.program;
+    this.entry = internals.entry;
+    this.stackPointer = internals.stackPointer;
+    this.argc = internals.argc;
+    this.argvPointer = internals.argvPointer;
+    this.envpPointer = internals.envpPointer;
     this.syscalls = internals.syscalls;
     this.outputSink = internals.outputSink;
     this.errorSink = internals.errorSink;
@@ -198,41 +219,87 @@ export class DarwinProcess {
       throw new RuntimeError("process_already_ran", `process ${this.pid} has already run`);
     this.consumed = true;
     const started = Date.now();
+    let mainExit: number | null = null;
     try {
-      while (!this.cpu.halted) {
-        if (this.cpu.instructions >= this.maxInstructions) {
-          throw new RuntimeError(
-            "instruction_limit",
-            `process ${this.pid} hit the ${this.maxInstructions} instruction limit at pc 0x${this.cpu.pc.toString(16)}`,
-            { pid: this.pid, pc: this.cpu.pc.toString(16) },
-          );
-        }
-        if ((this.cpu.instructions & 0xfff) === 0 && Date.now() - started > this.deadlineMs) {
-          throw new RuntimeError(
-            "deadline",
-            `process ${this.pid} exceeded the ${this.deadlineMs} ms deadline at pc 0x${this.cpu.pc.toString(16)}`,
-            { pid: this.pid, pc: this.cpu.pc.toString(16) },
-          );
-        }
-        this.cpu.step(this.memory, (number, cpu) => this.syscalls.handle(number, cpu));
+      for (const address of this.program.initializers) {
+        if (this.syscalls.exitStatus !== null) break;
+        this.runAt(address, "initializer", started);
+      }
+      if (this.syscalls.exitStatus === null) {
+        this.resetMain();
+        this.runLoop("main", started);
+        this.executed += this.cpu.instructions;
+        mainExit = this.syscalls.exitStatus ?? this.cpu.exitStatus ?? 0;
+      } else {
+        mainExit = this.syscalls.exitStatus;
+      }
+      for (const address of this.program.terminators) {
+        this.runAt(address, "terminator", started);
       }
     } finally {
       this.syscalls.mach.destroyTask(this.task);
     }
 
-    const exitStatus = this.syscalls.exitStatus ?? this.cpu.exitStatus ?? 0;
+    const exitStatus = mainExit ?? this.syscalls.exitStatus ?? 0;
     return {
       pid: this.pid,
       exitStatus,
       stdout: sinkBytes(this.outputSink),
       stderr: sinkBytes(this.errorSink),
-      instructions: this.cpu.instructions,
+      instructions: this.executed,
       elapsedMs: Date.now() - started,
       program: this.program,
       unsupportedSyscalls: new Map(this.syscalls.unsupported),
       outputSink: this.outputSink,
       errorSink: this.errorSink,
     };
+  }
+
+  private resetMain(): void {
+    this.cpu.reset(this.entry, this.stackPointer);
+    this.cpu.writeRegister(0, BigInt(this.argc));
+    this.cpu.writeRegister(1, this.argvPointer);
+    this.cpu.writeRegister(2, this.envpPointer);
+    this.cpu.writeRegister(3, 0n);
+  }
+
+  private runAt(address: bigint, stage: "initializer" | "terminator", started: number): void {
+    this.cpu.reset(address, this.stackPointer);
+    this.cpu.writeRegister(30, 0n);
+    try {
+      this.runLoop(stage, started);
+    } catch (error) {
+      if (error instanceof RuntimeError) {
+        throw new RuntimeError(error.code, `${stage} 0x${address.toString(16)}: ${error.message}`, {
+          ...error.details,
+          stage,
+          address: address.toString(16),
+        });
+      }
+      throw error;
+    }
+    this.executed += this.cpu.instructions;
+  }
+
+  private runLoop(stage: "initializer" | "main" | "terminator", started: number): void {
+    while (!this.cpu.halted) {
+      const used = this.executed + this.cpu.instructions;
+      if (used >= this.maxInstructions) {
+        throw new RuntimeError(
+          "instruction_limit",
+          `process ${this.pid} hit the ${this.maxInstructions} instruction limit during ${stage} at pc 0x${this.cpu.pc.toString(16)}`,
+          { pid: this.pid, pc: this.cpu.pc.toString(16) },
+        );
+      }
+      if ((used & 0xfff) === 0 && Date.now() - started > this.deadlineMs) {
+        throw new RuntimeError(
+          "deadline",
+          `process ${this.pid} exceeded the ${this.deadlineMs} ms deadline during ${stage} at pc 0x${this.cpu.pc.toString(16)}`,
+          { pid: this.pid, pc: this.cpu.pc.toString(16) },
+        );
+      }
+      this.cpu.step(this.memory, (number, cpu) => this.syscalls.handle(number, cpu));
+    }
   }
 }
 

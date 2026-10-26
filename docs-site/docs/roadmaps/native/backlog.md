@@ -17,12 +17,12 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009 done; LDR-003 is next.                                         |
-| A2 loader/runtime | **Started.** LDR-001/002 done (legacy fixups, lazy/weak); fuzzing, diagnostics, signing parse remain.       |
+| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009 done; LDR-004 is next.                                         |
+| A2 loader/runtime | **Started.** LDR-001..003 done (legacy fixups, lazy/weak, init/term); fuzzing/diagnostics/signing remain.   |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 45 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 46 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -31,7 +31,7 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                    |
 | ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------------------------------- |
-|     1 | `LDR-003` | Loader        | M    | LDR-002 | Initializers/terminators; once/order tests                                  |
+|     1 | `LDR-004` | Loader        | M    | LDR-003 | dlopen/dlsym/dlclose; load/resolve/close tests                              |
 |     2 | `THR-012` | Threads       | M    | THR-004 | Concurrency stress; 64 threads/processes, no leak                           |
 |     4 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
 |     5 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                               |
@@ -42,13 +42,13 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LDR-003` is the next task;
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LDR-004` is the next task;
 `THR-012` remains in the thread lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-14 are complete (A0 substrate, kernel boundary, threads/clock, LDR-001/002). This is
-the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-15 are complete (A0 substrate, kernel boundary, threads/clock, LDR-001/002/003). This
+is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
