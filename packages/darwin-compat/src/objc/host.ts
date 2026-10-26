@@ -319,6 +319,11 @@ export class ObjcHost {
   private readonly imageCache = new Map<string, DecodedImage | null>();
   private loadsPrepared = false;
   private readonly children = new Map<bigint, bigint[]>();
+  private readonly superviews = new Map<bigint, bigint>();
+  private readonly scrollDrags = new Map<
+    bigint,
+    { x: number; y: number; offsetX: number; offsetY: number }
+  >();
   private readonly windows: bigint[] = [];
   private keyWindow: bigint | null = null;
   private sharedApplication: bigint | null = null;
@@ -933,10 +938,26 @@ export class ObjcHost {
             cpu.writeRegister(0, this.memory.read(receiver + BigInt(VIEW_HIDDEN), 1)),
         },
         { selector: "layoutSubviews", types: "v16@0:8", run: () => undefined },
-        { selector: "touchesBegan:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
-        { selector: "touchesMoved:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
-        { selector: "touchesEnded:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
-        { selector: "touchesCancelled:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
+        {
+          selector: "touchesBegan:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.forwardTouch(cpu, receiver, "touchesBegan:withEvent:"),
+        },
+        {
+          selector: "touchesMoved:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.forwardTouch(cpu, receiver, "touchesMoved:withEvent:"),
+        },
+        {
+          selector: "touchesEnded:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.forwardTouch(cpu, receiver, "touchesEnded:withEvent:"),
+        },
+        {
+          selector: "touchesCancelled:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.forwardTouch(cpu, receiver, "touchesCancelled:withEvent:"),
+        },
       ],
       classMethods: [
         {
@@ -1762,6 +1783,41 @@ export class ObjcHost {
             cpu.writeVectorDouble(0, this.readDouble(receiver, SCROLL_OFFSET_X));
             cpu.writeVectorDouble(1, this.readDouble(receiver, SCROLL_OFFSET_Y));
           },
+        },
+        {
+          selector: "setContentOffset:animated:",
+          types: "v36@0:8{CGPoint=dd}16B32",
+          run: (cpu, receiver) => {
+            this.memory.write(receiver + BigInt(SCROLL_OFFSET_X), 8, cpu.readVectorBits(0, 64));
+            this.memory.write(receiver + BigInt(SCROLL_OFFSET_Y), 8, cpu.readVectorBits(1, 64));
+          },
+        },
+        {
+          selector: "touchesBegan:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => {
+            const point = this.touchPoint(cpu);
+            if (point === null) {
+              this.forwardTouch(cpu, receiver, "touchesBegan:withEvent:");
+              return;
+            }
+            this.scrollDrags.set(receiver, {
+              x: point.x,
+              y: point.y,
+              offsetX: this.readDouble(receiver, SCROLL_OFFSET_X),
+              offsetY: this.readDouble(receiver, SCROLL_OFFSET_Y),
+            });
+          },
+        },
+        {
+          selector: "touchesMoved:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.updateScrollDrag(cpu, receiver, false),
+        },
+        {
+          selector: "touchesEnded:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.updateScrollDrag(cpu, receiver, true),
         },
         {
           selector: "setContentSize:",
@@ -3011,7 +3067,21 @@ export class ObjcHost {
   }
 
   private addSubview(parent: bigint, child: bigint, index?: number): void {
-    if (child === 0n) return;
+    if (child === 0n || child === parent) return;
+    // Reject cycles: a view cannot become a descendant of itself.
+    let ancestor: bigint | undefined = parent;
+    for (let hops = 0; ancestor !== undefined && hops < 64; hops += 1) {
+      if (ancestor === child) return;
+      ancestor = this.superviews.get(ancestor);
+    }
+    const previous = this.superviews.get(child);
+    if (previous !== undefined && previous !== parent) {
+      const siblings = this.children.get(previous) ?? [];
+      this.children.set(
+        previous,
+        siblings.filter((sibling) => sibling !== child),
+      );
+    }
     const list = this.children.get(parent) ?? [];
     if (list.includes(child)) return;
     if (list.length >= MAX_CHILDREN) {
@@ -3020,6 +3090,33 @@ export class ObjcHost {
     if (index === undefined || index >= list.length) list.push(child);
     else list.splice(Math.max(0, index), 0, child);
     this.children.set(parent, list);
+    this.superviews.set(child, parent);
+  }
+
+  /** UIKit's default: an unhandled touch moves up the responder chain. */
+  private forwardTouch(cpu: Arm64Cpu, receiver: bigint, selector: string): SyscallResult {
+    const parent = this.superviews.get(receiver);
+    if (parent === undefined) return { value: 0n };
+    const method = this.resolve(parent, selector);
+    if (!method) return { value: 0n };
+    cpu.writeRegister(0, parent);
+    cpu.writeRegister(1, this.internString(selector));
+    return this.invoke(method, cpu);
+  }
+
+  /** Drag-to-scroll: the content follows the finger, clamped to the content size. */
+  private updateScrollDrag(cpu: Arm64Cpu, receiver: bigint, finish: boolean): void {
+    const drag = this.scrollDrags.get(receiver);
+    if (finish) this.scrollDrags.delete(receiver);
+    const point = this.touchPoint(cpu);
+    if (!drag || point === null) return;
+    const frame = this.readStoredRect(receiver);
+    const maxX = Math.max(0, this.readDouble(receiver, SCROLL_CONTENT_WIDTH) - frame.width);
+    const maxY = Math.max(0, this.readDouble(receiver, SCROLL_CONTENT_HEIGHT) - frame.height);
+    const offsetX = Math.min(maxX, Math.max(0, drag.offsetX - (point.x - drag.x)));
+    const offsetY = Math.min(maxY, Math.max(0, drag.offsetY - (point.y - drag.y)));
+    this.writeDouble(receiver, SCROLL_OFFSET_X, offsetX);
+    this.writeDouble(receiver, SCROLL_OFFSET_Y, offsetY);
   }
 
   private controllerView(controller: bigint): bigint {

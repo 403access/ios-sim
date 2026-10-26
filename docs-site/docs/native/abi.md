@@ -242,7 +242,13 @@ hidden byte at 48, clips-to-bounds byte at 49, alpha double at 56, instance size
 and hit-testing accumulate origins down the tree, so a child inside a container lands at
 `container.origin + child.origin`. `clipsToBounds` intersects a view's clip with its frame for
 child painting and hit-testing; it is off by default. `UIScrollView` always clips and subtracts
-its content offset from child painting and hit-testing origins. The root view controller's callbacks fire like this: creating its view (implicitly or via
+its content offset from child painting and hit-testing origins. Dragging a touch inside it moves the
+content with the finger (`offset = startOffset - delta`), clamped to `contentSize - bounds`.
+
+Unhandled touches follow the responder chain: `UIView`'s default `touchesBegan:/Moved:/Ended:/Cancelled:`
+forward to the superview, so a drag that starts on a plain child reaches a scroll view above it.
+Only the superview step exists — there is no view-controller responder step, no gesture recognisers,
+and a view that handles a touch does not forward it. The root view controller's callbacks fire like this: creating its view (implicitly or via
 `-view`) sends `-viewDidLoad` once; adding it to a visible window sends `-viewWillAppear:`
 then `-viewDidAppear:` once. Queued callbacks are coalesced per controller and run from one
 generated guest stub, so the message that triggered them still returns normally. The root

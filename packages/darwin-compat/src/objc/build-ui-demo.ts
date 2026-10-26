@@ -258,6 +258,7 @@ interface Plan {
   readonly scrollContent: number;
   readonly scrollOffset: number;
   readonly scrollChildren: number;
+  readonly scrollBand: number;
   readonly timerInterval: number;
   readonly statusRect: number;
   readonly switchRect: number;
@@ -541,6 +542,8 @@ function planData(): Plan {
   cursor += 16;
   const scrollChildren = cursor;
   cursor += 64;
+  const scrollBand = cursor;
+  cursor += 32;
   const statusRect = cursor;
   cursor += 32;
   const switchRect = cursor;
@@ -664,6 +667,7 @@ function planData(): Plan {
     scrollContent,
     scrollOffset,
     scrollChildren,
+    scrollBand,
     statusRect,
     switchRect,
     sliderRect,
@@ -1642,6 +1646,35 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UIView *band = [[UIView alloc] initWithFrame:(0,160,300,40)]; [scroll addSubview:band];
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.scrollBand));
+    emitDouble(1, dataAddress(plan.scrollBand + 8));
+    emitDouble(2, dataAddress(plan.scrollBand + 16));
+    emitDouble(3, dataAddress(plan.scrollBand + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.yellowColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 22));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // [[NSNotificationCenter defaultCenter] addObserver:self
     //     selector:@selector(themeChanged:) name:"ThemeChanged" object:0];
     emitPointer(0, slot("classCenter"));
@@ -2338,6 +2371,10 @@ function emitData(
   f64(plan.scrollChildren + 40, 80);
   f64(plan.scrollChildren + 48, 300);
   f64(plan.scrollChildren + 56, 120);
+  f64(plan.scrollBand, 0);
+  f64(plan.scrollBand + 8, 160);
+  f64(plan.scrollBand + 16, 300);
+  f64(plan.scrollBand + 24, 40);
   f64(plan.statusRect, 0);
   f64(plan.statusRect + 8, 620);
   f64(plan.statusRect + 16, 375);

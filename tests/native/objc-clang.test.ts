@@ -60,6 +60,11 @@ describe.skipIf(!available)("real clang ObjC app", () => {
         frameCount: 5,
       },
       {
+        label: "scroll",
+        events: [{ fromX: 100, fromY: 540, toX: 100, toY: 510, steps: 3 }],
+        frameCount: 3,
+      },
+      {
         label: "ticks",
         events: [{ kind: "tick" }, { kind: "tick" }, { kind: "tick" }, { kind: "tick" }],
         frameCount: 8,

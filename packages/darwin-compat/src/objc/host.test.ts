@@ -220,6 +220,23 @@ describe("ObjC UIKit demo", () => {
     expect(at(325, 215)).toEqual([127, 127, 127]);
   });
 
+  it("scrolls a UIScrollView when a child forwards dragged touches", () => {
+    // The touch lands on the blue content view, which has no handler of its
+    // own; UIView's default forwards it to the scroll view.
+    const result = runDemo([{ fromX: 100, fromY: 540, toX: 100, toY: 510, steps: 3 }]);
+    const last = result.frames.at(-1)!;
+    const at = (frame: (typeof result.frames)[number], x: number, y: number): number[] => {
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    // Initial offset is 80: (100, 540) samples content y=150 (blue).
+    expect(at(result.frames[0]!, 100, 540)).toEqual([0, 0, 255]);
+    // Dragging up 30 raises the offset to 110, exposing the yellow band at
+    // content y=160..200.
+    expect(at(last, 100, 540)).toEqual([255, 255, 0]);
+    expect(at(last, 100, 500)).toEqual([0, 0, 255]);
+  });
+
   it("toggles a UISwitch and sends a value-changed action", () => {
     const result = runDemo([{ x: 300, y: 326 }]);
     expect(result.frames).toHaveLength(2);

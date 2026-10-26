@@ -81,7 +81,7 @@ These items have visible value even if G2 never lands:
 
 **UIKit depth**
 
-- Responder chain (unhandled touches forward to the superview) and gesture recognisers.
+- Gesture recognisers and the view-controller responder step (superview forwarding is done).
 - `UINavigationController`, `UITabBarController`, `UITableView`/`UICollectionView` with a data
   source, `UIAlertController`.
 - Auto Layout/`NSLayoutConstraint`, `contentMode`, `transform`, `CALayer`,
