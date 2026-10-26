@@ -9,8 +9,17 @@
 
 typedef struct {
   uint32_t port_id;
+  uint32_t set_id;
   uint32_t rights;
 } DHName;
+
+typedef struct {
+  uint32_t used;
+  uint32_t id;
+  uint32_t owner;
+  uint32_t members[DH_MAX_SET_MEMBERS];
+  uint32_t count;
+} DHSet;
 
 typedef struct DHMessage {
   struct DHMessage *next;
@@ -26,6 +35,7 @@ typedef struct {
   uint32_t id;
   char label[DH_LABEL_MAX];
   uint32_t receive_owner;
+  uint32_t dead_notify_port;
   DHMessage *first;
   DHMessage *last;
   uint32_t count;
@@ -60,6 +70,7 @@ static DHTask g_tasks[DH_MAX_TASKS];
 static DHMessagePort g_ports[DH_MAX_PORTS];
 static DHService g_services[DH_MAX_SERVICES];
 static DHThread g_threads[DH_MAX_THREADS];
+static DHSet g_sets[DH_MAX_PORT_SETS];
 static uint32_t g_next_task_id = 1;
 static uint32_t g_next_thread_id = 1;
 static uint32_t g_boot_port_id = 0;
@@ -78,6 +89,13 @@ static DHThread *thread_locked(uint32_t task_id, uint32_t thread_id) {
         g_threads[index].id == thread_id) {
       return &g_threads[index];
     }
+  }
+  return NULL;
+}
+
+static DHSet *set_locked(uint32_t set_id) {
+  for (size_t index = 0; index < DH_MAX_PORT_SETS; ++index) {
+    if (g_sets[index].used && g_sets[index].id == set_id) return &g_sets[index];
   }
   return NULL;
 }
@@ -119,7 +137,28 @@ static void free_messages_locked(DHMessagePort *port) {
   port->count = 0;
 }
 
+static void enqueue_notification_locked(uint32_t notify_port_id, uint32_t dead_port_id) {
+  DHMessagePort *notify = port_locked(notify_port_id);
+  if (notify == NULL || notify->count >= DH_MAX_QUEUE_DEPTH) return;
+  DHMessage *message = malloc(sizeof(DHMessage) + sizeof(uint32_t));
+  if (message == NULL) return;
+  message->next = NULL;
+  message->message_id = (int32_t)DH_NOTIFY_DEAD;
+  message->sender_task = 0;
+  message->reply_port = 0;
+  message->count = 1;
+  message->words[0] = dead_port_id;
+  if (notify->last == NULL) notify->first = message;
+  else notify->last->next = message;
+  notify->last = message;
+  notify->count += 1;
+  g_message_count += 1;
+  pthread_cond_broadcast(&g_cond);
+}
+
 static void destroy_port_locked(DHMessagePort *port) {
+  uint32_t notify = port->dead_notify_port;
+  uint32_t dead_id = port->id;
   free_messages_locked(port);
   for (size_t index = 0; index < DH_MAX_SERVICES; ++index) {
     if (g_services[index].used && g_services[index].port_id == port->id) {
@@ -127,12 +166,13 @@ static void destroy_port_locked(DHMessagePort *port) {
     }
   }
   memset(port, 0, sizeof(*port));
+  if (notify != 0 && notify != dead_id) enqueue_notification_locked(notify, dead_id);
 }
 
 static DHName *name_locked(DHTask *task, uint32_t name) {
   if (name == 0 || name > DH_MAX_NAMES_PER_TASK) return NULL;
   DHName *entry = &task->names[name - 1];
-  return entry->port_id == 0 ? NULL : entry;
+  return entry->port_id == 0 && entry->set_id == 0 ? NULL : entry;
 }
 
 static int alloc_name_locked(DHTask *task, uint32_t port_id, uint32_t rights, uint32_t *out_name) {
@@ -140,6 +180,7 @@ static int alloc_name_locked(DHTask *task, uint32_t port_id, uint32_t rights, ui
     uint32_t index = (task->next_name + offset) % DH_MAX_NAMES_PER_TASK;
     if (task->names[index].port_id == 0) {
       task->names[index].port_id = port_id;
+      task->names[index].set_id = 0;
       task->names[index].rights = rights;
       task->next_name = (index + 1) % DH_MAX_NAMES_PER_TASK;
       if (out_name != NULL) *out_name = index + 1;
@@ -147,6 +188,29 @@ static int alloc_name_locked(DHTask *task, uint32_t port_id, uint32_t rights, ui
     }
   }
   return DH_ERR_NO_SPACE;
+}
+
+static int alloc_set_name_locked(DHTask *task, uint32_t set_id, uint32_t *out_name) {
+  for (uint32_t offset = 0; offset < DH_MAX_NAMES_PER_TASK; ++offset) {
+    uint32_t index = (task->next_name + offset) % DH_MAX_NAMES_PER_TASK;
+    if (task->names[index].port_id == 0 && task->names[index].set_id == 0) {
+      task->names[index].set_id = set_id;
+      task->names[index].rights = DH_RIGHT_RECEIVE | DH_RIGHT_PORT_SET;
+      task->next_name = (index + 1) % DH_MAX_NAMES_PER_TASK;
+      if (out_name != NULL) *out_name = index + 1;
+      return DH_OK;
+    }
+  }
+  return DH_ERR_NO_SPACE;
+}
+
+static DHMessagePort *set_ready_port_locked(DHSet *set) {
+  if (set == NULL) return NULL;
+  for (uint32_t index = 0; index < set->count; ++index) {
+    DHMessagePort *port = port_locked(set->members[index]);
+    if (port != NULL && port->count > 0) return port;
+  }
+  return NULL;
 }
 
 static void remove_name_locked(DHTask *task, uint32_t name) {
@@ -172,6 +236,7 @@ static void kernel_reset_locked(void) {
   memset(g_ports, 0, sizeof(g_ports));
   memset(g_services, 0, sizeof(g_services));
   memset(g_threads, 0, sizeof(g_threads));
+  memset(g_sets, 0, sizeof(g_sets));
   g_next_task_id = 1;
   g_next_thread_id = 1;
   g_message_count = 0;
@@ -241,7 +306,10 @@ int dh_task_destroy(uint32_t task_id) {
   for (uint32_t name = 1; name <= DH_MAX_NAMES_PER_TASK; ++name) {
     DHName *entry = name_locked(task, name);
     if (entry == NULL) continue;
-    if ((entry->rights & DH_RIGHT_RECEIVE) != 0) {
+    if (entry->set_id != 0) {
+      DHSet *set = set_locked(entry->set_id);
+      if (set != NULL && set->owner == task->id) memset(set, 0, sizeof(*set));
+    } else if ((entry->rights & DH_RIGHT_RECEIVE) != 0) {
       DHMessagePort *port = port_locked(entry->port_id);
       if (port != NULL && port->receive_owner == task->id) destroy_port_locked(port);
     }
@@ -360,7 +428,10 @@ int dh_name_deallocate(uint32_t task_id, uint32_t name) {
     pthread_mutex_unlock(&g_lock);
     return DH_ERR_INVALID_NAME;
   }
-  if ((entry->rights & DH_RIGHT_RECEIVE) != 0) {
+  if (entry->set_id != 0) {
+    DHSet *set = set_locked(entry->set_id);
+    if (set != NULL && set->owner == task->id) memset(set, 0, sizeof(*set));
+  } else if ((entry->rights & DH_RIGHT_RECEIVE) != 0) {
     DHMessagePort *port = port_locked(entry->port_id);
     if (port != NULL && port->receive_owner == task->id) destroy_port_locked(port);
   }
@@ -474,6 +545,134 @@ int dh_thread_state(uint32_t task_id, uint32_t thread_id, uint32_t *out_state) {
     return DH_ERR_INVALID_NAME;
   }
   *out_state = thread->state;
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_port_set_create(uint32_t task_id, const uint32_t *ports, uint32_t count, uint32_t *out_name) {
+  if (out_name == NULL || (count > 0 && ports == NULL) || count > DH_MAX_SET_MEMBERS) {
+    return DH_ERR_INVALID_ARGUMENT;
+  }
+  pthread_mutex_lock(&g_lock);
+  DHTask *task = task_locked(task_id);
+  if (task == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_TASK;
+  }
+  DHSet *set = NULL;
+  for (size_t index = 0; index < DH_MAX_PORT_SETS; ++index) {
+    if (!g_sets[index].used) {
+      set = &g_sets[index];
+      break;
+    }
+  }
+  if (set == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_NO_SPACE;
+  }
+  memset(set, 0, sizeof(*set));
+  for (uint32_t index = 0; index < count; ++index) {
+    DHName *entry = name_locked(task, ports[index]);
+    if (entry == NULL || entry->set_id != 0 || (entry->rights & DH_RIGHT_RECEIVE) == 0) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_INVALID_RIGHT;
+    }
+    set->members[set->count++] = entry->port_id;
+  }
+  set->used = 1;
+  set->id = (uint32_t)(set - g_sets) + 1;
+  set->owner = task_id;
+  int status = alloc_set_name_locked(task, set->id, out_name);
+  if (status != DH_OK) memset(set, 0, sizeof(*set));
+  pthread_mutex_unlock(&g_lock);
+  return status;
+}
+
+int dh_port_set_add(uint32_t task_id, uint32_t set_name, uint32_t port_name) {
+  pthread_mutex_lock(&g_lock);
+  DHTask *task = task_locked(task_id);
+  if (task == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_TASK;
+  }
+  DHName *set_entry = name_locked(task, set_name);
+  if (set_entry == NULL || set_entry->set_id == 0) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  DHName *port_entry = name_locked(task, port_name);
+  if (port_entry == NULL || port_entry->set_id != 0 || (port_entry->rights & DH_RIGHT_RECEIVE) == 0) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_RIGHT;
+  }
+  DHSet *set = set_locked(set_entry->set_id);
+  if (set == NULL || set->count >= DH_MAX_SET_MEMBERS) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_NO_SPACE;
+  }
+  for (uint32_t index = 0; index < set->count; ++index) {
+    if (set->members[index] == port_entry->port_id) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_OK;
+    }
+  }
+  set->members[set->count++] = port_entry->port_id;
+  pthread_cond_broadcast(&g_cond);
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_port_set_remove(uint32_t task_id, uint32_t set_name, uint32_t port_name) {
+  pthread_mutex_lock(&g_lock);
+  DHTask *task = task_locked(task_id);
+  if (task == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_TASK;
+  }
+  DHName *set_entry = name_locked(task, set_name);
+  DHName *port_entry = name_locked(task, port_name);
+  if (set_entry == NULL || set_entry->set_id == 0 || port_entry == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  DHSet *set = set_locked(set_entry->set_id);
+  if (set == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  for (uint32_t index = 0; index < set->count; ++index) {
+    if (set->members[index] == port_entry->port_id) {
+      set->members[index] = set->members[set->count - 1];
+      set->count -= 1;
+      pthread_mutex_unlock(&g_lock);
+      return DH_OK;
+    }
+  }
+  pthread_mutex_unlock(&g_lock);
+  return DH_ERR_NOT_FOUND;
+}
+
+int dh_port_register_dead_name(uint32_t task_id, uint32_t port_name, uint32_t notify_name) {
+  pthread_mutex_lock(&g_lock);
+  DHTask *task = task_locked(task_id);
+  if (task == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_TASK;
+  }
+  DHName *port_entry = name_locked(task, port_name);
+  DHName *notify_entry = name_locked(task, notify_name);
+  if (port_entry == NULL || port_entry->set_id != 0 || (port_entry->rights & DH_RIGHT_RECEIVE) == 0 ||
+      notify_entry == NULL || notify_entry->set_id != 0 ||
+      (notify_entry->rights & (DH_RIGHT_SEND | DH_RIGHT_SEND_ONCE)) == 0) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_RIGHT;
+  }
+  DHMessagePort *port = port_locked(port_entry->port_id);
+  if (port == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  port->dead_notify_port = notify_entry->port_id;
   pthread_mutex_unlock(&g_lock);
   return DH_OK;
 }
@@ -621,8 +820,13 @@ int dh_receive(uint32_t task_id, uint32_t name, uint32_t *out_words, uint32_t ou
     pthread_mutex_unlock(&g_lock);
     return DH_ERR_INVALID_RIGHT;
   }
-  DHMessagePort *port = port_locked(entry->port_id);
-  if (port == NULL) {
+  DHSet *set = entry->set_id != 0 ? set_locked(entry->set_id) : NULL;
+  DHMessagePort *port = entry->set_id == 0 ? port_locked(entry->port_id) : NULL;
+  if (entry->set_id != 0 && set == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_NAME;
+  }
+  if (entry->set_id == 0 && port == NULL) {
     pthread_mutex_unlock(&g_lock);
     return DH_ERR_INVALID_NAME;
   }
@@ -643,17 +847,20 @@ int dh_receive(uint32_t task_id, uint32_t name, uint32_t *out_words, uint32_t ou
     }
   }
 
-  while (port->count == 0) {
+  while (1) {
+    if (entry->set_id != 0) {
+      port = set_ready_port_locked(set);
+      if (port != NULL) break;
+    } else if (port != NULL && port->count > 0) {
+      break;
+    }
     if (timeout_ms == DH_TIMEOUT_NONE) {
       pthread_mutex_unlock(&g_lock);
       return DH_ERR_TIMEOUT;
     }
-    int wait_status;
-    if (timeout_ms == DH_TIMEOUT_FOREVER) {
-      wait_status = pthread_cond_wait(&g_cond, &g_lock);
-    } else {
-      wait_status = pthread_cond_timedwait(&g_cond, &g_lock, &deadline);
-    }
+    int wait_status = timeout_ms == DH_TIMEOUT_FOREVER
+                          ? pthread_cond_wait(&g_cond, &g_lock)
+                          : pthread_cond_timedwait(&g_cond, &g_lock, &deadline);
     task = task_locked(task_id);
     if (task == NULL) {
       pthread_mutex_unlock(&g_lock);
@@ -664,19 +871,32 @@ int dh_receive(uint32_t task_id, uint32_t name, uint32_t *out_words, uint32_t ou
       pthread_mutex_unlock(&g_lock);
       return DH_ERR_INVALID_NAME;
     }
-    port = port_locked(entry->port_id);
-    if (port == NULL) {
-      pthread_mutex_unlock(&g_lock);
-      return DH_ERR_INVALID_NAME;
+    if (entry->set_id != 0) {
+      set = set_locked(entry->set_id);
+      port = NULL;
+      if (set == NULL) {
+        pthread_mutex_unlock(&g_lock);
+        return DH_ERR_INVALID_NAME;
+      }
+    } else {
+      port = port_locked(entry->port_id);
+      set = NULL;
+      if (port == NULL) {
+        pthread_mutex_unlock(&g_lock);
+        return DH_ERR_INVALID_NAME;
+      }
     }
     if (task->interrupted) {
       task->interrupted = 0;
       pthread_mutex_unlock(&g_lock);
       return DH_ERR_INTERRUPTED;
     }
-    if (wait_status == ETIMEDOUT && port->count == 0) {
-      pthread_mutex_unlock(&g_lock);
-      return DH_ERR_TIMEOUT;
+    if (wait_status == ETIMEDOUT) {
+      DHMessagePort *ready = set != NULL ? set_ready_port_locked(set) : (port->count > 0 ? port : NULL);
+      if (ready == NULL) {
+        pthread_mutex_unlock(&g_lock);
+        return DH_ERR_TIMEOUT;
+      }
     }
   }
 

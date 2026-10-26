@@ -65,6 +65,41 @@ int main(void) {
                    DH_TIMEOUT_NONE) == DH_OK,
         "service receive");
 
+  uint32_t second_receive = 0;
+  CHECK(dh_port_create_receive(task, "second", &second_receive) == DH_OK, "second receive");
+  uint32_t second_port = 0;
+  CHECK(dh_name_port_id(task, second_receive, &second_port) == DH_OK, "second port id");
+  uint32_t second_send = 0;
+  CHECK(dh_port_make_send(task, second_port, &second_send) == DH_OK, "second send");
+  uint32_t set_name = 0;
+  uint32_t members[2] = {receive, second_receive};
+  CHECK(dh_port_set_create(task, members, 2, &set_name) == DH_OK, "create port set");
+  CHECK(dh_port_set_add(task, set_name, second_receive) == DH_OK, "add duplicate member");
+  CHECK(dh_port_set_remove(task, set_name, second_receive) == DH_OK, "remove member");
+  CHECK(dh_port_set_add(task, set_name, second_receive) == DH_OK, "re-add member");
+  CHECK(dh_send(task, second_send, 0, 55, body, 1) == DH_OK, "send to set member");
+  CHECK(dh_receive(task, set_name, words, 8, &count, &remote, &local, &message_id,
+                   DH_TIMEOUT_NONE) == DH_OK,
+        "receive from set");
+  CHECK(remote == set_name && message_id == 55 && words[0] == 1, "set receive metadata");
+
+  uint32_t notify_receive = 0;
+  CHECK(dh_port_create_receive(task, "notify", &notify_receive) == DH_OK, "notify receive");
+  uint32_t notify_port = 0;
+  CHECK(dh_name_port_id(task, notify_receive, &notify_port) == DH_OK, "notify port id");
+  uint32_t notify_send = 0;
+  CHECK(dh_port_make_send(task, notify_port, &notify_send) == DH_OK, "notify send");
+  uint32_t dead_receive = 0;
+  CHECK(dh_port_create_receive(task, "dead", &dead_receive) == DH_OK, "dead receive");
+  uint32_t dead_port = 0;
+  CHECK(dh_name_port_id(task, dead_receive, &dead_port) == DH_OK, "dead port id");
+  CHECK(dh_port_register_dead_name(task, dead_receive, notify_send) == DH_OK, "register dead name");
+  CHECK(dh_name_deallocate(task, dead_receive) == DH_OK, "deallocate dead receive");
+  CHECK(dh_receive(task, notify_receive, words, 8, &count, &remote, &local, &message_id,
+                   DH_TIMEOUT_NONE) == DH_OK,
+        "dead notification delivered");
+  CHECK(message_id == (int32_t)DH_NOTIFY_DEAD && words[0] == dead_port, "dead notification body");
+
   CHECK(dh_selftest_blocking() == 0, "blocking self-test");
   CHECK(dh_selftest_interrupt() == 0, "interrupt self-test");
   CHECK(dh_selftest_threads() == 0, "thread self-test");

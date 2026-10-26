@@ -23,7 +23,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 34 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 35 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -32,10 +32,10 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                     |
 | ----: | --------- | ------------- | ---- | ------- | ---------------------------------------------------------------------------- |
-|     1 | `THR-008` | Threads       | L    | THR-003 | kqueue/timers; event loop wakeup, no busy wait                               |
-|     2 | `KRN-006` | Kernel        | M    | KRN-005 | Port sets and notifications; 100-port select; exactly-once notification      |
-|     3 | `KRN-007` | Kernel        | M    | KRN-004 | Port/memory descriptors in transit; COPY_SEND/MAKE_SEND_ONCE tests           |
-|     4 | `KRN-009` | Kernel        | L    | KRN-003 | Memory objects/shared memory; COW, unmap, two-task sharing                   |
+|     1 | `KRN-007` | Kernel        | M    | KRN-004 | Port/memory descriptors in transit; COPY_SEND/MAKE_SEND_ONCE tests           |
+|     2 | `KRN-009` | Kernel        | L    | KRN-003 | Memory objects/shared memory; COW, unmap, two-task sharing                   |
+|     3 | `KRN-010` | Kernel        | M    | KRN-005 | Mach trap parity table; success/error vectors; fuzz                          |
+|     4 | `KRN-011` | Kernel        | S    | KRN-005 | Per-task port/message/memory quotas; teardown test                           |
 |     5 | `KRN-010` | Kernel        | M    | KRN-005 | Mach trap parity table; success/error vectors; fuzz                          |
 |     6 | `KRN-011` | Kernel        | S    | KRN-005 | Per-task port/message/memory quotas; teardown test                           |
 |     7 | `KRN-012` | Kernel        | M    | KRN-005 | 16-thread/1M-message stress; leak check                                      |
@@ -50,7 +50,7 @@ started by a human with host access, not by a Linux-only agent.
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
 `CS-001`, `INP-001`) are ready but require a licensed-Mac window.
-`THR-008` is the critical-path task. `KRN-006` and the remaining KRN tasks are the parallel
+`KRN-007` is the next task. `THR-008` remains in the thread lane.
 lane. Do not start two critical-path tasks at once.
 
 ### First twelve sessions
@@ -61,8 +61,8 @@ non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                      |
 | ------- | ------------- | ---------------------- | ------------------------------------- |
-| 1       | `THR-008`     | `KRN-006`              | kqueue/timers; port sets              |
-| 2       | `THR-009`     | `KRN-007`              | Clock/timebase; descriptors           |
+| 1       | `KRN-007`     | `THR-008`              | Descriptor rights; timers             |
+| 2       | `THR-009`     | `KRN-009`              | Clock/timebase; memory objects        |
 | 3       | `THR-012`     | `KRN-009`              | Concurrency stress; memory objects    |
 | 4       | `THR-012`     | `KRN-010`              | Concurrency stress; trap parity table |
 | 5       | `LDR-001`     | `KRN-011`              | Legacy dyld opcodes; quotas           |
@@ -112,7 +112,7 @@ exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evi
 This spike does not satisfy UI-G1 or change the critical path. It exists to de-risk the host
 window/software renderer boundary while KRN/LDR/RT gates remain open.
 
-### Kernel boundary — KRN-001..005 (done)
+### Kernel boundary — KRN-001..006 (done)
 
 | ID        | Task                           | Evidence                                                                |
 | --------- | ------------------------------ | ----------------------------------------------------------------------- |
@@ -144,8 +144,8 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `KRN-003`  | Native task/port/right objects | P0       | L    | blocked   | KRN-002          | TS oracle parity; 100k create/send/teardown                |
 | `KRN-004`  | Message queues/copy            | P0       | L    | **done**  | KRN-003          | Bounded queues, body copy, too-large retention             |
 | `KRN-005`  | Blocking send/receive/timeouts | P0       | M    | **done**  | KRN-004          | Native thread wake, timeout, interrupt; selftests          |
-| `KRN-006`  | Port sets/notifications        | P1       | M    | **ready** | KRN-005          | 100-port select; one notification                          |
-| `KRN-007`  | Descriptors in transit         | P1       | M    | **ready** | KRN-004          | COPY_SEND/MAKE_SEND_ONCE tests                             |
+| `KRN-006`  | Port sets/notifications        | P1       | M    | **done**  | KRN-005          | Port sets + dead-name notification; C/FFI tests            |
+| `KRN-007`  | Descriptors in transit         | P1       | M    | **next**  | KRN-004          | COPY_SEND/MAKE_SEND_ONCE tests                             |
 | `KRN-008`  | MIG wire compatibility         | P1       | L    | blocked   | KRN-007          | Reference vectors; unknown routine report                  |
 | `KRN-009`  | Memory objects/shared memory   | P1       | L    | **ready** | KRN-003          | Shared/COW/unmap tests                                     |
 | `KRN-010`  | Mach trap parity table         | P1       | M    | **ready** | KRN-005          | Success/error vectors; fuzz                                |

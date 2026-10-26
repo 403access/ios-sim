@@ -28,6 +28,8 @@ extern "C" {
 #define DH_MAX_NAMES_PER_TASK 256u
 #define DH_MAX_SERVICES 256u
 #define DH_MAX_THREADS 1024u
+#define DH_MAX_PORT_SETS 256u
+#define DH_MAX_SET_MEMBERS 64u
 #define DH_LABEL_MAX 64u
 #define DH_SERVICE_MAX 256u
 
@@ -35,6 +37,8 @@ extern "C" {
 #define DH_RIGHT_SEND 1u
 #define DH_RIGHT_RECEIVE 2u
 #define DH_RIGHT_SEND_ONCE 4u
+#define DH_RIGHT_PORT_SET 8u
+#define DH_NOTIFY_DEAD 0x0ead0001u
 
 /* Thread states. */
 #define DH_THREAD_RUNNABLE 1u
@@ -87,6 +91,14 @@ int dh_port_make_send(uint32_t task, uint32_t port_id, uint32_t *out_name);
 int dh_name_port_id(uint32_t task, uint32_t name, uint32_t *out_port_id);
 
 int dh_name_deallocate(uint32_t task, uint32_t name);
+
+/* Port sets: receive from any member; members must have receive rights. */
+int dh_port_set_create(uint32_t task, const uint32_t *ports, uint32_t count, uint32_t *out_name);
+int dh_port_set_add(uint32_t task, uint32_t set_name, uint32_t port_name);
+int dh_port_set_remove(uint32_t task, uint32_t set_name, uint32_t port_name);
+
+/* Register a send port for a one-shot dead-name notification. */
+int dh_port_register_dead_name(uint32_t task, uint32_t port_name, uint32_t notify_name);
 
 int dh_service_register(uint32_t task, const char *service, uint32_t name);
 int dh_service_lookup(uint32_t task, const char *service, uint32_t *out_name);

@@ -23,6 +23,8 @@ export const DH_MAX_QUEUE_DEPTH = 256;
 export const DH_RIGHT_SEND = 1;
 export const DH_RIGHT_RECEIVE = 2;
 export const DH_RIGHT_SEND_ONCE = 4;
+export const DH_RIGHT_PORT_SET = 8;
+export const DH_NOTIFY_DEAD = 0x0ead0001;
 
 export const DH_THREAD_RUNNABLE = 1;
 export const DH_THREAD_RUNNING = 2;
@@ -117,6 +119,10 @@ const SYMBOLS = {
   dh_port_make_send: { args: ["u32", "u32", "ptr"], returns: "i32" },
   dh_name_port_id: { args: ["u32", "u32", "ptr"], returns: "i32" },
   dh_name_deallocate: { args: ["u32", "u32"], returns: "i32" },
+  dh_port_set_create: { args: ["u32", "ptr", "u32", "ptr"], returns: "i32" },
+  dh_port_set_add: { args: ["u32", "u32", "u32"], returns: "i32" },
+  dh_port_set_remove: { args: ["u32", "u32", "u32"], returns: "i32" },
+  dh_port_register_dead_name: { args: ["u32", "u32", "u32"], returns: "i32" },
   dh_service_register: { args: ["u32", "cstring", "u32"], returns: "i32" },
   dh_service_lookup: { args: ["u32", "cstring", "ptr"], returns: "i32" },
   dh_send: { args: ["u32", "u32", "u32", "i32", "ptr", "u32"], returns: "i32" },
@@ -225,6 +231,30 @@ export class NativeHost {
 
   deallocateName(task: number, name: number): void {
     this.check("name_deallocate", this.symbols.dh_name_deallocate!(task, name));
+  }
+
+  createPortSet(task: number, ports: readonly number[]): number {
+    const out = new Uint32Array(1);
+    this.check(
+      "port_set_create",
+      this.symbols.dh_port_set_create!(task, ptr(Uint32Array.from(ports)), ports.length, ptr(out)),
+    );
+    return out[0]!;
+  }
+
+  addPortToSet(task: number, setName: number, portName: number): void {
+    this.check("port_set_add", this.symbols.dh_port_set_add!(task, setName, portName));
+  }
+
+  removePortFromSet(task: number, setName: number, portName: number): void {
+    this.check("port_set_remove", this.symbols.dh_port_set_remove!(task, setName, portName));
+  }
+
+  registerDeadName(task: number, portName: number, notifyName: number): void {
+    this.check(
+      "port_register_dead_name",
+      this.symbols.dh_port_register_dead_name!(task, portName, notifyName),
+    );
   }
 
   registerService(task: number, service: string, name: number): void {

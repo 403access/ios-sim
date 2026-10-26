@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import {
   DH_MAX_QUEUE_DEPTH,
+  DH_NOTIFY_DEAD,
   DH_THREAD_RUNNABLE,
   DH_TIMEOUT_FOREVER,
   DHStatus,
@@ -52,6 +53,25 @@ try {
   for (let index = 0; index < DH_MAX_QUEUE_DEPTH; index += 1) {
     assert.equal(host.receive(task, receive, 16, 0).status, DHStatus.OK);
   }
+
+  const receive2 = host.createReceivePort(task, "ffi-second");
+  const send2 = host.makeSend(task, host.namePortId(task, receive2));
+  const set = host.createPortSet(task, [receive, receive2]);
+  host.addPortToSet(task, set, receive2);
+  host.sendOrThrow(task, send2, 0, 55, Uint32Array.from([1]));
+  const setMessage = host.receive(task, set, 8, 100);
+  assert.deepEqual(Array.from(setMessage.body), [1]);
+  assert.equal(setMessage.messageId, 55);
+
+  const notify = host.createReceivePort(task, "ffi-notify");
+  const notifySend = host.makeSend(task, host.namePortId(task, notify));
+  const dead = host.createReceivePort(task, "ffi-dead");
+  const deadPort = host.namePortId(task, dead);
+  host.registerDeadName(task, dead, notifySend);
+  host.deallocateName(task, dead);
+  const notification = host.receive(task, notify, 8, 100);
+  assert.equal(notification.messageId, DH_NOTIFY_DEAD);
+  assert.equal(notification.body[0], deadPort);
 
   host.selftestBlocking();
   host.selftestInterrupt();

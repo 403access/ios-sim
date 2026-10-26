@@ -128,6 +128,14 @@ host.close();
 The module is Bun-only because of `bun:ffi`; constants/types can be imported without loading the
 library.
 
+## Port sets and notifications
+
+`KRN-006` adds receive sets over member ports and one-shot dead-name notifications. A receive on
+a set selects the first member with a queued message; sends broadcast the kernel condition
+variable, so a blocked set receive wakes. Removing/deallocating a receive port can enqueue a
+`DH_NOTIFY_DEAD` message on a registered notify port exactly once. The notification body is the
+dead port id.
+
 ## Thread lifecycle
 
 `THR-001` adds thread objects and thread ports to the native boundary. They are lifecycle
@@ -137,7 +145,6 @@ therefore proves the kernel-side identity/port/teardown contract, not real guest
 
 ## Not implemented in v1
 
-- port sets/notifications (KRN-006)
 - port/memory descriptors in messages (KRN-007)
 - Apple MIG wire compatibility (KRN-008)
 - memory objects/shared memory (KRN-009)
