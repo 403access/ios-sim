@@ -110,6 +110,7 @@ started.
 - [x] `inspect --objc` reports classes, categories, protocols, ivars, fixup format
 - [x] `objcStats` in the process result and CLI JSON (host/guest dispatch split)
 - [x] `inspect` lists legacy `LC_DYLD_INFO` imports as well as chained imports
+- [x] Architecture/progress dashboard (`scripts/architecture-progress.ts`, `bun run architecture:build`); regenerate it with each milestone
 
 ## Documentation
 

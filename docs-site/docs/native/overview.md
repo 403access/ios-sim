@@ -23,6 +23,12 @@ unmodified Apple app. The shipping workflow remains the remote Mac bridge on `ma
 require and the measured first milestone.
 :::
 
+:::info Architecture at a glance
+The [architecture dashboard](./dashboard.md) is a single-screen view of the goal, the nine layers,
+per-layer shipped/open work, milestones, and recent progress. It is generated from
+`scripts/architecture-progress.ts` by `bun run architecture:build`, which `docs:build` runs too.
+:::
+
 ## Proof, not a promise
 
 The layer runs both generated fixtures and a binary produced by Xcode's own `clang`:

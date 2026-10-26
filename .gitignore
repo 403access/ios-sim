@@ -35,3 +35,6 @@ fixtures/objc-window/build/
 
 # Stock-SDK symbol spike output
 fixtures/ios-app/build/
+
+# Generated architecture dashboard (docs:build regenerates it)
+docs-site/static/architecture-progress.html

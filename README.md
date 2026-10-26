@@ -159,7 +159,13 @@ bun run test:native     # native substrate tests only
 bun run native          # build and run the native CLI
 bun run docs:build
 bun run verify          # local full check
+bun run architecture:build  # regenerate the architecture/progress dashboard
 ```
+
+The native track's architecture dashboard is a single-screen view of the goal, the nine layers,
+shipped/open work, milestones, and recent progress. It is generated from
+`scripts/architecture-progress.ts` by `bun run architecture:build` (and by every `docs:build`) at
+`docs-site/static/architecture-progress.html`.
 
 Input requires `idb` on the host:
 

@@ -28,6 +28,7 @@ const sidebars: SidebarsConfig = {
         "native/limitations",
         "native/roadmap",
         "native/poc",
+        "native/dashboard",
       ],
     },
     {

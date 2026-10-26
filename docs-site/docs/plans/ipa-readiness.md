@@ -12,6 +12,13 @@ what is missing, which decisions gate the next phase, and what "done" would have
 
 Read [limitations](../native/limitations.md) first. This page does not soften them.
 
+:::tip Visual version
+The [architecture dashboard](../native/dashboard.md) shows the same layer model with per-layer
+progress, shipped/open work, milestones, and recent commits on one screen. Update
+`scripts/architecture-progress.ts` when a milestone lands; `bun run architecture:build` (also part
+of `docs:build`) regenerates the page.
+:::
+
 ## Two goals, one branch
 
 | Goal   | Statement                                                                                                      | Status                                                 |
