@@ -39,6 +39,7 @@ jobs:
       - name: Gated clang Mach-O test (prints skip reason on Linux)
         run: bunx vitest run tests/native
       - run: bun run corpus
+      - run: bun run repro
       - name: Fuzz parsers (100k per target in CI)
         run: bun scripts/fuzz-darwin.ts --iterations 100000
       - name: Performance baseline (CI scale)

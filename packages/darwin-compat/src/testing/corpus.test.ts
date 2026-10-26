@@ -36,6 +36,18 @@ describe("generated Mach-O corpus", () => {
     );
   });
 
+  it("builds byte-identical fixtures on every run", () => {
+    const first = buildCorpus();
+    const second = buildCorpus();
+    expect(first.map((entry) => entry.name)).toEqual(second.map((entry) => entry.name));
+    expect(first.map((entry) => entry.bytes.length)).toEqual(
+      second.map((entry) => entry.bytes.length),
+    );
+    for (let index = 0; index < first.length; index += 1) {
+      expect(Array.from(first[index]!.bytes)).toEqual(Array.from(second[index]!.bytes));
+    }
+  });
+
   it("keeps case names unique", () => {
     const cases = buildCorpus();
     expect(new Set(cases.map((entry) => entry.name)).size).toBe(cases.length);

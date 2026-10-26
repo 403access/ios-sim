@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 60 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 61 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -45,14 +45,14 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `REL-002` is the next task;
-`OBS-003` remains in the observability lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `OBS-003` is the next task;
+`THR-010` remains in the thread lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-29 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
-THR-012 stress, fuzzing, corpus, benchmarks, events, statistics, native CI, QA-005, and soak).
-This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-30 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
+THR-012 stress, fuzzing, corpus, benchmarks, events, statistics, native CI, QA-005, soak, and
+reproducible fixtures). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -176,7 +176,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-012`  | Concurrency stress             | P1       | M    | **done**  | THR-004          | 64 threads/processes, no leak                              |
 | `OBS-001`  | Event schema                   | P1       | S    | **done**  | A0               | Schema, redaction, NDJSON, process events                  |
 | `OBS-002`  | Runtime statistics             | P1       | S    | **done**  | A0               | Counters + `stats` command                                 |
-| `OBS-003`  | Missing symbol/MIG report      | P1       | M    | blocked   | OBS-001          | Actionable boot failure                                    |
+| `OBS-003`  | Missing symbol/MIG report      | P1       | M    | **next**  | OBS-001          | Actionable boot failure                                    |
 | `OBS-004`  | Trace export                   | P2       | M    | blocked   | OBS-001          | Chrome/JSON trace                                          |
 | `OBS-005`  | `trace/stats/why` CLI          | P2       | M    | blocked   | OBS-004          | Commands + redaction                                       |
 | `OBS-006`  | Fault diagnostics              | P1       | M    | blocked   | OBS-001          | PC/encoding/maps on fault                                  |
@@ -190,7 +190,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `QA-007`   | Coverage targets               | P2       | S    | blocked   | REL-001          | ≥90% parsers                                               |
 | `QA-008`   | Compatibility matrix           | P2       | M    | blocked   | QA-002           | Per-cell pass/skip/fail                                    |
 | `REL-001`  | Native CI job                  | P0       | S    | **done**  | A0               | Linux native job, visible skips, fuzz/corpus/bench         |
-| `REL-002`  | Reproducible fixtures          | P1       | S    | **next**  | QA-003           | Byte-identical builds                                      |
+| `REL-002`  | Reproducible fixtures          | P1       | S    | **done**  | QA-003           | 23 SHA-256 fixtures identical                              |
 | `REL-003`  | Packaging                      | P2       | M    | blocked   | REL-001          | Install artifact                                           |
 | `REL-004`  | Versioning policy              | P2       | S    | blocked   | REL-003          | Mismatch fails                                             |
 | `REL-005`  | Docs gates                     | P1       | S    | **ready** | A0               | Broken links fail                                          |

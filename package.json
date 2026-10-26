@@ -36,6 +36,7 @@
     "corpus": "bun scripts/build-corpus.ts",
     "bench": "bun scripts/bench.ts",
     "soak": "bun scripts/soak.ts",
+    "repro": "bun scripts/repro-fixtures.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "format": "bun fmt",
     "format:check": "bun fmt --check",
