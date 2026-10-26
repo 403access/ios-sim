@@ -101,6 +101,11 @@ const NUMBER_INSTANCE_SIZE = 16;
 const SWITCH_ON = 64;
 const SWITCH_INSTANCE_SIZE = 72;
 
+const SLIDER_VALUE = 64;
+const SLIDER_MIN = 72;
+const SLIDER_MAX = 80;
+const SLIDER_INSTANCE_SIZE = 88;
+
 const CONTROL_EVENT_TOUCH_UP_INSIDE = 64n;
 const CONTROL_EVENT_VALUE_CHANGED = 4096n;
 
@@ -1027,6 +1032,85 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(uiSwitch);
+
+    const slider = this.defineClass({
+      name: "UISlider",
+      superclass: "UIControl",
+      instanceSize: SLIDER_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "init",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            this.writeDouble(receiver, SLIDER_MIN, 0);
+            this.writeDouble(receiver, SLIDER_MAX, 1);
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "initWithFrame:",
+          types: "@48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",
+          run: (cpu, receiver) => {
+            this.writeRect(receiver, this.readRect(cpu));
+            this.writeDouble(receiver, SLIDER_MIN, 0);
+            this.writeDouble(receiver, SLIDER_MAX, 1);
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "setValue:",
+          types: "v24@0:8d16",
+          run: (cpu, receiver) => this.writeSliderValue(receiver, cpu.readVectorDouble(0)),
+        },
+        {
+          selector: "setValue:animated:",
+          types: "v28@0:8d16B24",
+          run: (cpu, receiver) => this.writeSliderValue(receiver, cpu.readVectorDouble(0)),
+        },
+        {
+          selector: "value",
+          types: "d16@0:8",
+          run: (cpu, receiver) => cpu.writeVectorDouble(0, this.readDouble(receiver, SLIDER_VALUE)),
+        },
+        {
+          selector: "setMinimumValue:",
+          types: "v24@0:8d16",
+          run: (cpu, receiver) => this.writeDouble(receiver, SLIDER_MIN, cpu.readVectorDouble(0)),
+        },
+        {
+          selector: "setMaximumValue:",
+          types: "v24@0:8d16",
+          run: (cpu, receiver) => this.writeDouble(receiver, SLIDER_MAX, cpu.readVectorDouble(0)),
+        },
+        {
+          selector: "minimumValue",
+          types: "d16@0:8",
+          run: (cpu, receiver) => cpu.writeVectorDouble(0, this.readDouble(receiver, SLIDER_MIN)),
+        },
+        {
+          selector: "maximumValue",
+          types: "d16@0:8",
+          run: (cpu, receiver) => cpu.writeVectorDouble(0, this.readDouble(receiver, SLIDER_MAX)),
+        },
+        {
+          selector: "touchesBegan:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.updateSliderFromTouch(cpu, receiver),
+        },
+        {
+          selector: "touchesMoved:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.updateSliderFromTouch(cpu, receiver),
+        },
+        {
+          selector: "touchesEnded:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => this.updateSliderFromTouch(cpu, receiver),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(slider);
 
     const string = this.defineClass({
       name: "NSString",
@@ -2331,6 +2415,35 @@ export class ObjcHost {
     return { value: 0n };
   }
 
+  /** Clamp a slider value to its configured range. */
+  private writeSliderValue(receiver: bigint, value: number): void {
+    const min = this.readDouble(receiver, SLIDER_MIN);
+    const max = this.readDouble(receiver, SLIDER_MAX);
+    const clamped = Math.min(Math.max(value, min), max);
+    this.writeDouble(receiver, SLIDER_VALUE, clamped);
+  }
+
+  /** Map the touch's x position inside the track to a value and notify. */
+  private updateSliderFromTouch(cpu: Arm64Cpu, receiver: bigint): SyscallResult {
+    const point = this.touchPoint(cpu);
+    if (point !== null) {
+      const rect = this.readStoredRect(receiver);
+      const min = this.readDouble(receiver, SLIDER_MIN);
+      const max = this.readDouble(receiver, SLIDER_MAX);
+      const ratio = rect.width <= 0 ? 0 : Math.min(1, Math.max(0, (point.x - rect.x) / rect.width));
+      this.writeDouble(receiver, SLIDER_VALUE, min + ratio * (max - min));
+    }
+    return this.sendControlActions(cpu, receiver, CONTROL_EVENT_VALUE_CHANGED);
+  }
+
+  private touchPoint(cpu: Arm64Cpu): { x: number; y: number } | null {
+    const touches = cpu.readRegister(2);
+    if (touches === 0n) return null;
+    const touch = this.memory.read(touches + 8n, 8);
+    if (touch === 0n) return null;
+    return { x: this.readDouble(touch, 8), y: this.readDouble(touch, 16) };
+  }
+
   private drainPool(receiver: bigint): void {
     if (this.poolOwners.get(receiver)) return;
     this.poolOwners.set(receiver, true);
@@ -2664,6 +2777,10 @@ export class ObjcHost {
       width: this.readDouble(receiver, VIEW_FRAME_WIDTH),
       height: this.readDouble(receiver, VIEW_FRAME_HEIGHT),
     };
+  }
+
+  private writeDouble(receiver: bigint, offset: number, value: number): void {
+    this.memory.write(receiver + BigInt(offset), 8, doubleBits(value));
   }
 
   private readDouble(receiver: bigint, offset: number): number {
@@ -3041,6 +3158,8 @@ export class ObjcHost {
     const klass = this.instances.get(view);
     if (klass?.name === "UISwitch") {
       this.paintSwitch(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
+    } else if (klass?.name === "UISlider") {
+      this.paintSlider(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     }
     if (klass?.name === "UILabel") {
       const textPointer = this.memory.read(view + BigInt(LABEL_TEXT), 8);
@@ -3106,13 +3225,106 @@ export class ObjcHost {
     const knobRadius = diameter / 2;
     const centreX = on ? x + rect.width - 2 - knobRadius : x + 2 + knobRadius;
     const centreY = y + height / 2;
-    const knob: Rgba = { r: 255, g: 255, b: 255, a: 255 * alpha };
-    for (let row = 0; row < diameter; row += 1) {
-      const dy = row + 0.5 - knobRadius;
-      const half = Math.sqrt(Math.max(0, knobRadius * knobRadius - dy * dy));
-      framebuffer.fillRect(centreX - half, y + 2 + row, half * 2, 1, knob, clip);
+    this.fillCircle(
+      framebuffer,
+      centreX,
+      centreY,
+      knobRadius,
+      {
+        r: 255,
+        g: 255,
+        b: 255,
+        a: 255 * alpha,
+      },
+      clip,
+    );
+  }
+
+  /** Rasterise a filled circle one horizontal span at a time. */
+  private fillCircle(
+    framebuffer: Framebuffer,
+    centreX: number,
+    centreY: number,
+    radius: number,
+    color: Rgba,
+    clip: { x: number; y: number; width: number; height: number },
+  ): void {
+    for (let row = 0; row < radius * 2; row += 1) {
+      const dy = row + 0.5 - radius;
+      const half = Math.sqrt(Math.max(0, radius * radius - dy * dy));
+      if (half <= 0) continue;
+      framebuffer.fillRect(centreX - half, centreY - radius + row, half * 2, 1, color, clip);
     }
-    void centreY;
+  }
+
+  /** Draw a filled track and a knob at the slider's value. */
+  private paintSlider(
+    view: bigint,
+    framebuffer: Framebuffer,
+    x: number,
+    y: number,
+    rect: { width: number; height: number },
+    clip: { x: number; y: number; width: number; height: number },
+    alpha: number,
+  ): void {
+    const min = this.readDouble(view, SLIDER_MIN);
+    const max = this.readDouble(view, SLIDER_MAX);
+    const span = max - min;
+    const ratio =
+      span === 0 ? 0 : Math.min(1, Math.max(0, (this.readDouble(view, SLIDER_VALUE) - min) / span));
+    const radius = Math.max(3, Math.min(rect.height / 2, 11));
+    const left = x + radius;
+    const right = x + rect.width - radius;
+    const centreY = y + rect.height / 2;
+    const trackHeight = Math.max(2, Math.round(rect.height / 6));
+    const knobX = left + (right - left) * ratio;
+    framebuffer.fillRect(
+      left,
+      centreY - trackHeight / 2,
+      right - left,
+      trackHeight,
+      {
+        r: 200,
+        g: 200,
+        b: 205,
+        a: 255 * alpha,
+      },
+      clip,
+    );
+    framebuffer.fillRect(
+      left,
+      centreY - trackHeight / 2,
+      Math.max(0, knobX - left),
+      trackHeight,
+      {
+        r: 52,
+        g: 199,
+        b: 89,
+        a: 255 * alpha,
+      },
+      clip,
+    );
+    this.fillCircle(
+      framebuffer,
+      knobX,
+      centreY,
+      radius,
+      { r: 190, g: 190, b: 195, a: 255 * alpha },
+      clip,
+    );
+    this.fillCircle(
+      framebuffer,
+      knobX,
+      centreY,
+      Math.max(1, radius - 2),
+      {
+        r: 255,
+        g: 255,
+        b: 255,
+        a: 255 * alpha,
+      },
+      clip,
+    );
   }
 
   private scrollOffsetX(view: bigint): number {

@@ -208,6 +208,16 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (BOOL)isOn;
 @end
 
+@interface UISlider : UIControl
+- (void)setValue:(double)value;
+- (void)setValue:(double)value animated:(BOOL)animated;
+- (double)value;
+- (void)setMinimumValue:(double)value;
+- (void)setMaximumValue:(double)value;
+- (double)minimumValue;
+- (double)maximumValue;
+@end
+
 @interface UIWindow : UIView
 - (void)makeKeyAndVisible;
 - (void)setRootViewController:(id)controller;

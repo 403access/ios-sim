@@ -200,6 +200,7 @@ These are original metadata with host IMP trampolines, not Apple classes:
 | `UIView`           | `-init`, `-initWithFrame:`, `-setFrame:`, `-frame`, `-setBackgroundColor:`, `-backgroundColor`, `-addSubview:`, `-setHidden:`, `-isHidden`, `-layoutSubviews` |
 | `UIControl`        | `-init`, `-addTarget:action:forControlEvents:`, `-removeTarget:action:forControlEvents:`, `-sendActionsForControlEvents:`                                     |
 | `UIButton`         | `UIControl` subclass; `-touchesEnded:withEvent:` sends touch-up actions                                                                                       |
+| `UISlider`         | `UIControl` subclass; `-setValue:`, `-setValue:animated:`, `-value`, min/max accessors, and drag updates that send value-changed                              |
 | `UISwitch`         | `UIControl` subclass; `-setOn:`, `-setOn:animated:`, `-isOn`, and a local `-touchesEnded:` that toggles then sends value-changed                              |
 | `UIWindow`         | `-initWithFrame:`, `-makeKeyAndVisible`, `-setRootViewController:`, `-rootViewController`                                                                     |
 | `UIViewController` | `-init`, `-view`, `-setView:`, `-loadView`; lifecycle callbacks below                                                                                         |
@@ -212,8 +213,9 @@ font at the label's frame. This is a proof of text reaching the framebuffer, not
 `UIControl` keeps a target/action list with its event mask. `UIButton` sends touch-up actions from
 `-touchesEnded:withEvent:`; `UISwitch` toggles its on byte and sends value-changed. Actions run from
 one generated stub, so several targets see the control as the sender and the caller still returns.
-`UISwitch` paints a deterministic pill and knob (green when on, grey when off); it has no animation,
-images, or layers. `UIView` ivars are fixed by this shim: frame doubles at 8/16/24/32, background object at 40,
+`UISwitch` paints a deterministic pill and knob (green when on, grey when off); `UISlider` paints a
+filled track and a knob at its value and maps each touch x inside the frame to `min + t × (max − min)`.
+Neither has animation, images, or layers, and sliders clamp at their ends. `UIView` ivars are fixed by this shim: frame doubles at 8/16/24/32, background object at 40,
 hidden byte at 48, clips-to-bounds byte at 49, alpha double at 56, instance size 64. Frames are **parent-relative**: painting
 and hit-testing accumulate origins down the tree, so a child inside a container lands at
 `container.origin + child.origin`. `clipsToBounds` intersects a view's clip with its frame for

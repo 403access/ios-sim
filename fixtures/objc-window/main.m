@@ -27,6 +27,8 @@ static NSMutableArray *gTimerColors;
 static UIView *gStatus;
 static int gTimerFires;
 static int gSwitchChanges;
+static int gSliderChanges;
+static UISlider *gSlider;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
@@ -131,6 +133,7 @@ static unsigned gTick;
 - (void)themeChanged:(id)notification;
 - (void)timerFired:(id)timer;
 - (void)switchChanged:(id)sender;
+- (void)sliderChanged:(id)sender;
 @end
 
 @implementation AppDelegate
@@ -215,6 +218,11 @@ static unsigned gTick;
              action:@selector(switchChanged:)
    forControlEvents:UIControlEventValueChanged];
   [window addSubview:toggle];
+  gSlider = [[UISlider alloc] initWithFrame:CGRectMake(20, 560, 300, 24)];
+  [gSlider addTarget:self
+              action:@selector(sliderChanged:)
+    forControlEvents:UIControlEventValueChanged];
+  [window addSubview:gSlider];
   [window makeKeyAndVisible];
   return YES;
 }
@@ -241,6 +249,11 @@ static unsigned gTick;
 - (void)switchChanged:(id)sender {
   (void)sender;
   gSwitchChanges++;
+}
+
+- (void)sliderChanged:(id)sender {
+  (void)sender;
+  gSliderChanges++;
 }
 
 - (void)timerFired:(id)timer {

@@ -202,6 +202,20 @@ describe("ObjC UIKit demo", () => {
     expect(result.program.memory.read(result.program.resolveExport("_switchChanges")!, 8)).toBe(1n);
   });
 
+  it("drags a UISlider, updates its value, and sends value-changed actions", () => {
+    const result = runDemo([{ fromX: 60, fromY: 572, toX: 300, toY: 572, steps: 4 }]);
+    expect(result.frames).toHaveLength(5);
+    const at = (frameIndex: number, x: number, y: number): number[] => {
+      const frame = result.frames[frameIndex]!;
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    // The track fills as the knob moves right.
+    expect(at(0, 250, 572)).toEqual([200, 200, 205]);
+    expect(at(4, 250, 572)).toEqual([52, 199, 89]);
+    expect(result.program.memory.read(result.program.resolveExport("_sliderChanges")!, 8)).toBe(4n);
+  });
+
   it("moves the view on ticks and fires timers on the virtual clock", () => {
     const result = runDemo([
       { kind: "tick" },
