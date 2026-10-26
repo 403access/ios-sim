@@ -124,6 +124,39 @@ try {
     host.dispatchTrap(task, seed | 0);
   }
 
+  const memory = host.createMemory(16);
+  host.writeMemory(memory, 0, Uint8Array.from([1, 2, 3, 4]));
+  const taskB = host.createTask(200);
+  const mapA = host.mapMemory(task, memory);
+  const mapB = host.mapMemory(taskB, memory);
+  assert.notEqual(mapA, mapB);
+  assert.deepEqual(Array.from(host.readMemoryAt(taskB, mapB, 4)), [1, 2, 3, 4]);
+  host.writeMemoryAt(task, mapA, Uint8Array.from([9, 8]));
+  assert.deepEqual(Array.from(host.readMemoryAt(taskB, mapB, 2)), [9, 8]);
+  const clone = host.cloneMemory(memory);
+  const cloneMap = host.mapMemory(task, clone);
+  host.writeMemoryAt(task, cloneMap, Uint8Array.from([7]));
+  assert.deepEqual(Array.from(host.readMemory(memory, 0, 1)), [9]);
+  host.unmapMemory(task, mapA);
+  host.unmapMemory(taskB, mapB);
+  host.unmapMemory(task, cloneMap);
+  host.destroyMemory(memory);
+  host.destroyMemory(clone);
+  host.destroyTask(taskB);
+
+  const quotaTask = host.createTask(300);
+  host.setQuotas(quotaTask, 2, 1, 0x1000);
+  assert.deepEqual(host.usage(quotaTask), { ports: 1, messages: 0, memoryBytes: 0 });
+  const quotaReceive = host.createReceivePort(quotaTask, "quota");
+  assert.throws(() => host.createReceivePort(quotaTask, "quota2"), /dh_quota/);
+  const quotaSend = host.makeSend(quotaTask, host.namePortId(quotaTask, quotaReceive));
+  host.sendOrThrow(quotaTask, quotaSend, 0, 1, Uint32Array.from([1]));
+  assert.equal(host.send(quotaTask, quotaSend, 0, 2, Uint32Array.from([2])), DHStatus.Quota);
+  const quotaMemory = host.createMemory(0x2000);
+  assert.throws(() => host.mapMemory(quotaTask, quotaMemory), /dh_quota/);
+  host.destroyMemory(quotaMemory);
+  host.destroyTask(quotaTask);
+
   host.selftestBlocking();
   host.selftestInterrupt();
   host.selftestThreads();

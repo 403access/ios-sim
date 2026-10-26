@@ -132,6 +132,32 @@ int main(void) {
   CHECK(dh_send(task, once, 0, 70, body, 1) == DH_ERR_INVALID_NAME, "send-once consumed");
   (void)transfer_box;
 
+  uint32_t quota_task = 0;
+  CHECK(dh_task_create(300, &quota_task) == DH_OK, "quota task");
+  CHECK(dh_task_set_quotas(quota_task, 2, 1, 0x1000) == DH_OK, "set quotas");
+  uint32_t quota_ports = 0, quota_messages = 0, quota_memory = 0;
+  CHECK(dh_task_get_usage(quota_task, &quota_ports, &quota_messages, &quota_memory) == DH_OK,
+        "quota usage");
+  CHECK(quota_ports == 1 && quota_messages == 0 && quota_memory == 0, "initial quota usage");
+  uint32_t quota_receive = 0;
+  CHECK(dh_port_create_receive(quota_task, "quota", &quota_receive) == DH_OK, "quota receive");
+  uint32_t quota_receive2 = 0;
+  CHECK(dh_port_create_receive(quota_task, "quota2", &quota_receive2) == DH_ERR_QUOTA,
+        "port quota enforced");
+  uint32_t quota_port_id = 0;
+  CHECK(dh_name_port_id(quota_task, quota_receive, &quota_port_id) == DH_OK, "quota port id");
+  uint32_t quota_send = 0;
+  CHECK(dh_port_make_send(quota_task, quota_port_id, &quota_send) == DH_OK, "quota send");
+  CHECK(dh_send(quota_task, quota_send, 0, 1, body, 1) == DH_OK, "quota first message");
+  CHECK(dh_send(quota_task, quota_send, 0, 2, body, 1) == DH_ERR_QUOTA, "message quota");
+  uint32_t quota_memory_id = 0;
+  CHECK(dh_memory_create(0x2000, &quota_memory_id) == DH_OK, "quota memory object");
+  uint32_t quota_map = 0;
+  CHECK(dh_memory_map(quota_task, quota_memory_id, 0, &quota_map) == DH_ERR_QUOTA,
+        "memory quota enforced");
+  CHECK(dh_memory_destroy(quota_memory_id) == DH_OK, "destroy quota memory");
+  CHECK(dh_task_destroy(quota_task) == DH_OK, "destroy quota task");
+
   CHECK(dh_trap_count() >= 6, "trap table size");
   CHECK(dh_trap_number(0) == -26 && dh_trap_implemented(0) == 1, "reply-port trap");
   uint32_t trap_value = 0;

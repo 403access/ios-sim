@@ -143,6 +143,12 @@ variable, so a blocked set receive wakes. Removing/deallocating a receive port c
 `DH_NOTIFY_DEAD` message on a registered notify port exactly once. The notification body is the
 dead port id.
 
+## Quotas
+
+`KRN-011` adds per-task quotas for ports, queued messages, and mapped memory bytes. Defaults are
+256 ports, 1024 messages, and 64 MiB of mappings. Exceeding a quota returns `DH_ERR_QUOTA`; lowering
+a quota does not retroactively evict existing resources. Usage is reported for diagnostics.
+
 ## Mach trap parity
 
 `KRN-010` exposes a table for the exercised Mach traps: reply port, thread self, and task self are

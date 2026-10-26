@@ -49,6 +49,9 @@ typedef struct {
   uint32_t pid;
   uint32_t interrupted;
   uint32_t next_name;
+  uint32_t quota_ports;
+  uint32_t quota_messages;
+  uint32_t quota_memory;
   DHName names[DH_MAX_NAMES_PER_TASK];
 } DHTask;
 
@@ -127,7 +130,38 @@ static DHMessagePort *port_locked(uint32_t port_id) {
   return NULL;
 }
 
+static uint32_t port_usage_locked(uint32_t owner) {
+  uint32_t ports = 0;
+  for (size_t index = 0; index < DH_MAX_PORTS; ++index) {
+    if (g_ports[index].used && g_ports[index].receive_owner == owner) ports += 1;
+  }
+  return ports;
+}
+
+static uint32_t message_usage_locked(uint32_t owner) {
+  uint32_t messages = 0;
+  for (size_t index = 0; index < DH_MAX_PORTS; ++index) {
+    if (g_ports[index].used && g_ports[index].receive_owner == owner) messages += g_ports[index].count;
+  }
+  return messages;
+}
+
+static uint32_t mapping_usage_locked(uint32_t owner) {
+  uint32_t bytes = 0;
+  for (size_t index = 0; index < DH_MAX_MAPPINGS; ++index) {
+    if (g_mappings[index].used && g_mappings[index].task_id == owner) bytes += g_mappings[index].size;
+  }
+  return bytes;
+}
+
+static int port_quota_exceeded_locked(uint32_t owner) {
+  if (owner == 0) return 0;
+  DHTask *owner_task = task_locked(owner);
+  return owner_task == NULL || port_usage_locked(owner) >= owner_task->quota_ports;
+}
+
 static DHMessagePort *alloc_port_locked(const char *label, uint32_t owner) {
+  if (port_quota_exceeded_locked(owner)) return NULL;
   for (size_t index = 0; index < DH_MAX_PORTS; ++index) {
     if (!g_ports[index].used) {
       DHMessagePort *port = &g_ports[index];
@@ -292,6 +326,9 @@ int dh_task_create(uint32_t pid, uint32_t *out_task) {
       task->used = 1;
       task->id = g_next_task_id++;
       task->pid = pid;
+      task->quota_ports = DH_DEFAULT_QUOTA_PORTS;
+      task->quota_messages = DH_DEFAULT_QUOTA_MESSAGES;
+      task->quota_memory = DH_DEFAULT_QUOTA_MEMORY;
       break;
     }
   }
@@ -301,9 +338,10 @@ int dh_task_create(uint32_t pid, uint32_t *out_task) {
   }
   DHMessagePort *task_port = alloc_port_locked("task", task->id);
   if (task_port == NULL) {
+    int quota = port_quota_exceeded_locked(task->id);
     task->used = 0;
     pthread_mutex_unlock(&g_lock);
-    return DH_ERR_NO_SPACE;
+    return quota ? DH_ERR_QUOTA : DH_ERR_NO_SPACE;
   }
   uint32_t name = 0;
   int status = alloc_name_locked(task, task_port->id, DH_RIGHT_RECEIVE | DH_RIGHT_SEND, &name);
@@ -376,6 +414,40 @@ int dh_task_interrupt(uint32_t task_id) {
   return DH_OK;
 }
 
+int dh_task_set_quotas(uint32_t task_id, uint32_t max_ports, uint32_t max_messages,
+                       uint32_t max_memory_bytes) {
+  if (max_ports == 0 || max_messages == 0) return DH_ERR_INVALID_ARGUMENT;
+  pthread_mutex_lock(&g_lock);
+  DHTask *task = task_locked(task_id);
+  if (task == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_TASK;
+  }
+  task->quota_ports = max_ports;
+  task->quota_messages = max_messages;
+  task->quota_memory = max_memory_bytes;
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
+int dh_task_get_usage(uint32_t task_id, uint32_t *out_ports, uint32_t *out_messages,
+                      uint32_t *out_memory_bytes) {
+  if (out_ports == NULL || out_messages == NULL || out_memory_bytes == NULL) {
+    return DH_ERR_INVALID_ARGUMENT;
+  }
+  pthread_mutex_lock(&g_lock);
+  DHTask *task = task_locked(task_id);
+  if (task == NULL) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_INVALID_TASK;
+  }
+  *out_ports = port_usage_locked(task_id);
+  *out_messages = message_usage_locked(task_id);
+  *out_memory_bytes = mapping_usage_locked(task_id);
+  pthread_mutex_unlock(&g_lock);
+  return DH_OK;
+}
+
 int dh_port_create_receive(uint32_t task_id, const char *label, uint32_t *out_name) {
   if (out_name == NULL) return DH_ERR_INVALID_ARGUMENT;
   pthread_mutex_lock(&g_lock);
@@ -384,10 +456,11 @@ int dh_port_create_receive(uint32_t task_id, const char *label, uint32_t *out_na
     pthread_mutex_unlock(&g_lock);
     return DH_ERR_INVALID_TASK;
   }
+  int quota = port_quota_exceeded_locked(task_id);
   DHMessagePort *port = alloc_port_locked(label, task_id);
   if (port == NULL) {
     pthread_mutex_unlock(&g_lock);
-    return DH_ERR_NO_SPACE;
+    return quota ? DH_ERR_QUOTA : DH_ERR_NO_SPACE;
   }
   int status = alloc_name_locked(task, port->id, DH_RIGHT_RECEIVE, out_name);
   if (status != DH_OK) destroy_port_locked(port);
@@ -403,10 +476,11 @@ int dh_reply_port(uint32_t task_id, uint32_t *out_name) {
     pthread_mutex_unlock(&g_lock);
     return DH_ERR_INVALID_TASK;
   }
+  int quota = port_quota_exceeded_locked(task_id);
   DHMessagePort *port = alloc_port_locked("reply", task_id);
   if (port == NULL) {
     pthread_mutex_unlock(&g_lock);
-    return DH_ERR_NO_SPACE;
+    return quota ? DH_ERR_QUOTA : DH_ERR_NO_SPACE;
   }
   int status = alloc_name_locked(task, port->id, DH_RIGHT_RECEIVE | DH_RIGHT_SEND, out_name);
   if (status != DH_OK) destroy_port_locked(port);
@@ -493,10 +567,11 @@ int dh_thread_create(uint32_t task_id, uint32_t *out_thread, uint32_t *out_port_
     pthread_mutex_unlock(&g_lock);
     return DH_ERR_NO_SPACE;
   }
+  int quota = port_quota_exceeded_locked(task->id);
   DHMessagePort *port = alloc_port_locked("thread", task->id);
   if (port == NULL) {
     pthread_mutex_unlock(&g_lock);
-    return DH_ERR_NO_SPACE;
+    return quota ? DH_ERR_QUOTA : DH_ERR_NO_SPACE;
   }
   uint32_t name = 0;
   int status = alloc_name_locked(task, port->id, DH_RIGHT_RECEIVE | DH_RIGHT_SEND, &name);
@@ -862,6 +937,10 @@ int dh_memory_map(uint32_t task_id, uint32_t id, uint64_t address, uint32_t *out
     pthread_mutex_unlock(&g_lock);
     return DH_ERR_NO_SPACE;
   }
+  if (mapping_usage_locked(task_id) + memory->size > task->quota_memory) {
+    pthread_mutex_unlock(&g_lock);
+    return DH_ERR_QUOTA;
+  }
   if (address == 0) {
     address = (g_next_mapping_address + 0xfffull) & ~0xfffull;
   }
@@ -1071,6 +1150,13 @@ static int send_impl(uint32_t task_id, uint32_t remote, uint32_t local, int32_t 
   if (port->count >= DH_MAX_QUEUE_DEPTH) {
     pthread_mutex_unlock(&g_lock);
     return DH_ERR_QUEUE_FULL;
+  }
+  if (port->receive_owner != 0) {
+    DHTask *owner = task_locked(port->receive_owner);
+    if (owner != NULL && message_usage_locked(owner->id) >= owner->quota_messages) {
+      pthread_mutex_unlock(&g_lock);
+      return DH_ERR_QUOTA;
+    }
   }
 
   size_t size = sizeof(DHMessage) + (size_t)count * sizeof(uint32_t);

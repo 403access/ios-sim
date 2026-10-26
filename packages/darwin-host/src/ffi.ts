@@ -48,6 +48,7 @@ export enum DHStatus {
   DuplicateService = 10,
   NotFound = 11,
   State = 12,
+  Quota = 13,
 }
 
 export const DH_STATUS_NAMES: Readonly<Record<number, string>> = {
@@ -64,6 +65,7 @@ export const DH_STATUS_NAMES: Readonly<Record<number, string>> = {
   10: "dh_duplicate_service",
   11: "dh_not_found",
   12: "dh_state",
+  13: "dh_quota",
 };
 
 export class DarwinHostError extends Error {
@@ -113,6 +115,8 @@ const SYMBOLS = {
   dh_task_create: { args: ["u32", "ptr"], returns: "i32" },
   dh_task_destroy: { args: ["u32"], returns: "i32" },
   dh_task_interrupt: { args: ["u32"], returns: "i32" },
+  dh_task_set_quotas: { args: ["u32", "u32", "u32", "u32"], returns: "i32" },
+  dh_task_get_usage: { args: ["u32", "ptr", "ptr", "ptr"], returns: "i32" },
   dh_thread_create: { args: ["u32", "ptr", "ptr"], returns: "i32" },
   dh_thread_terminate: { args: ["u32", "u32"], returns: "i32" },
   dh_thread_join: { args: ["u32", "u32", "u32"], returns: "i32" },
@@ -138,6 +142,16 @@ const SYMBOLS = {
     args: ["u32", "u32", "ptr", "u32", "ptr", "ptr", "ptr", "ptr", "u32", "ptr"],
     returns: "i32",
   },
+  dh_memory_create: { args: ["u32", "ptr"], returns: "i32" },
+  dh_memory_destroy: { args: ["u32"], returns: "i32" },
+  dh_memory_size: { args: ["u32", "ptr"], returns: "i32" },
+  dh_memory_write: { args: ["u32", "u32", "ptr", "u32"], returns: "i32" },
+  dh_memory_read: { args: ["u32", "u32", "ptr", "u32", "ptr"], returns: "i32" },
+  dh_memory_clone: { args: ["u32", "ptr"], returns: "i32" },
+  dh_memory_map: { args: ["u32", "u32", "u64", "ptr"], returns: "i32" },
+  dh_memory_unmap: { args: ["u32", "u64"], returns: "i32" },
+  dh_memory_write_at: { args: ["u32", "u64", "ptr", "u32"], returns: "i32" },
+  dh_memory_read_at: { args: ["u32", "u64", "ptr", "u32", "ptr"], returns: "i32" },
   dh_kernel_stats: { args: ["ptr", "ptr", "ptr"], returns: "i32" },
   dh_selftest_blocking: { args: [], returns: "i32" },
   dh_selftest_interrupt: { args: [], returns: "i32" },
@@ -194,6 +208,24 @@ export class NativeHost {
 
   interruptTask(task: number): void {
     this.check("task_interrupt", this.symbols.dh_task_interrupt!(task));
+  }
+
+  setQuotas(task: number, ports: number, messages: number, memoryBytes: number): void {
+    this.check(
+      "task_set_quotas",
+      this.symbols.dh_task_set_quotas!(task, ports, messages, memoryBytes),
+    );
+  }
+
+  usage(task: number): { ports: number; messages: number; memoryBytes: number } {
+    const ports = new Uint32Array(1);
+    const messages = new Uint32Array(1);
+    const memory = new Uint32Array(1);
+    this.check(
+      "task_get_usage",
+      this.symbols.dh_task_get_usage!(task, ptr(ports), ptr(messages), ptr(memory)),
+    );
+    return { ports: ports[0]!, messages: messages[0]!, memoryBytes: memory[0]! };
   }
 
   createThread(task: number): { thread: number; portName: number } {
@@ -377,6 +409,69 @@ export class NativeHost {
       remoteName: remote[0]!,
       replyName: local[0]!,
     };
+  }
+
+  createMemory(size: number): number {
+    const out = new Uint32Array(1);
+    this.check("memory_create", this.symbols.dh_memory_create!(size, ptr(out)));
+    return out[0]!;
+  }
+
+  destroyMemory(id: number): void {
+    this.check("memory_destroy", this.symbols.dh_memory_destroy!(id));
+  }
+
+  memorySize(id: number): number {
+    const out = new Uint32Array(1);
+    this.check("memory_size", this.symbols.dh_memory_size!(id, ptr(out)));
+    return out[0]!;
+  }
+
+  writeMemory(id: number, offset: number, bytes: Uint8Array): void {
+    this.check("memory_write", this.symbols.dh_memory_write!(id, offset, ptr(bytes), bytes.length));
+  }
+
+  readMemory(id: number, offset: number, capacity: number): Uint8Array {
+    const out = new Uint8Array(capacity);
+    const length = new Uint32Array(1);
+    this.check(
+      "memory_read",
+      this.symbols.dh_memory_read!(id, offset, ptr(out), capacity, ptr(length)),
+    );
+    return out.slice(0, length[0]!);
+  }
+
+  cloneMemory(id: number): number {
+    const out = new Uint32Array(1);
+    this.check("memory_clone", this.symbols.dh_memory_clone!(id, ptr(out)));
+    return out[0]!;
+  }
+
+  mapMemory(task: number, id: number, address = 0n): bigint {
+    const out = new BigUint64Array(1);
+    this.check("memory_map", this.symbols.dh_memory_map!(task, id, address, ptr(out)));
+    return out[0]!;
+  }
+
+  unmapMemory(task: number, address: bigint): void {
+    this.check("memory_unmap", this.symbols.dh_memory_unmap!(task, address));
+  }
+
+  writeMemoryAt(task: number, address: bigint, bytes: Uint8Array): void {
+    this.check(
+      "memory_write_at",
+      this.symbols.dh_memory_write_at!(task, address, ptr(bytes), bytes.length),
+    );
+  }
+
+  readMemoryAt(task: number, address: bigint, capacity: number): Uint8Array {
+    const out = new Uint8Array(capacity);
+    const length = new Uint32Array(1);
+    this.check(
+      "memory_read_at",
+      this.symbols.dh_memory_read_at!(task, address, ptr(out), capacity, ptr(length)),
+    );
+    return out.slice(0, length[0]!);
   }
 
   stats(): KernelStats {

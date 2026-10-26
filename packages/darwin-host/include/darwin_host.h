@@ -66,7 +66,8 @@ typedef enum {
   DH_ERR_NO_SPACE = 9,
   DH_ERR_DUPLICATE_SERVICE = 10,
   DH_ERR_NOT_FOUND = 11,
-  DH_ERR_STATE = 12
+  DH_ERR_STATE = 12,
+  DH_ERR_QUOTA = 13
 } DHStatus;
 
 uint32_t dh_abi_version(void);
@@ -77,6 +78,15 @@ int dh_kernel_reset(void);
 int dh_task_create(uint32_t pid, uint32_t *out_task);
 int dh_task_destroy(uint32_t task);
 int dh_task_interrupt(uint32_t task);
+
+/* Per-task quotas. Defaults are generous; lowering affects future allocations. */
+#define DH_DEFAULT_QUOTA_PORTS 256u
+#define DH_DEFAULT_QUOTA_MESSAGES 1024u
+#define DH_DEFAULT_QUOTA_MEMORY (64u * 1024u * 1024u)
+int dh_task_set_quotas(uint32_t task, uint32_t max_ports, uint32_t max_messages,
+                       uint32_t max_memory_bytes);
+int dh_task_get_usage(uint32_t task, uint32_t *out_ports, uint32_t *out_messages,
+                      uint32_t *out_memory_bytes);
 
 /* Thread lifecycle objects. Execution/scheduling is layered above this ABI. */
 int dh_thread_create(uint32_t task, uint32_t *out_thread, uint32_t *out_port_name);

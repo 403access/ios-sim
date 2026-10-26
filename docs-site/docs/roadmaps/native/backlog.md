@@ -23,35 +23,32 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 38 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 39 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
 Pick from the top. A task marked with `*` needs a licensed-Mac observation window; it can be
 started by a human with host access, not by a Linux-only agent.
 
-| Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                     |
-| ----: | --------- | ------------- | ---- | ------- | ---------------------------------------------------------------------------- |
-|     1 | `KRN-011` | Kernel        | S    | KRN-005 | Per-task port/message/memory quotas; teardown test                           |
-|     2 | `KRN-012` | Kernel        | M    | KRN-005 | Native stress/soak; 16 threads/1M messages                                   |
-|     3 | `THR-008` | Threads       | L    | THR-003 | kqueue/timers; event loop wakeup, no busy wait                               |
-|     4 | `THR-009` | Threads       | S    | THR-003 | Clock/timebase; sleep/wake accuracy                                          |
-|     5 | `THR-012` | Threads       | M    | THR-004 | Concurrency stress; 64 threads/processes, no leak                            |
-|     6 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                     |
-|     7 | `KRN-012` | Kernel        | M    | KRN-005 | 16-thread/1M-message stress; leak check                                      |
-|     8 | `LDR-001` | Loader        | M    | A0      | Legacy `LC_DYLD_INFO` rebase/bind decoder; opcode fixtures resolve correctly |
-|     9 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash  |
-|    10 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                                |
-|    11 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                           |
-|    12 | `REL-001` | Release       | S    | A0      | Native CI job on Linux (and macOS evidence job); skip reasons visible        |
-|    13 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                 |
-|    14 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                 |
-|    15 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)       |
+| Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                    |
+| ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------------------------------- |
+|     1 | `KRN-012` | Kernel        | M    | KRN-005 | Native stress/soak; 16 threads/1M messages                                  |
+|     2 | `THR-008` | Threads       | L    | THR-003 | kqueue/timers; event loop wakeup, no busy wait                              |
+|     3 | `THR-009` | Threads       | S    | THR-003 | Clock/timebase; sleep/wake accuracy                                         |
+|     4 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                    |
+|     5 | `THR-012` | Threads       | M    | THR-004 | Concurrency stress; 64 threads/processes, no leak                           |
+|     6 | `LDR-002` | Loader        | M    | LDR-001 | Lazy/weak binding; lazy/weak tests                                          |
+|     9 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
+|    10 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                               |
+|    11 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                          |
+|    12 | `REL-001` | Release       | S    | A0      | Native CI job on Linux (and macOS evidence job); skip reasons visible       |
+|    13 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                |
+|    14 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                |
+|    15 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window.
-`KRN-011` is the next task. `THR-008` remains in the thread lane.
-lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `KRN-012` is the next task;
+`THR-008` remains in the thread lane. Do not start two critical-path tasks at once.
 
 ### First twelve sessions
 
@@ -112,7 +109,7 @@ exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evi
 This spike does not satisfy UI-G1 or change the critical path. It exists to de-risk the host
 window/software renderer boundary while KRN/LDR/RT gates remain open.
 
-### Kernel boundary — KRN-001..010 (done)
+### Kernel boundary — KRN-001..011 (done)
 
 | ID        | Task                           | Evidence                                                                |
 | --------- | ------------------------------ | ----------------------------------------------------------------------- |
@@ -149,8 +146,8 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `KRN-008`  | MIG wire compatibility         | P1       | L    | blocked   | KRN-007          | Reference vectors; unknown routine report                  |
 | `KRN-009`  | Memory objects/shared memory   | P1       | L    | **done**  | KRN-003          | Shared mappings, clone isolation, unmap tests              |
 | `KRN-010`  | Mach trap parity table         | P1       | M    | **done**  | KRN-005          | Trap table/dispatch, unsupported vectors, fuzz             |
-| `KRN-011`  | Quotas/resource accounting     | P2       | S    | **next**  | KRN-005          | Quota teardown; no cross-task impact                       |
-| `KRN-012`  | Native stress/soak             | P1       | M    | **ready** | KRN-005          | 16 threads/1M messages, leak-free                          |
+| `KRN-011`  | Quotas/resource accounting     | P2       | S    | **done**  | KRN-005          | Port/message/memory quotas, usage, enforcement             |
+| `KRN-012`  | Native stress/soak             | P1       | M    | **next**  | KRN-005          | 16 threads/1M messages, leak-free                          |
 | `THR-001`  | Threads/thread ports           | P0       | M    | **done**  | KRN-003          | Thread lifecycle objects/ports; C + FFI tests              |
 | `THR-002`  | Scheduler/run queue            | P0       | L    | **done**  | THR-001          | Round-robin CPU scheduler, block/unblock, budgets          |
 | `THR-003`  | Blocking syscall bridge        | P0       | M    | **done**  | KRN-005, THR-002 | `BlockingMachBridge` park/wake/timeout/interrupt tests     |
