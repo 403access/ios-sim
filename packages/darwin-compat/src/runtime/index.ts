@@ -5,3 +5,4 @@ export * from "./pthread.js";
 export * from "./signals.js";
 export * from "./process-table.js";
 export * from "./process-runtime.js";
+export * from "./event-loop.js";

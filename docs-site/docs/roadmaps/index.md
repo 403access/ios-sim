@@ -69,7 +69,8 @@ single commit.
   process syscalls (`THR-006a`), spawn argv/env/stdio redirection (`THR-007`), and native port
   sets/dead-name notifications (`KRN-006`), port descriptors in transit (`KRN-007`), and shared
   memory objects/mappings (`KRN-009`), Mach-trap parity (`KRN-010`), per-task quotas
-  (`KRN-011`), and a 16-thread/1M-message stress (`KRN-012`).
+  (`KRN-011`), a 16-thread/1M-message stress (`KRN-012`), and timer/source event wakeups
+  (`THR-008`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,

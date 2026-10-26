@@ -195,7 +195,7 @@ RT-010. THR-005 adds guest signal handlers, masks, raise/kill, default actions, 
 save/restore. THR-006 adds a ProcessTable with memory/CPU fork cloning, exec replacement,
 waitpid/reaping, and process groups; THR-006a wires it into guest syscalls through `ProcessRuntime`.
 THR-007 adds argv/env stack construction and stdout/stderr spawn redirection; arbitrary `dup2`
-actions remain future work. THR-008 (kqueue/timers) is next.
+actions remain future work. THR-008 adds a guest timer/source event loop with deadline ticks; THR-009 (clock/timebase) is next.
 
 | ID      | Task                               | Size | Depends          | Deliverable                                      | Acceptance                                                                     |
 | ------- | ---------------------------------- | ---- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |

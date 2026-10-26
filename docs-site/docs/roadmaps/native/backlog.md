@@ -23,7 +23,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 40 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 41 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -32,23 +32,21 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                    |
 | ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------------------------------- |
-|     1 | `THR-008` | Threads       | L    | THR-003 | kqueue/timers; event loop wakeup, no busy wait                              |
-|     2 | `THR-009` | Threads       | S    | THR-003 | Clock/timebase; sleep/wake accuracy                                         |
-|     3 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                    |
-|     4 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                    |
-|     5 | `THR-012` | Threads       | M    | THR-004 | Concurrency stress; 64 threads/processes, no leak                           |
-|     6 | `LDR-002` | Loader        | M    | LDR-001 | Lazy/weak binding; lazy/weak tests                                          |
-|     9 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
-|    10 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                               |
-|    11 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                          |
-|    12 | `REL-001` | Release       | S    | A0      | Native CI job on Linux (and macOS evidence job); skip reasons visible       |
-|    13 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                |
-|    14 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                |
-|    15 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
+|     1 | `THR-009` | Threads       | S    | THR-003 | Clock/timebase; sleep/wake accuracy                                         |
+|     2 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                    |
+|     3 | `THR-012` | Threads       | M    | THR-004 | Concurrency stress; 64 threads/processes, no leak                           |
+|     4 | `LDR-002` | Loader        | M    | LDR-001 | Lazy/weak binding; lazy/weak tests                                          |
+|     5 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
+|     6 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                               |
+|     7 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                          |
+|     8 | `REL-001` | Release       | S    | A0      | Native CI job on Linux; skip reasons visible                                |
+|     9 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                |
+|    10 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                |
+|    11 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `KRN-012` is the next task;
-`THR-008` remains in the thread lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `THR-009` is the next task;
+`LDR-001` remains in the loader lane. Do not start two critical-path tasks at once.
 
 ### First twelve sessions
 
@@ -121,7 +119,7 @@ window/software renderer boundary while KRN/LDR/RT gates remain open.
 
 Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 
-### Threads — THR-001..007 (done)
+### Threads — THR-001..008 (done)
 
 | ID         | Task                                             | Evidence                                                                                    |
 | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
@@ -157,8 +155,8 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-006`  | fork/exec/waitpid/groups       | P1       | L    | **done**  | THR-001          | ProcessTable fork/exec/waitpid/groups; status tests        |
 | `THR-006a` | Process syscall wiring         | P1       | M    | **done**  | THR-006          | fork/exec/waitpid traps; ProcessRuntime integration test   |
 | `THR-007`  | posix_spawn attributes         | P2       | M    | **done**  | THR-006a         | argv/env stack, stdout/stderr redirection, spawn API       |
-| `THR-008`  | kqueue/timers                  | P2       | L    | **next**  | THR-003          | Precision/wakeup, no busy wait                             |
-| `THR-009`  | Clock/timebase                 | P2       | S    | blocked   | THR-003          | Timebase/sleep accuracy                                    |
+| `THR-008`  | kqueue/timers                  | P2       | L    | **done**  | THR-003          | Timer/source event loop, park/wake, tick tests             |
+| `THR-009`  | Clock/timebase                 | P2       | S    | **next**  | THR-003          | Timebase/sleep accuracy                                    |
 | `THR-010`  | Jetsam/memory pressure         | P2       | M    | blocked   | KRN-009          | Pressure/kill policy                                       |
 | `THR-011`  | Roles/sessions/contracts       | P2       | M    | blocked   | THR-006          | Job identity/ports/teardown                                |
 | `THR-012`  | Concurrency stress             | P1       | M    | blocked   | THR-004          | 64 threads/processes, no leak                              |
