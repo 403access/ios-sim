@@ -31,7 +31,7 @@ started.
 - [x] Parse `__objc_classlist`, `class_t`, `class_ro_t`
 - [x] Absolute and relative method lists
 - [x] Selector resolution through `__objc_selrefs`
-- [x] `objc_msgSend`, `objc_msgSendSuper2`
+- [x] `objc_msgSend`, `objc_msgSendSuper2` (guest superclass test)
 - [x] `+alloc`, `-init`, `-class`, `-isKindOfClass:`, `-respondsToSelector:`
 - [x] `+initialize` once per class through a register-saving resend stub
 - [x] `+load` before the entry point through a generated prologue

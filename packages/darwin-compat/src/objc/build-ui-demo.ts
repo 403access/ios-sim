@@ -49,6 +49,7 @@ export const DEMO_VIEW_COLOR = { r: 1, g: 0, b: 0, a: 1 } as const;
 export const DEMO_CLASS_NAME = "AppDelegate";
 export const DEMO_VIEW_CLASS_NAME = "TapView";
 export const DEMO_CATEGORY_NAME = "Window";
+const DEMO_BASE_CLASS_NAME = "BaseView";
 
 const SELECTORS = {
   alloc: "alloc",
@@ -93,7 +94,9 @@ type SlotName =
   | "assocGet"
   | "weakSlot"
   | "weakSet"
-  | "weakLoad";
+  | "weakLoad"
+  | "msgSendSuper"
+  | "superStruct";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -111,10 +114,15 @@ interface Plan {
   readonly tapIvars: number;
   readonly tapProtocols: number;
   readonly tappableProtocol: number;
+  readonly baseRo: number;
+  readonly baseMetaRo: number;
+  readonly baseMethods: number;
   readonly appClass: number;
   readonly appMeta: number;
   readonly tapClass: number;
   readonly tapMeta: number;
+  readonly baseClass: number;
+  readonly baseMeta: number;
   readonly classList: number;
   readonly categoryList: number;
   readonly protocolList: number;
@@ -201,12 +209,16 @@ function planData(): Plan {
     "weakSlot",
     "weakSet",
     "weakLoad",
+    "msgSendSuper",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
     slotOffsets[name] = cursor;
     cursor += 8;
   }
+  const superStruct = cursor;
+  cursor += 16;
+  slotOffsets.superStruct = superStruct;
   const slotsEnd = cursor;
 
   const stringsStart = cursor;
@@ -222,6 +234,7 @@ function planData(): Plan {
     DEMO_CLASS_NAME,
     DEMO_VIEW_CLASS_NAME,
     DEMO_CATEGORY_NAME,
+    DEMO_BASE_CLASS_NAME,
     "Tappable",
     "_pressed",
     "B",
@@ -259,6 +272,13 @@ function planData(): Plan {
   cursor += 16;
   const tappableProtocol = cursor;
   cursor += 96;
+
+  const baseRo = cursor;
+  cursor += 72;
+  const baseMetaRo = cursor;
+  cursor += 72;
+  const baseMethods = cursor;
+  cursor += 8 + 24;
   const constEnd = cursor;
 
   cursor = align(cursor);
@@ -271,11 +291,15 @@ function planData(): Plan {
   cursor += 40;
   const tapMeta = cursor;
   cursor += 40;
+  const baseClass = cursor;
+  cursor += 40;
+  const baseMeta = cursor;
+  cursor += 40;
   const dataEnd = cursor;
 
   cursor = align(cursor);
   const classList = cursor;
-  cursor += 16;
+  cursor += 24;
   const categoryList = cursor;
   cursor += 8;
   const protocolList = cursor;
@@ -321,7 +345,7 @@ function planData(): Plan {
     {
       name: "__objc_classlist",
       offset: classList,
-      size: 16,
+      size: 24,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -364,10 +388,15 @@ function planData(): Plan {
     tapIvars,
     tapProtocols,
     tappableProtocol,
+    baseRo,
+    baseMetaRo,
+    baseMethods,
     appClass,
     appMeta,
     tapClass,
     tapMeta,
+    baseClass,
+    baseMeta,
     classList,
     categoryList,
     protocolList,
@@ -450,6 +479,8 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
 
   label("tapBegan");
   emitBeganHandler();
+  label("tapSuperBegan");
+  emitSuperBeganHandler();
   label("tapMoved");
   emitTouchHandler(SELECTORS.yellowColor);
   label("tapEnded");
@@ -464,6 +495,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("load") ?? 0),
     bases.textBase + (code.labels.get("tick") ?? 0),
     bases.textBase + (code.labels.get("tapBegan") ?? 0),
+    bases.textBase + (code.labels.get("tapSuperBegan") ?? 0),
     bases.textBase + (code.labels.get("tapMoved") ?? 0),
     bases.textBase + (code.labels.get("tapEnded") ?? 0),
   );
@@ -485,6 +517,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 5,
       },
       { name: "_OBJC_CLASS_$_TapView", value: dataAddress(plan.tapClass), sectionIndex: 5 },
+      { name: "_OBJC_CLASS_$_BaseView", value: dataAddress(plan.baseClass), sectionIndex: 5 },
       {
         name: "_initializeMarker",
         value: dataAddress(plan.slotOffsets.initializeMarker),
@@ -493,6 +526,19 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       { name: "_loadMarker", value: dataAddress(plan.slotOffsets.loadMarker), sectionIndex: 2 },
     ],
   };
+
+  function emitSuperBeganHandler(): void {
+    // struct objc_super { receiver, super_class } at superStruct.
+    emitWord(stpPre(29, 30, 31, -16));
+    emitAddress(9, slot("superStruct"));
+    emitWord(strUnsigned(0, 9, 0));
+    emitAddress(0, slot("superStruct"));
+    emitAddress(1, selector(SELECTORS.touchesBegan));
+    emitPointer(16, slot("msgSendSuper"));
+    emitWord(blr(16));
+    emitWord(ldpPost(29, 30, 31, 16));
+    emitWord(ret());
+  }
 
   function emitTick(): void {
     emitWord(stpPre(29, 30, 31, -16));
@@ -695,6 +741,7 @@ function emitData(
   loadImp: number,
   tickImp: number,
   tapBeganImp: number,
+  tapSuperBeganImp: number,
   tapMovedImp: number,
   tapEndedImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
@@ -710,6 +757,7 @@ function emitData(
     DEMO_CLASS_NAME,
     DEMO_VIEW_CLASS_NAME,
     DEMO_CATEGORY_NAME,
+    DEMO_BASE_CLASS_NAME,
     "Tappable",
     "_pressed",
     "B",
@@ -794,7 +842,7 @@ function emitData(
   const beganEntry = plan.tapMethods + 8;
   rebase(beganEntry, selector(SELECTORS.touchesBegan));
   rebase(beganEntry + 8, selector(TYPES));
-  rebase(beganEntry + 16, tapBeganImp);
+  rebase(beganEntry + 16, tapSuperBeganImp);
   const movedEntry = plan.tapMethods + 32;
   rebase(movedEntry, selector(SELECTORS.touchesMoved));
   rebase(movedEntry + 8, selector(TYPES));
@@ -812,10 +860,10 @@ function emitData(
   rebase(plan.tapMetaRo + 32, address(plan.tapEmptyMethods));
 
   rebase(plan.tapClass, address(plan.tapMeta));
-  bind(plan.tapClass + 8, "_OBJC_CLASS_$_UIView");
+  rebase(plan.tapClass + 8, address(plan.baseClass));
   rebase(plan.tapClass + 32, address(plan.tapRo));
   rebase(plan.tapMeta, address(plan.tapMeta));
-  bind(plan.tapMeta + 8, "_OBJC_METACLASS_$_UIView");
+  rebase(plan.tapMeta + 8, address(plan.baseMeta));
   rebase(plan.tapMeta + 32, address(plan.tapMetaRo));
 
   // protocol_list_t { count 1, [protocol] } and protocol_t { isa, name, protocols, ... }
@@ -833,8 +881,34 @@ function emitData(
   u32(plan.tapIvars + 32, 0); // alignment 2^0
   u32(plan.tapIvars + 36, 1); // size
 
+  // BaseView metadata (TapView's guest superclass).
+  u32(plan.baseRo, 0);
+  u32(plan.baseRo + 4, 8);
+  u32(plan.baseRo + 8, 56);
+  u32(plan.baseMetaRo, 0x1);
+  u32(plan.baseMetaRo + 4, 40);
+  u32(plan.baseMetaRo + 8, 40);
+  u32(plan.baseMethods, 24);
+  u32(plan.baseMethods + 4, 1);
+  const baseEntry = plan.baseMethods + 8;
+  rebase(baseEntry, selector(SELECTORS.touchesBegan));
+  rebase(baseEntry + 8, selector(TYPES));
+  rebase(baseEntry + 16, tapBeganImp);
+  rebase(plan.baseRo + 24, address(plan.stringOffsets[DEMO_BASE_CLASS_NAME]!));
+  rebase(plan.baseRo + 32, address(plan.baseMethods));
+  rebase(plan.baseMetaRo + 24, address(plan.stringOffsets[DEMO_BASE_CLASS_NAME]!));
+  rebase(plan.baseMetaRo + 32, address(plan.appEmptyMethods));
+  rebase(plan.baseClass, address(plan.baseMeta));
+  bind(plan.baseClass + 8, "_OBJC_CLASS_$_UIView");
+  rebase(plan.baseClass + 32, address(plan.baseRo));
+  rebase(plan.baseMeta, address(plan.baseMeta));
+  bind(plan.baseMeta + 8, "_OBJC_METACLASS_$_UIView");
+  rebase(plan.baseMeta + 32, address(plan.baseMetaRo));
+
+  // TapView now inherits BaseView.
   rebase(plan.classList, address(plan.appClass));
   rebase(plan.classList + 8, address(plan.tapClass));
+  rebase(plan.classList + 16, address(plan.baseClass));
   rebase(plan.categoryList, address(plan.appCategory));
 
   // Import slots used by the code.
@@ -845,6 +919,8 @@ function emitData(
   bind(plan.slotOffsets.assocGet, "_objc_getAssociatedObject");
   bind(plan.slotOffsets.weakSet, "_objc_storeWeak");
   bind(plan.slotOffsets.weakLoad, "_objc_loadWeakRetained");
+  bind(plan.slotOffsets.msgSendSuper, "_objc_msgSendSuper2");
+  rebase(plan.slotOffsets.superStruct + 8, address(plan.baseClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
   rebase(plan.slotOffsets.classTapView, address(plan.tapClass));

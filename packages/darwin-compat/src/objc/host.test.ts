@@ -22,7 +22,7 @@ describe("ObjC UIKit demo", () => {
     expect(result.exitStatus).toBe(0);
     expect(result.frames).toHaveLength(1);
     expect(result.objcClasses).toEqual(
-      expect.arrayContaining(["NSObject", "UIView", "UIWindow", "AppDelegate"]),
+      expect.arrayContaining(["NSObject", "UIView", "UIWindow", "BaseView", "AppDelegate"]),
     );
     expect(result.objcCategories).toEqual(["AppDelegate(Window)"]);
     expect(result.objcProtocols).toContain("TapView:Tappable");

@@ -16,12 +16,10 @@ static char kColorKey;
 @protocol Tappable
 @end
 
-@interface TapView : UIView <Tappable> {
-  BOOL _pressed;
-}
+@interface BaseView : UIView
 @end
 
-@implementation TapView
+@implementation BaseView
 - (void)touchesBegan:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;
@@ -39,6 +37,17 @@ static char kColorKey;
   objc_setAssociatedObject(self, &kColorKey, color, 1);
   UIColor *stored = objc_getAssociatedObject(self, &kColorKey);
   self.backgroundColor = stored ? stored : [UIColor purpleColor];
+}
+@end
+
+@interface TapView : BaseView <Tappable> {
+  BOOL _pressed;
+}
+@end
+
+@implementation TapView
+- (void)touchesBegan:(id)touches withEvent:(id)event {
+  [super touchesBegan:touches withEvent:event];
 }
 - (void)touchesMoved:(id)touches withEvent:(id)event {
   (void)touches;

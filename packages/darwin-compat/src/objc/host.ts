@@ -1141,6 +1141,9 @@ export class ObjcHost {
     if (!method) {
       throw new ObjcError("unrecognized_selector", `superclass does not respond to ${selector}`);
     }
+    // objc_msgSendSuper2 receives a struct pointer in x0; the IMP must see the
+    // actual receiver.
+    cpu.writeRegister(0, receiver);
     return this.invoke(method, cpu);
   }
 
