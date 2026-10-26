@@ -65,6 +65,8 @@ Darwin's ABI. Mach traps return a `kern_return_t` in `x0` without touching carry
 |     90 | `dup2`         | ✓      |                                                  |
 |     92 | `fcntl`        | ✓      | returns 0; options are not interpreted           |
 |    116 | `gettimeofday` | ✓      | two 64-bit fields                                |
+|    120 | `readv`        | ✓      | up to 1024 iovecs; short reads stop              |
+|    121 | `writev`       | ✓      | up to 1024 iovecs; short writes report count     |
 |    136 | `mkdir`        | ✓      |                                                  |
 |    189 | `fstat`        | ✗      | `ENOSYS`                                         |
 |    197 | `mmap`         | ✓      | anonymous and file-backed; `MAP_FIXED` with hint |

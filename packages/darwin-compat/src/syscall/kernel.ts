@@ -88,10 +88,12 @@ import {
   SYS_NAMES,
   SYS_OPEN,
   SYS_READ,
+  SYS_READV,
   SYS_TASK_SELF_TRAP,
   SYS_THREAD_SELF_TRAP,
   SYS_UNLINK,
   SYS_WRITE,
+  SYS_WRITEV,
 } from "./numbers.js";
 
 export interface ByteSink {
@@ -255,6 +257,10 @@ export class DarwinSyscallKernel {
         return this.write(Number(args[0]!), args[1]!, Number(args[2]!));
       case SYS_READ:
         return this.read(Number(args[0]!), args[1]!, Number(args[2]!));
+      case SYS_READV:
+        return this.readv(Number(args[0]!), args[1]!, Number(args[2]!));
+      case SYS_WRITEV:
+        return this.writev(Number(args[0]!), args[1]!, Number(args[2]!));
       case SYS_OPEN:
         return this.open(args[0]!, Number(args[1]!), Number(args[2]!));
       case SYS_KQUEUE:
@@ -367,6 +373,34 @@ export class DarwinSyscallKernel {
     } catch (error) {
       return this.errno(errnoFor(error));
     }
+  }
+
+  private readv(fd: number, iov: bigint, count: number): SyscallResult {
+    return this.vector(fd, iov, count, (address, length) => this.read(fd, address, length));
+  }
+
+  private writev(fd: number, iov: bigint, count: number): SyscallResult {
+    return this.vector(fd, iov, count, (address, length) => this.write(fd, address, length));
+  }
+
+  private vector(
+    _fd: number,
+    iov: bigint,
+    count: number,
+    io: (address: bigint, length: number) => SyscallResult,
+  ): SyscallResult {
+    if (count < 0 || count > 1024) return this.errno(ERRNO_MAP.EINVAL!);
+    let total = 0;
+    for (let index = 0; index < count; index += 1) {
+      const record = this.memory.readBytes(iov + BigInt(index * 16), 16);
+      const view = new DataView(record.buffer, record.byteOffset, record.byteLength);
+      const address = view.getBigUint64(0, true);
+      const length = Number(view.getBigUint64(8, true));
+      const result = io(address, length);
+      if (result.error) return result;
+      total += Number(result.value);
+    }
+    return this.ok(total);
   }
 
   private read(fd: number, address: bigint, count: number): SyscallResult {
