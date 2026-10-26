@@ -55,7 +55,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-26 · NSData, blocks, gestures",
+  updated: "2026-10-26 · layers, NSData, gestures",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -146,19 +146,20 @@ export const architecture: Architecture = {
       id: "output",
       name: "Compositor & frames",
       kicker: "Deterministic software rendering",
-      percent: 44,
+      percent: 48,
       chips: [
         { label: "RGBA buffer", state: "done" },
         { label: "PNG/PPM", state: "done" },
-        { label: "layers", state: "planned" },
+        { label: "corner radius", state: "done" },
+        { label: "transforms", state: "planned" },
         { label: "window", state: "planned" },
       ],
       shipped: [
-        "Alpha rect fills, clipping, nearest-neighbour images, bitmap text",
+        "Alpha rect fills, clipping, rounded corners, images, bitmap text",
         "Stable digests, de-duplicated frames, bounded capture",
       ],
       open: [
-        "Layer tree: bounds, anchor, transform, masks, corner radii",
+        "Layer transforms, masks, opacity composition",
         "CoreAnimation timing, CADisplayLink, GPU or faster software path",
         "JPEG/HEIC/Assets.car, CoreText metrics, host window or stream",
       ],
@@ -312,6 +313,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "754f212", text: "CALayer corner radius on view backgrounds" },
     { hash: "22dc12a", text: "NSData + UIImage imageWithData, data-backed images" },
     { hash: "fd7f190", text: "Block literals bind; block-based view animations" },
     { hash: "b851832", text: "Multi-page segment mapping fix in the loader" },
