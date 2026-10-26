@@ -96,7 +96,8 @@ single commit.
   (`RT-005`), Foundation container conformance (`RT-006`), and jailed file/JSON/plist helpers
   (`RT-007`), toll-free CF bridging plus a run loop (`RT-008`), and partial Swift 5 metadata
   parsing (`RT-009`, execution blocked), and malloc/mem-string primitives (`RT-010`, C fixture
-  blocked), and a 200-case runtime conformance suite (`RT-011`).
+  blocked), a 200-case runtime conformance suite (`RT-011`), and runtime performance budgets
+  (`RT-012`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,

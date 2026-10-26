@@ -10,7 +10,7 @@ describe("performance baseline", () => {
     expect(report.machine.cores).toBeGreaterThan(0);
     expect(report.machine.memoryBytes).toBeGreaterThan(0);
     expect(report.machine.runtimeVersion.length).toBeGreaterThan(0);
-    expect(report.results).toHaveLength(7);
+    expect(report.results).toHaveLength(12);
     expect(report.passed).toBe(true);
     for (const result of report.results) {
       expect(result.iterations).toBeGreaterThan(0);

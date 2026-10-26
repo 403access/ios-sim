@@ -14,6 +14,10 @@ import { ImageLoader, MapFileProvider } from "../dyld/loader.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { GuestScheduler } from "../runtime/scheduler.js";
 import { buildHello, buildHelperDylib } from "./fixtures.js";
+import { ObjcRuntime } from "../objc/runtime.js";
+import { NSMutableArray, NSMutableString } from "../foundation/collections.js";
+import { CFRunLoop } from "../foundation/cf.js";
+import { runtimeConformanceCases } from "../conformance/suite.js";
 import type { BenchmarkCase } from "./benchmark.js";
 
 export function standardBenchmarks(): BenchmarkCase[] {
@@ -41,7 +45,61 @@ export function standardBenchmarks(): BenchmarkCase[] {
     data: Uint8Array.from([1, 2, 3, 4]),
   };
 
+  const objc = new ObjcRuntime();
+  objc.registerClass("Base");
+  objc.addMethod("Base", "value", () => 1);
+  objc.registerClass("Child", "Base");
+  objc.addMethod("Child", "value", () => 2);
+  const child = objc.allocate("Child");
+  const conformance = runtimeConformanceCases();
+
   return [
+    {
+      name: "objc-dispatch",
+      iterations: 50_000,
+      budgetMs: 3000,
+      run: () => void objc.send(child, "value"),
+    },
+    {
+      name: "foundation-string",
+      iterations: 10_000,
+      budgetMs: 3000,
+      run: () => {
+        const text = new NSMutableString("a");
+        for (let index = 0; index < 50; index += 1) text.append("b");
+        text.substring(1, 20);
+      },
+    },
+    {
+      name: "foundation-array",
+      iterations: 5000,
+      budgetMs: 3000,
+      run: () => {
+        const array = new NSMutableArray<number>();
+        for (let index = 0; index < 100; index += 1) array.add(index);
+        array.removeAt(50);
+      },
+    },
+    {
+      name: "cf-run-loop",
+      iterations: 2000,
+      budgetMs: 3000,
+      run: () => {
+        let now = 0;
+        const loop = new CFRunLoop(() => now);
+        loop.schedule(0, () => {});
+        now = 0;
+        loop.runOnce();
+      },
+    },
+    {
+      name: "runtime-conformance",
+      iterations: 20,
+      budgetMs: 3000,
+      run: () => {
+        for (const entry of conformance) if (!entry.run()) throw new Error(entry.id);
+      },
+    },
     {
       name: "macho-parse",
       iterations: 2000,

@@ -22,29 +22,26 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 90 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 91 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
 Pick from the top. A task marked with `*` needs a licensed-Mac observation window; it can be
 started by a human with host access, not by a Linux-only agent.
 
-| Order | ID        | Workstream | Size | Depends | Deliverable / acceptance                       |
-| ----: | --------- | ---------- | ---- | ------- | ---------------------------------------------- |
-|     1 | `RT-001`  | Runtime    | L    | LDR-004 | ObjC runtime core; class/selector/method tests |
-|     2 | `LEG-002` | Legal      | M    | LEG-001 | Runtime legal review; written gate             |
+| Order | ID        | Workstream | Size | Depends | Deliverable / acceptance           |
+| ----: | --------- | ---------- | ---- | ------- | ---------------------------------- |
+|     1 | `LEG-002` | Legal      | M    | LEG-001 | Runtime legal review; written gate |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `RT-012` is the next task;
-`LEG-002` remains a human/legal gate, not an implementation task. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LEG-002` is a human/legal gate,
+not an implementation task; Mac-evidence tasks remain blocked until a licensed host is available. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-61 are complete through RT-011 (substrate, loader, threads, quality, observability,
-release, provenance, quickstart, diagnostics, claims, roadmap validation, version policy,
-supply-chain checks, repro bundle, session roles, metrics, trace filtering, coverage, ObjC core,
-dispatch, ARC, categories/protocols, blocks/associations, Foundation, files, CF/run loop, Swift
-metadata, libc primitives, and 200-case conformance). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-62 are complete through RT-012. The user-space substrate, loader, threads, quality,
+observability, release, provenance, ObjC/Foundation/runtime layers, and performance gate are done.
+Remaining tasks are Mac-gated evidence, legal review, or A3-A7 platform work. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |

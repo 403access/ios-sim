@@ -520,7 +520,10 @@ toll-free CF wrappers with retain/release and a timer/source run loop. RT-009 pa
 and `__swift5_proto` descriptors; running a real Swift binary remains blocked on the Swift runtime
 and ABI. RT-010 adds a first-fit guest heap plus mem/str helpers; a real C fixture linked against
 libSystem is still blocked. RT-011 adds 200 deterministic conformance cases across dispatch,
-containers, ARC/blocks, and CF/run loop. RT-012 (runtime performance) is next.
+containers, ARC/blocks, and CF/run loop. RT-012 adds runtime benchmarks (ObjC dispatch,
+Foundation containers, CF loop, conformance) to the 12-case budgeted suite; all pass. The
+user-space roadmap is complete apart from the partial RT-009/RT-010 items, Mac-gated evidence, and
+LEG-002/human legal review.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

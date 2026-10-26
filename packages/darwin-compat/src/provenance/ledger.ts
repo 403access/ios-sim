@@ -178,6 +178,16 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-012",
+    claim: "Adds runtime dispatch/container/CF/conformance cases to the budgeted benchmark suite.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/testing/benchmarks.ts",
+      "packages/darwin-compat/src/testing/benchmark.test.ts",
+    ],
+    command: "bun run bench",
+  },
+  {
     id: "RT-011",
     claim: "Runs 200 deterministic runtime conformance cases across ObjC, Foundation, ARC, and CF.",
     status: "implemented",
