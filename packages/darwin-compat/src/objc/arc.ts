@@ -20,8 +20,14 @@ export class ArcRuntime {
   private readonly strong = new WeakMap<ObjcObject, Set<ObjcObject>>();
   private readonly weak = new WeakMap<ObjcObject, Array<{ owner: ObjcObject; ivar: string }>>();
   private readonly pool: ObjcObject[] = [];
+  private readonly deallocHooks: Array<(object: ObjcObject) => void> = [];
 
   constructor(readonly objc: ObjcRuntime) {}
+
+  /** Run a hook when an object is deallocated; used by associated objects. */
+  onDealloc(hook: (object: ObjcObject) => void): void {
+    this.deallocHooks.push(hook);
+  }
 
   init(object: ObjcObject): ObjcObject {
     this.counts.set(object, 1);
@@ -95,6 +101,7 @@ export class ArcRuntime {
     this.weak.delete(object);
     object.ivars.clear();
     this.counts.delete(object);
+    for (const hook of this.deallocHooks) hook(object);
   }
 }
 

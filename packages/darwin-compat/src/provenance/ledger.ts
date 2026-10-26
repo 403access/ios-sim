@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "RT-005",
+    claim: "Models block retain/copy/release lifetime and retain/copy/assign associations.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/objc/blocks.ts",
+      "packages/darwin-compat/src/objc/blocks.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/objc/blocks.test.ts",
+    limitation: "Semantic blocks; not Apple's block layout or ABI.",
+  },
+  {
     id: "RT-004",
     claim:
       "Adds category method overriding, protocol conformance, and semantic exception unwinding.",

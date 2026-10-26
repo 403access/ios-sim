@@ -512,7 +512,8 @@ receivers, and stable unknown-selector errors. RT-002 adds the full dispatch mat
 cache hit/miss stats, cache invalidation, and a forwarding hook. RT-003 adds synthesized properties,
 strong/weak ivars, retain/release, autorelease pools, and dealloc zeroing. RT-004 adds category
 method overriding, inherited protocol conformance, required-method checks, and semantic exception
-unwinding through thrown ObjcErrors. RT-005 (blocks/associations) is next.
+unwinding through thrown ObjcErrors. RT-005 adds block copy/retain/release lifetime and
+retain/copy/assign associated objects tied to dealloc. RT-006 (Foundation containers) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |
