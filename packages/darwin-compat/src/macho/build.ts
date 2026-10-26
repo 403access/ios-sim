@@ -19,6 +19,7 @@ import {
   LC_DYLD_EXPORTS_TRIE,
   LC_CODE_SIGNATURE,
   LC_DYLD_INFO_ONLY,
+  LC_FILESET_ENTRY,
   LC_ID_DYLIB,
   LC_LOAD_DYLIB,
   LC_LOAD_WEAK_DYLIB,
@@ -107,6 +108,12 @@ export interface BuildMachOOptions {
   readonly interpositions?: ReadonlyArray<{ replacement: number; replaced: number }>;
   /** Raw embedded code-signature superblob written to `__LINKEDIT`. */
   readonly codeSignature?: Uint8Array;
+  /** `LC_FILESET_ENTRY` records for fileset fixtures. */
+  readonly filesetEntries?: ReadonlyArray<{
+    vmAddress: number;
+    fileOffset: number;
+    entryId: string;
+  }>;
   readonly dependencies?: readonly BuildDependency[];
   readonly installName?: string;
   readonly uuid?: Uint8Array;
@@ -479,6 +486,20 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
     command.u32(16);
     command.u32(linkeditOffset + codeSignatureOffset);
     command.u32(codeSignature.length);
+    addLoadCommand(command.toUint8Array());
+  }
+
+  for (const entry of options.filesetEntries ?? []) {
+    const entryId = new TextEncoder().encode(entry.entryId);
+    const cmdsize = align(32 + entryId.length + 1, 8);
+    const command = new BinaryWriter();
+    command.u32(LC_FILESET_ENTRY);
+    command.u32(cmdsize);
+    command.u64(entry.vmAddress);
+    command.u64(entry.fileOffset);
+    command.cstring(entry.entryId);
+    command.zeros(cmdsize - 29 - entryId.length);
+    command.u32(0);
     addLoadCommand(command.toUint8Array());
   }
 

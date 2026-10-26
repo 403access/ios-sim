@@ -18,6 +18,7 @@ import {
   LC_DYLD_EXPORTS_TRIE,
   LC_DYLD_INFO,
   LC_DYLD_INFO_ONLY,
+  LC_FILESET_ENTRY,
   LC_ENCRYPTION_INFO_64,
   LC_FUNCTION_STARTS,
   LC_ID_DYLIB,
@@ -56,6 +57,7 @@ import type {
   BuildVersion,
   DylibReference,
   DyldInfo,
+  FilesetEntry,
   EncryptionInfo,
   MachHeader,
   MachOImage,
@@ -164,6 +166,7 @@ export function parseMachO(input: Uint8Array, options: ParseOptions = {}): Parse
   let unixThread: UnixThreadState | null = null;
   let dyldInfo: DyldInfo | null = null;
   let routines: MachOImage["routines"] = null;
+  const filesetEntries: FilesetEntry[] = [];
   let chainedFixupsOffset: { offset: number; size: number } | null = null;
   let exportsTrieOffset: { offset: number; size: number } | null = null;
   let codeSignature: { dataOffset: number; dataSize: number } | null = null;
@@ -400,6 +403,18 @@ export function parseMachO(input: Uint8Array, options: ParseOptions = {}): Parse
         }
         break;
       }
+      case LC_FILESET_ENTRY: {
+        if (cmdsize < 32)
+          throw new MachOError("bad_fileset_entry", "LC_FILESET_ENTRY is truncated");
+        const vmAddress = body.safeU64("fileset vm address");
+        const fileOffset = body.safeU64("fileset file offset");
+        const entryId = body.cstring();
+        if (entryId.length === 0) {
+          throw new MachOError("bad_fileset_entry", "LC_FILESET_ENTRY has an empty entry id");
+        }
+        filesetEntries.push({ vmAddress, fileOffset, entryId });
+        break;
+      }
       case LC_ROUTINES_64: {
         if (cmdsize < 72) throw new MachOError("bad_routines", "LC_ROUTINES_64 is truncated");
         routines = {
@@ -632,6 +647,7 @@ export function parseMachO(input: Uint8Array, options: ParseOptions = {}): Parse
     unixThread,
     dyldInfo,
     routines,
+    filesetEntries,
     chainedFixups,
     exportsTrie,
     codeSignature,

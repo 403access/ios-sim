@@ -139,6 +139,7 @@ export const N_STAB = 0xe0;
 export const N_PEXT = 0x10;
 export const N_TYPE = 0x0e;
 export const N_EXT = 0x01;
+export const N_OSO = 0x66;
 export const N_UNDF = 0x0;
 export const N_ABS = 0x2;
 export const N_SECT = 0xe;

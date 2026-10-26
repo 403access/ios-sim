@@ -84,6 +84,12 @@ export interface SymtabInfo {
   readonly stringSize: number;
 }
 
+export interface FilesetEntry {
+  readonly vmAddress: number;
+  readonly fileOffset: number;
+  readonly entryId: string;
+}
+
 export interface RoutinesInfo {
   /** Preferred VM address of the module initializer. */
   readonly initAddress: number;
@@ -152,6 +158,7 @@ export interface MachOImage {
   readonly unixThread: UnixThreadState | null;
   readonly dyldInfo: DyldInfo | null;
   readonly routines: RoutinesInfo | null;
+  readonly filesetEntries: readonly FilesetEntry[];
   readonly chainedFixups: ChainedFixups | null;
   readonly exportsTrie: {
     dataOffset: number;

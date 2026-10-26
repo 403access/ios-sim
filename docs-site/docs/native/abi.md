@@ -165,6 +165,12 @@ Diagnostics name the code, stage, path, unresolved dependency or symbol, and one
 action; `formatLoaderDiagnostic` renders it for the CLI. `ios-sim-native run` prints the same
 report on a loader failure.
 
+`parseBundle` (`src/macho/bundle.ts`) reads an in-memory app bundle: `Info.plist`
+(identifier/executable/version), the executable's UUID and `LC_FILESET_ENTRY` records, and an
+optional `Contents/Resources/DWARF/<exe>` dSYM with `N_OSO` debug-map objects. UUID mismatches and
+missing plists are reported as warnings. DWARF line tables, code-signature validation, and
+execution are not part of this pass.
+
 ## MIG-lite
 
 `MigWriter`/`MigReader` are 4-byte aligned and bounded:

@@ -232,9 +232,12 @@ deduplication and stage-attributed failures. LDR-004 adds reference-counted dyna
 dependency-ordinal two-level binds, flat load-order collision handling, and `__interpose`
 replacement pairs. LDR-010 parses embedded signatures (superblob, CodeDirectory, XML
 entitlements) without verifying hashes or certificates. LDR-013 adds structured loader
-diagnostics and a CLI failure report. LDR-012 (fileset/dSYM metadata) is next. Executable
-lazy-stub trampolines, general weak-definition coalescing, broader namespace policy, and signature
-verification are explicitly still absent.
+diagnostics and a CLI failure report. LDR-012 adds read-only bundle/fileset/dSYM metadata
+(`Info.plist`, `LC_FILESET_ENTRY`, `N_OSO`). The loader lane is now gated on licensed-Mac work for
+the shared cache and on later security work for verification; the thread stress (`THR-012`) and
+quality harnesses are next. Executable lazy-stub trampolines, general weak-definition coalescing,
+broader namespace policy, DWARF line tables, and signature verification are explicitly still
+absent.
 
 | ID      | Task                                     | Size | Depends          | Deliverable                                        | Acceptance                                                                    |
 | ------- | ---------------------------------------- | ---- | ---------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |

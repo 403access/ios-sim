@@ -4,6 +4,7 @@ export * from "./fat.js";
 export * from "./fixups.js";
 export * from "./legacy-fixups.js";
 export * from "./code-signature.js";
+export * from "./bundle.js";
 export * from "./exports-trie.js";
 export * from "./parse.js";
 export * from "./build.js";
