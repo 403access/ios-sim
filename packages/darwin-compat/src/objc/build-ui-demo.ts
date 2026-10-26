@@ -76,6 +76,8 @@ const SELECTORS = {
   sliderChanged: "sliderChanged:",
   performAfterDelay: "performSelector:withObject:afterDelay:",
   delayedTick: "delayedTick:",
+  postNotificationUserInfo: "postNotificationName:object:userInfo:",
+  userInfo: "userInfo",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -198,7 +200,8 @@ type SlotName =
   | "classSlider"
   | "slider"
   | "sliderChanges"
-  | "delayedMarker";
+  | "delayedMarker"
+  | "userInfoValue";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -379,6 +382,7 @@ function planData(): Plan {
     "slider",
     "sliderChanges",
     "delayedMarker",
+    "userInfoValue",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -409,6 +413,7 @@ function planData(): Plan {
     "ThemeChanged",
     "Seen",
     "Count",
+    "count",
     "theme",
     "Lifecycle",
     "Tappable",
@@ -754,10 +759,30 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
   emitWord(movReg(19, 0));
+  // NSMutableDictionary *info = [NSMutableDictionary dictionary];
+  emitPointer(0, slot("classDictionary"));
+  emitAddress(1, selector(SELECTORS.dictionary));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(movReg(20, 0));
+  // [info setObject:[NSNumber numberWithInt:7] forKey:"count"];
+  emitPointer(0, slot("classNumber"));
+  emitAddress(1, selector(SELECTORS.numberWithInt));
+  emitWord(movz(2, 7));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(movReg(2, 0));
+  emitWord(movReg(0, 20));
+  emitAddress(1, selector(SELECTORS.setObjectForKey));
+  emitAddress(3, dataAddress(plan.stringOffsets.count!));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  // [center postNotificationName:"ThemeChanged" object:0 userInfo:info];
   emitWord(movReg(0, 19));
-  emitAddress(1, selector(SELECTORS.postNotification));
+  emitAddress(1, selector(SELECTORS.postNotificationUserInfo));
   emitAddress(2, dataAddress(plan.stringOffsets.ThemeChanged!));
   emitWord(movz(3, 0));
+  emitWord(movReg(4, 20));
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
   emitWord(ldpPost(19, 20, 31, 16));
@@ -820,6 +845,20 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   label("themeChanged");
   emitWord(stpPre(29, 30, 31, -16));
   emitWord(stpPre(19, 20, 31, -16));
+  // NSNumber *count = [[notification userInfo] objectForKey:"count"];
+  emitWord(movReg(0, 2));
+  emitAddress(1, selector(SELECTORS.userInfo));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(movReg(0, 0));
+  emitAddress(1, selector(SELECTORS.objectForKey));
+  emitAddress(2, dataAddress(plan.stringOffsets.count!));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitAddress(1, selector(SELECTORS.intValue));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitStore(0, slot("userInfoValue"));
   emitPointer(0, slot("mainView"));
   emitWord(movReg(19, 0));
   // UIColor *color = [theme objectForKey:"theme"];
@@ -924,6 +963,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_lifecycleMarker",
         value: dataAddress(plan.slotOffsets.lifecycleMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_userInfoValue",
+        value: dataAddress(plan.slotOffsets.userInfoValue),
         sectionIndex: 2,
       },
       {
@@ -1866,6 +1910,7 @@ function emitData(
     "ThemeChanged",
     "Seen",
     "Count",
+    "count",
     "theme",
     "Lifecycle",
     "Tappable",

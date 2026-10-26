@@ -238,13 +238,18 @@ static unsigned gTick;
 }
 - (void)buttonTapped:(id)sender {
   (void)sender;
-  [[NSNotificationCenter defaultCenter] postNotificationName:"ThemeChanged" object:nil];
+  NSMutableDictionary *info = [NSMutableDictionary dictionary];
+  [info setObject:[NSNumber numberWithInt:7] forKey:"count"];
+  [[NSNotificationCenter defaultCenter] postNotificationName:"ThemeChanged"
+                                                   object:nil
+                                                 userInfo:info];
 }
 
 - (void)themeChanged:(id)notification {
   (void)notification;
-  // load before appearance, and the two appearance callbacks in order.
-  BOOL ready = gLifecycle == 1 && gAppear == 12;
+  NSNumber *count = [[notification userInfo] objectForKey:"count"];
+  // load before appearance, the appearance callbacks in order, and userInfo.
+  BOOL ready = gLifecycle == 1 && gAppear == 12 && [count intValue] == 7;
   UIColor *color = [gTheme objectForKey:"theme"];
   gView.backgroundColor = ready ? color : [UIColor blackColor];
 }

@@ -121,6 +121,12 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (long)integerForKey:(const char *)key;
 @end
 
+@interface NSNotification : NSObject
+- (id)name;
+- (id)object;
+- (id)userInfo;
+@end
+
 @interface NSNotificationCenter : NSObject
 + (id)defaultCenter;
 - (void)addObserver:(id)observer
@@ -128,6 +134,7 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
                name:(const char *)name
              object:(id)object;
 - (void)postNotificationName:(const char *)name object:(id)object;
+- (void)postNotificationName:(const char *)name object:(id)object userInfo:(id)userInfo;
 @end
 
 @interface NSString : NSObject

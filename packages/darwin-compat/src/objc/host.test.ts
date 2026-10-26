@@ -184,6 +184,7 @@ describe("ObjC UIKit demo", () => {
     expect(
       result.program.memory.read(result.program.resolveExport("_notificationMarker")!, 8),
     ).toBe(1n);
+    expect(result.program.memory.read(result.program.resolveExport("_userInfoValue")!, 8)).toBe(7n);
   });
 
   it("toggles a UISwitch and sends a value-changed action", () => {

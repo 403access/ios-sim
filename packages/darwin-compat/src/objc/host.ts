@@ -1579,7 +1579,7 @@ export class ObjcHost {
     const notification = this.defineClass({
       name: "NSNotification",
       superclass: "NSObject",
-      instanceSize: 24,
+      instanceSize: 32,
       methods: [
         {
           selector: "name",
@@ -1590,6 +1590,11 @@ export class ObjcHost {
           selector: "object",
           types: "@16@0:8",
           run: (cpu, receiver) => cpu.writeRegister(0, this.memory.read(receiver + 16n, 8)),
+        },
+        {
+          selector: "userInfo",
+          types: "@16@0:8",
+          run: (cpu, receiver) => cpu.writeRegister(0, this.memory.read(receiver + 24n, 8)),
         },
       ],
       classMethods: [],
@@ -1629,12 +1634,12 @@ export class ObjcHost {
         {
           selector: "postNotificationName:object:",
           types: "v32@0:8*16@24",
-          run: (cpu) => this.postNotification(cpu),
+          run: (cpu) => this.postNotification(cpu, false),
         },
         {
           selector: "postNotificationName:object:userInfo:",
           types: "v40@0:8*16@24@32",
-          run: (cpu) => this.postNotification(cpu),
+          run: (cpu) => this.postNotification(cpu, true),
         },
       ],
       classMethods: [
@@ -2337,7 +2342,7 @@ export class ObjcHost {
    * -performSelector: family. The target method's `_cmd` is the requested
    * selector; extra object arguments move into x2/x3.
    */
-  private postNotification(cpu: Arm64Cpu): SyscallResult {
+  private postNotification(cpu: Arm64Cpu, withUserInfo: boolean): SyscallResult {
     const namePointer = cpu.readRegister(2);
     if (namePointer === 0n) return { value: 0n };
     const name = this.readCString(namePointer);
@@ -2349,6 +2354,7 @@ export class ObjcHost {
     const notification = this.allocateInstance(klass);
     this.memory.write(notification + 8n, 8, namePointer);
     this.memory.write(notification + 16n, 8, object);
+    this.memory.write(notification + 24n, 8, withUserInfo ? cpu.readRegister(4) : 0n);
     const calls = list.map((entry) => ({
       receiver: entry.observer,
       selector: entry.selector,
