@@ -569,6 +569,13 @@ export class ObjcHost {
     });
     this.registerSymbol("_objc_sync_exit", () => ({ value: 0n }));
 
+    // Blocks are never copied or freed here: the fixtures' blocks are stack
+    // literals used synchronously, so copy/retain are identity and release is
+    // a no-op.
+    this.registerSymbol("_Block_copy", (cpu) => ({ value: cpu.readRegister(0) }));
+    this.registerSymbol("_Block_release", () => ({ value: 0n }));
+    this.registerSymbol("_objc_retainBlock", (cpu) => ({ value: cpu.readRegister(0) }));
+
     this.registerSymbol("_objc_alloc_init", (cpu) => {
       const klass = this.byAddress.get(cpu.readRegister(0));
       if (!klass) throw new ObjcError("bad_receiver", "objc_alloc_init receiver is not a class");
@@ -1061,6 +1068,20 @@ export class ObjcHost {
           selector: "commitAnimations",
           types: "v16@0:8",
           run: () => this.commitAnimations(),
+        },
+        {
+          selector: "animateWithDuration:animations:",
+          types: "v32@0:8d16@?24",
+          run: (cpu) => {
+            const block = cpu.readRegister(2);
+            if (block === 0n) return;
+            this.animationCapture = {
+              duration: Math.max(0, cpu.readVectorDouble(0)),
+              changes: new Map(),
+            };
+            const stub = this.emitBlockCommitStub(block);
+            if (stub !== null) cpu.pc = stub;
+          },
         },
       ],
     });
@@ -1972,6 +1993,17 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(scroll);
+
+    const blockClass = this.defineClass({
+      name: "__NSConcreteStackBlock",
+      superclass: "NSObject",
+      instanceSize: 32,
+      methods: [],
+      classMethods: [],
+    });
+    this.registerClass(blockClass);
+    // Mach-O binds block literals' isa to this data symbol.
+    this.symbols.set("__NSConcreteStackBlock", blockClass.address);
 
     const gesture = this.defineClass({
       name: "UIGestureRecognizer",
@@ -3770,6 +3802,52 @@ export class ObjcHost {
       if (hit !== null) return hit;
     }
     return containsPoint(frame, { x: point.x - originX, y: point.y - originY }) ? view : null;
+  }
+
+  /**
+   * Call a guest block with no arguments, then `+[UIView commitAnimations]`,
+   * and return to the original caller. Animation blocks are synchronous in
+   * this shim: the captured property changes become the timeline at commit.
+   */
+  private emitBlockCommitStub(block: bigint): bigint | null {
+    const invoke = this.memory.read(block + 16n, 8);
+    if (invoke === 0n) return null;
+    const messageSend = this.symbols.get("_objc_msgSend");
+    const viewClass = this.classes.get("UIView");
+    if (!messageSend || !viewClass) return null;
+    const commitSelector = this.internString("commitAnimations");
+    const code: number[] = [stpPre(29, 30, 31, -16)];
+    const literals: bigint[] = [];
+    const refs: Array<{ index: number; register: number; slot: number }> = [];
+    const addLiteral = (register: number, value: bigint): void => {
+      refs.push({ index: code.length, register, slot: literals.length });
+      literals.push(value);
+      code.push(0);
+    };
+    addLiteral(0, block);
+    addLiteral(16, invoke);
+    code.push(blr(16));
+    addLiteral(0, viewClass.address);
+    addLiteral(1, commitSelector);
+    addLiteral(16, messageSend);
+    code.push(blr(16));
+    code.push(ldpPost(29, 30, 31, 16), ret());
+    const literalStart = code.length * 4;
+    for (const ref of refs) {
+      code[ref.index] = ldrLiteral(ref.register, literalStart + ref.slot * 8 - ref.index * 4);
+    }
+    const pool = this.callbackPool;
+    const address = pool.cursor;
+    const size = BigInt(literalStart + literals.length * 8);
+    if (address + size > pool.page + 0x1000n) {
+      throw new ObjcError("stub_limit", "the callback stub page overflowed");
+    }
+    pool.cursor = address + size;
+    code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
+    literals.forEach((value, index) =>
+      this.memory.write(address + BigInt(literalStart + index * 8), 8, value),
+    );
+    return address;
   }
 
   /** Record the frame a view had before an animation changed it. */

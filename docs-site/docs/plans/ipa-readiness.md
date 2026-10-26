@@ -102,8 +102,9 @@ These items have visible value even if G2 never lands:
 
 **Runtime**
 
-- Exceptions, blocks, property helpers, swizzling, `objc_getClassList`, per-thread pools, a real
-  allocator with reclamation.
+- Exceptions, blocks beyond the current literal support (copies, global blocks, `__block`
+  captures), property helpers, swizzling, `objc_getClassList`, per-thread pools, a real allocator
+  with reclamation.
 
 **Execution**
 

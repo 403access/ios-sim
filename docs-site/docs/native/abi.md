@@ -200,6 +200,12 @@ active animation to the current clock before painting, so ticks produce intermed
 free. Only frame and alpha animate, there is no easing, no nesting, and no Core Animation: a
 `commitAnimations` with no captured change does nothing.
 
+`+animateWithDuration:animations:` calls the block synchronously inside a capture with that
+duration and commits when it returns, so block-based animations share the legacy timeline. Block
+objects follow the arm64 layout (`isa`, flags, reserved, invoke at offset 16); the shim exports
+`__NSConcreteStackBlock` so compiled literals bind, and `_Block_copy`/`_Block_release` are
+identity/no-op because nothing here copies or frees a block.
+
 ### Resources and images
 
 `UIImage` resolves its name through the host's resource loader: names are relative to the runtime

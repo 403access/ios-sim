@@ -246,10 +246,10 @@ static unsigned gTick;
       initWithTarget:self
               action:@selector(gestureTapped:)];
   [picture addGestureRecognizer:tap];
-  [UIView beginAnimations:nil context:0];
-  [UIView setAnimationDuration:2];
-  [picture setAlpha:0.25];
-  [UIView commitAnimations];
+  [UIView animateWithDuration:2
+                   animations:^{
+                     picture.alpha = 0.25;
+                   }];
   gSlider = [[UISlider alloc] initWithFrame:CGRectMake(20, 560, 300, 24)];
   [gSlider addTarget:self
               action:@selector(sliderChanged:)

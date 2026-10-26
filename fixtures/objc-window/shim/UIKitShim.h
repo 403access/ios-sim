@@ -85,6 +85,7 @@ __attribute__((objc_root_class))
 + (void)beginAnimations:(const char *)identifier context:(void *)context;
 + (void)setAnimationDuration:(double)duration;
 + (void)commitAnimations;
++ (void)animateWithDuration:(double)duration animations:(void (^)(void))animations;
 - (id)initWithFrame:(CGRect)frame;
 - (void)setFrame:(CGRect)frame;
 - (void)setBackgroundColor:(UIColor *)color;

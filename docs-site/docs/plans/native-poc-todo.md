@@ -82,6 +82,7 @@ started.
 - [x] `UIScrollView` drag-to-scroll with clamping to content size
 - [x] `NSBundle` resource lookup through the runtime root
 - [x] Tap and pan gesture recognisers (fire on touches that reach the default handler)
+- [x] Block literals bind (`__NSConcreteStackBlock`) and `+[UIView animateWithDuration:animations:]`
 - [ ] Simultaneous recognition, gesture dependencies, and the view-controller responder step
 - [x] `UIViewController -viewDidLoad` once, via a category or subclass
 - [x] `UIViewController -viewWillAppear:`/`-viewDidAppear:` when the root view is shown
