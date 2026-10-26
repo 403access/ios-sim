@@ -117,6 +117,8 @@ export class DarwinRuntime {
     const pid = this.nextPid++;
     const task = this.mach.createTask(pid);
     const memory = new VirtualMemory();
+    const outputSink = options.stdout ?? this.defaultStdout;
+    const errorSink = options.stderr ?? this.defaultStderr;
     const objc =
       options.objc === false
         ? null
@@ -125,6 +127,9 @@ export class DarwinRuntime {
             width: options.screen?.width,
             height: options.screen?.height,
             events: options.events,
+            log: (bytes) => {
+              errorSink.write(bytes);
+            },
           });
     const loader = new ImageLoader({
       provider: this.provider,
@@ -152,8 +157,6 @@ export class DarwinRuntime {
     const loadStub = objc?.prepareLoads(program.entry) ?? null;
     if (loadStub !== null) cpu.pc = loadStub;
 
-    const outputSink = options.stdout ?? this.defaultStdout;
-    const errorSink = options.stderr ?? this.defaultStderr;
     const syscalls = new DarwinSyscallKernel({
       memory,
       mach: this.mach,

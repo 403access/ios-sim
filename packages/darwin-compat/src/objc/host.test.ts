@@ -107,6 +107,7 @@ describe("ObjC UIKit demo", () => {
     expect(result.objcStats.messages).toBeGreaterThan(0);
     expect(result.objcStats.hostDispatches).toBeGreaterThan(0);
     expect(result.objcStats.guestDispatches).toBeGreaterThan(0);
+    expect(new TextDecoder().decode(result.stderr)).toContain("hello from objc");
     expect(result.objcStats.deallocs).toBeGreaterThanOrEqual(1);
     expect(result.objcStats.poolPushes).toBeGreaterThanOrEqual(1);
     expect(result.objcStats.poolPops).toBeGreaterThanOrEqual(1);

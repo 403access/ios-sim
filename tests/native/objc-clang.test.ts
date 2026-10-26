@@ -76,6 +76,7 @@ describe.skipIf(!available)("real clang ObjC app", () => {
         );
         expect(result.objcProtocols, label).toContain("TapView:Tappable");
         expect(result.objcStats.allocations, label).toBeGreaterThan(0);
+        expect(new TextDecoder().decode(result.stderr), label).toContain("hello from clang objc");
         if (["tap", "drag", "nested"].includes(scenario.label)) {
           expect(result.objcStats.associations, label).toBeGreaterThan(0);
           expect(result.objcStats.weakZeroings, label).toBeGreaterThan(0);

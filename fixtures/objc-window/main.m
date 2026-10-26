@@ -8,6 +8,8 @@
 
 #import "UIKitShim.h"
 
+void NSLog(const char *message);
+
 void objc_setAssociatedObject(id object, const void *key, id value, unsigned long policy);
 id objc_getAssociatedObject(id object, const void *key);
 
@@ -101,6 +103,7 @@ static unsigned gTick;
 - (BOOL)application:(id)application didFinishLaunchingWithOptions:(id)options {
   (void)application;
   (void)options;
+  NSLog("hello from clang objc");
   UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 375, 667)];
   TapView *view = [[TapView alloc] initWithFrame:CGRectMake(20, 20, 200, 100)];
   gView = view;

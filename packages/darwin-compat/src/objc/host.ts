@@ -128,8 +128,10 @@ export interface ObjcHostOptions {
   readonly width?: number;
   readonly height?: number;
   readonly maxFrames?: number;
-  /** Scripted taps delivered after `didFinishLaunching`. */
+  /** Scripted touches delivered after `didFinishLaunching`. */
   readonly events?: readonly InputEvent[];
+  /** Receives NSLog output; the runtime wires this to the stderr sink. */
+  readonly log?: (bytes: Uint8Array) => void;
 }
 
 type HostMethodHandler = (cpu: Arm64Cpu, receiver: bigint) => void;
@@ -215,6 +217,7 @@ export class ObjcHost {
   private readonly loadStubPage: bigint;
   private initializeStubCursor: bigint;
   private readonly resendAddress: bigint;
+  private readonly log: ((bytes: Uint8Array) => void) | undefined;
   private loadsPrepared = false;
   private readonly children = new Map<bigint, bigint[]>();
   private readonly windows: bigint[] = [];
@@ -232,6 +235,7 @@ export class ObjcHost {
     this.height = options.height ?? DEFAULT_SCREEN.height;
     this.maxFrames = options.maxFrames ?? MAX_FRAMES;
     this.events = options.events ?? [];
+    this.log = options.log;
     this.touchScript = buildTouchScript(this.events);
     this.arena = this.memory.allocate(ARENA_SIZE, { tag: "objc-host", protection: 3 });
     this.arenaCursor = this.arena;
@@ -464,6 +468,15 @@ export class ObjcHost {
     });
     this.registerSymbol("_objc_destroyWeak", (cpu) => {
       this.destroyWeak(cpu.readRegister(0));
+      return { value: 0n };
+    });
+
+    this.registerSymbol("_NSLog", (cpu) => {
+      const pointer = cpu.readRegister(0);
+      if (pointer !== 0n && this.log) {
+        const text = this.memory.readCString(pointer, 4096);
+        this.log(new TextEncoder().encode(`${text}\n`));
+      }
       return { value: 0n };
     });
 

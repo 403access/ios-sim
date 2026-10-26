@@ -125,7 +125,8 @@ type SlotName =
   | "mainView"
   | "classLabel"
   | "activeMarker"
-  | "terminateMarker";
+  | "terminateMarker"
+  | "nslog";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -260,6 +261,7 @@ function planData(): Plan {
     "classLabel",
     "activeMarker",
     "terminateMarker",
+    "nslog",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -286,6 +288,7 @@ function planData(): Plan {
     DEMO_CATEGORY_NAME,
     DEMO_BASE_CLASS_NAME,
     "HELLO 42",
+    "hello from objc",
     "Tappable",
     "_pressed",
     "B",
@@ -738,6 +741,9 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(stpPre(19, 20, 31, -16));
     emitWord(stpPre(21, 22, 31, -16));
     emitStore(0, slot("delegateSelf"));
+    emitAddress(0, dataAddress(plan.stringOffsets["hello from objc"]!));
+    emitPointer(16, slot("nslog"));
+    emitWord(blr(16));
 
     // UIWindow *window = [[UIWindow alloc] initWithFrame:...];
     emitPointer(0, slot("classWindow"));
@@ -1156,6 +1162,7 @@ function emitData(
     DEMO_CATEGORY_NAME,
     DEMO_BASE_CLASS_NAME,
     "HELLO 42",
+    "hello from objc",
     "Tappable",
     "_pressed",
     "B",
@@ -1354,6 +1361,7 @@ function emitData(
   bind(plan.slotOffsets.classButton, "_OBJC_CLASS_$_UIButton");
   bind(plan.slotOffsets.classView, "_OBJC_CLASS_$_UIView");
   bind(plan.slotOffsets.classLabel, "_OBJC_CLASS_$_UILabel");
+  bind(plan.slotOffsets.nslog, "_NSLog");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
