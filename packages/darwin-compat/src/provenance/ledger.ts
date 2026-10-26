@@ -227,6 +227,16 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "bunx vitest run packages/darwin-compat/src/observability/trace.test.ts",
   },
   {
+    id: "OBS-006",
+    claim: "Attaches a JSON-safe fault snapshot with PC, encoding, registers, maps, and images.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/observability/fault.ts",
+      "packages/darwin-compat/src/observability/fault.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/observability/fault.test.ts",
+  },
+  {
     id: "DX-003",
     claim: "Publishes a versioned capability report with per-feature yes/partial/no states.",
     status: "implemented",

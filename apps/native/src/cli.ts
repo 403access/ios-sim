@@ -24,6 +24,7 @@ import {
   disassembleRange,
   describeLoaderError,
   formatDisassembly,
+  formatFault,
   formatInspectReport,
   formatLoaderDiagnostic,
   inspectMachO,
@@ -398,6 +399,12 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
       typeof error === "object" && error !== null && "code" in error ? String(error.code) : "error";
     const message = error instanceof Error ? error.message : String(error);
     io.stderr(`${code}: ${message}\n`);
+    const details =
+      typeof error === "object" && error !== null && "details" in error
+        ? ((error as { details?: { fault?: unknown } }).details ?? {})
+        : {};
+    if (details.fault)
+      io.stderr(`${formatFault(details.fault as Parameters<typeof formatFault>[0])}\n`);
     return 1;
   }
   return requestedExit & 0xff;

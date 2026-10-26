@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 71 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 72 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -45,13 +45,13 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `OBS-006` is the next task;
-`LEG-004` remains in the legal lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LEG-004` is the next task;
+`DX-006` remains in the developer-tooling lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-40 are complete through DX-005 (substrate, loader, threads, quality, observability,
-release, provenance, and quickstart). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-41 are complete through OBS-006 (substrate, loader, threads, quality, observability,
+release, provenance, quickstart, and fault diagnostics). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -178,7 +178,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `OBS-003`  | Missing symbol/MIG report      | P1       | M    | **done**  | OBS-001          | Unresolved symbols + missing services report               |
 | `OBS-004`  | Trace export                   | P2       | M    | **done**  | OBS-001          | Chrome/JSON trace                                          |
 | `OBS-005`  | `trace/stats/why` CLI          | P2       | M    | **done**  | OBS-004          | `trace`/`why` + existing `stats`                           |
-| `OBS-006`  | Fault diagnostics              | P1       | M    | **next**  | OBS-001          | PC/encoding/maps on fault                                  |
+| `OBS-006`  | Fault diagnostics              | P1       | M    | **done**  | OBS-001          | Fault snapshot in errors                                   |
 | `OBS-007`  | Metrics endpoint (optional)    | P3       | S    | proposed  | OBS-002          | Loopback-only                                              |
 | `QA-001`   | Fuzz harness                   | P0       | M    | **done**  | A0               | 1M mutations, 0 crashes, corpus retained                   |
 | `QA-002`   | Differential harness           | P0       | L    | blocked   | QA-001, Mac      | ≥100 cases match                                           |
@@ -198,7 +198,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `LEG-001`  | Provenance ledger              | P0       | S    | **done**  | A0               | 25 claims, evidence paths verified                         |
 | `LEG-002`  | Runtime legal review           | P0       | M    | blocked   | LEG-001          | Written gate                                               |
 | `LEG-003`  | Hosting/deployment model       | P1       | M    | blocked   | LEG-002          | Allowed patterns                                           |
-| `LEG-004`  | Claims audit                   | P1       | S    | **ready** | A0               | No false simulator claims                                  |
+| `LEG-004`  | Claims audit                   | P1       | S    | **next**  | A0               | No false simulator claims                                  |
 | `LEG-005`  | Kill/continue log              | P1       | S    | blocked   | gates            | Written outcomes                                           |
 | `DX-001`   | Disassembler                   | P1       | M    | **done**  | A0               | `inspect --disasm`                                         |
 | `DX-002`   | Trace UX                       | P2       | S    | blocked   | OBS-005          | Filtered trace                                             |

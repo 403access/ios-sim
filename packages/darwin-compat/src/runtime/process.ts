@@ -11,6 +11,7 @@
 import { RuntimeError } from "../errors.js";
 import { EventRecorder, EVENT_TYPES } from "../observability/events.js";
 import { RuntimeStats } from "../observability/stats.js";
+import { captureFault } from "../observability/fault.js";
 import { writeInitialStack } from "./stack.js";
 import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
@@ -328,24 +329,44 @@ export class DarwinProcess {
     this.executed += this.cpu.instructions;
   }
 
+  private withFault(error: RuntimeError, pc?: bigint): RuntimeError {
+    const fault = captureFault(error, this.cpu, this.memory, this.program, pc);
+    return new RuntimeError(error.code, error.message, { ...error.details, fault });
+  }
+
   private runLoop(stage: "initializer" | "main" | "terminator", started: number): void {
     while (!this.cpu.halted) {
       const used = this.executed + this.cpu.instructions;
       if (used >= this.maxInstructions) {
-        throw new RuntimeError(
-          "instruction_limit",
-          `process ${this.pid} hit the ${this.maxInstructions} instruction limit during ${stage} at pc 0x${this.cpu.pc.toString(16)}`,
-          { pid: this.pid, pc: this.cpu.pc.toString(16) },
+        throw this.withFault(
+          new RuntimeError(
+            "instruction_limit",
+            `process ${this.pid} hit the ${this.maxInstructions} instruction limit during ${stage} at pc 0x${this.cpu.pc.toString(16)}`,
+            { pid: this.pid, pc: this.cpu.pc.toString(16) },
+          ),
         );
       }
       if ((used & 0xfff) === 0 && Date.now() - started > this.deadlineMs) {
-        throw new RuntimeError(
-          "deadline",
-          `process ${this.pid} exceeded the ${this.deadlineMs} ms deadline during ${stage} at pc 0x${this.cpu.pc.toString(16)}`,
-          { pid: this.pid, pc: this.cpu.pc.toString(16) },
+        throw this.withFault(
+          new RuntimeError(
+            "deadline",
+            `process ${this.pid} exceeded the ${this.deadlineMs} ms deadline during ${stage} at pc 0x${this.cpu.pc.toString(16)}`,
+            { pid: this.pid, pc: this.cpu.pc.toString(16) },
+          ),
         );
       }
-      this.cpu.step(this.memory, (number, cpu) => this.syscalls.handle(number, cpu));
+      const steppingPc = this.cpu.pc;
+      try {
+        this.cpu.step(this.memory, (number, cpu) => this.syscalls.handle(number, cpu));
+      } catch (error) {
+        if (error instanceof RuntimeError) throw error;
+        const code =
+          typeof error === "object" && error !== null && "code" in error
+            ? String((error as { code: unknown }).code)
+            : "fault";
+        const message = error instanceof Error ? error.message : String(error);
+        throw this.withFault(new RuntimeError(code, message, { pid: this.pid }), steppingPc);
+      }
     }
   }
 }
