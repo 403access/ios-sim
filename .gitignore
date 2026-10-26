@@ -29,3 +29,4 @@ bun.lockb
 
 # Native fixture build output
 fixtures/darwin-hello/build/
+packages/uikit-native/build/

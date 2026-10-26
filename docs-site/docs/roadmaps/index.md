@@ -59,8 +59,10 @@ single commit.
 - The Option A **A0 substrate** is implemented: Mach-O/dyld, arm64 interpreter, Mach ports,
   XPC-style RPC, jailed syscalls, launchd-style jobs, CLI, generated fixtures, and a real-clang
   smoke test.
+- A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
+  (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,
-  UIKit, CoreSimulator, SpringBoard, code signing, TCC, and APFS remain open.
+  Apple UIKit, CoreSimulator, SpringBoard, code signing, TCC, and APFS remain open.
 - The next critical-path item is **KRN-001: choose and spike the native kernel boundary**. The
   first ready queue is in the [backlog](./native/backlog.md#2-ready-queue).
 

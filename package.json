@@ -17,6 +17,8 @@
     "build": "bun run --cwd packages/protocol build && bun run --cwd packages/darwin-compat build && bun run --cwd apps/host build && bun run --cwd apps/cli build && bun run --cwd apps/native build",
     "native": "bun apps/native/dist/bin.js",
     "test:native": "vitest run packages/darwin-compat apps/native",
+    "build:uikit": "./scripts/build-uikit-native.sh",
+    "test:uikit": "./scripts/test-uikit-linux.sh",
     "dev:host": "bun run --cwd apps/host dev",
     "dev:docs": "bun run --cwd docs-site start",
     "docs:build": "bun run --cwd docs-site build",

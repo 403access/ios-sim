@@ -21,6 +21,7 @@ import {
   type InspectReport,
   type ProcessResult,
 } from "@ios-sim/darwin-compat";
+import { runNativeWindow } from "./window.js";
 
 export interface CliIo {
   readonly stdout: (text: string) => void;
@@ -185,6 +186,32 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     });
 
   program
+    .command("window")
+    .description("open the clean-room UIKit-compatible native X11 window (no web view)")
+    .option("--width <px>", "window width", parseDimension, 402)
+    .option("--height <px>", "window height", parseDimension, 874)
+    .option("--color <hex>", "background color as RRGGBB", "1e1e2e")
+    .option("--title <text>", "window title", "UIKitLite Blank Window")
+    .option("--no-build", "do not build the native helper if it is missing")
+    .action(
+      async (options: {
+        width: number;
+        height: number;
+        color: string;
+        title: string;
+        build: boolean;
+      }) => {
+        requestedExit = await runNativeWindow({
+          width: options.width,
+          height: options.height,
+          color: options.color,
+          title: options.title,
+          build: options.build,
+        });
+      },
+    );
+
+  program
     .command("doctor")
     .description("report compatibility-layer capabilities and known gaps")
     .option("--json", "print JSON")
@@ -233,6 +260,14 @@ interface RunOptions {
   trace?: boolean;
   traceSyscalls?: boolean;
   json?: boolean;
+}
+
+function parseDimension(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 16384) {
+    throw new Error(`expected a dimension in 1..16384, got ${value}`);
+  }
+  return parsed;
 }
 
 function parseInteger(value: string): number {
@@ -286,6 +321,7 @@ function doctorReport() {
       "Darwin syscall subset with a jailed file layer and anonymous mmap",
       "launchd-style plist jobs, MachServices, RunAtLoad, bounded KeepAlive",
       "generated arm64 fixture program executed end-to-end on Linux/macOS",
+      "clean-room UIKit-compatible blank window in a native X11 window (software renderer)",
     ],
     notImplemented: [
       "dyld shared cache, legacy bind opcodes, lazy binding, initializers, dlopen",
@@ -294,6 +330,7 @@ function doctorReport() {
       "CoreSimulator XPC services, launchd_sim, SpringBoard, jetsam, APFS disk images",
       "Apple framework replacements (Foundation is not provided)",
       "running any Apple binary or the iOS Simulator itself",
+      "Apple UIKit, Metal/IOSurface/CoreAnimation, or a guest app in the UIKit window spike",
     ],
     notes: [
       "This is a research substrate, not a simulator.",

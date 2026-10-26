@@ -57,6 +57,9 @@ The real fixture is built at test time and is not committed. Its source is
 | launchd-style jobs     | XML plists, MachServices, RunAtLoad, bounded KeepAlive                      |
 | Deterministic fixtures | generated Mach-O and hand-encoded A64; no Apple binaries in the repository  |
 
+The UIKit spike is a [separate page](./uikit-window.md): it is a clean-room API subset and a
+native X11 window, not Apple UIKit. It does not satisfy UI-G1.
+
 ## What is deliberately absent
 
 The parts that make the simulator a simulator are missing: the dynamic shared cache, legacy dyld

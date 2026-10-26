@@ -24,6 +24,7 @@ This repository is a research-backed reference implementation. Keep it honest an
 
 - `packages/protocol` — Zod schemas, typed client, shared constants.
 - `packages/darwin-compat` — Option A research substrate: Mach-O/dyld, arm64, Mach, XPC, syscalls, launchd.
+- `packages/uikit-native` — clean-room UIKit-compatible object model and native X11 window (C11; not Apple UIKit).
 - `apps/host` — macOS daemon; `simctl`/`idb` adapters; embedded viewer.
 - `apps/cli` — `ios-sim` commands, coordinate conversion, output.
 - `apps/native` — `ios-sim-native` CLI for the Option A research track.
@@ -44,6 +45,8 @@ bun run test
 bun run test:linux
 bun run test:macos
 bun run test:native
+bun run build:uikit
+bun run test:uikit
 bun run docs:build
 bun run verify
 ```

@@ -305,17 +305,21 @@ colour, then presents interactively, or the graphics gate is declared failed.
 
 **Depends on:** RT-G1, GFX-G1.
 
-| ID     | Task                                | Size | Depends         | Deliverable                                        | Acceptance                                       |
-| ------ | ----------------------------------- | ---- | --------------- | -------------------------------------------------- | ------------------------------------------------ |
-| UI-001 | UIKit private surface inventory     | M    | CS-001          | API/class/dependency matrix                        | Minimal app dependency closure identified        |
-| UI-002 | UIApplication/run loop/window/scene | L    | UI-001, RT-008  | App lifecycle and window hosting                   | Fixture app launches, creates window, exits      |
-| UI-003 | UIView/layer/geometry/drawing       | L    | UI-002, GFX-009 | View tree, layout, drawing                         | Frame golden test; hit testing                   |
-| UI-004 | Controls, text, layout subset       | L    | UI-003          | UILabel, UIButton, UITextField, Auto Layout subset | Fixture screen matches golden; text wraps        |
-| UI-005 | AppKit host window and events       | L    | UI-002          | Host window/menu/event loop                        | Window shows guest frame; input events route     |
-| UI-006 | Pasteboard, menus, services         | M    | UI-005          | Clipboard/menu plumbing                            | Copy/paste fixture; menu action                  |
-| UI-007 | Accessibility tree                  | M    | UI-003          | AX tree export                                     | Tree matches expected roles/labels; query test   |
-| UI-008 | Fonts, text, locale, input methods  | L    | UI-004          | Font fallback, shaping, locale                     | Multilingual golden text; no missing glyph crash |
-| UI-009 | Minimal app conformance             | M    | UI-004, UI-007  | Fixture app + golden/accessibility suite           | Boot→render→tap→text→AX passes                   |
+| ID     | Task                                 | Size | Depends           | Deliverable                                        | Acceptance                                         |
+| ------ | ------------------------------------ | ---- | ----------------- | -------------------------------------------------- | -------------------------------------------------- |
+| UI-000 | Clean-room native blank-window spike | S    | A0 (out of order) | UIKitLite model, software renderer, X11 host       | Xvfb/CLI test: native window, size, colour, resize |
+| UI-001 | UIKit private surface inventory      | M    | CS-001            | API/class/dependency matrix                        | Minimal app dependency closure identified          |
+| UI-002 | UIApplication/run loop/window/scene  | L    | UI-001, RT-008    | App lifecycle and window hosting                   | Fixture app launches, creates window, exits        |
+| UI-003 | UIView/layer/geometry/drawing        | L    | UI-002, GFX-009   | View tree, layout, drawing                         | Frame golden test; hit testing                     |
+| UI-004 | Controls, text, layout subset        | L    | UI-003            | UILabel, UIButton, UITextField, Auto Layout subset | Fixture screen matches golden; text wraps          |
+| UI-005 | AppKit host window and events        | L    | UI-002            | Host window/menu/event loop                        | Window shows guest frame; input events route       |
+| UI-006 | Pasteboard, menus, services          | M    | UI-005            | Clipboard/menu plumbing                            | Copy/paste fixture; menu action                    |
+| UI-007 | Accessibility tree                   | M    | UI-003            | AX tree export                                     | Tree matches expected roles/labels; query test     |
+| UI-008 | Fonts, text, locale, input methods   | L    | UI-004            | Font fallback, shaping, locale                     | Multilingual golden text; no missing glyph crash   |
+| UI-009 | Minimal app conformance              | M    | UI-004, UI-007    | Fixture app + golden/accessibility suite           | Boot→render→tap→text→AX passes                     |
+
+`UI-000` is an out-of-order spike: it proves the native window/renderer boundary without Apple
+UIKit, Metal, or a guest app. It does **not** satisfy this gate.
 
 **Exit gate UI-G1:** a fixture UIKit app boots, renders, accepts taps/text, and exposes a
 meaningful accessibility tree.

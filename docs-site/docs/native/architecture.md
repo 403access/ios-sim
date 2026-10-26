@@ -184,6 +184,14 @@ budget, on-demand start, duplicates, and captured output.
 6. Return stdout/stderr, exit status, instruction count, load statistics, and unsupported
    syscall counts.
 
+## UI spike (`packages/uikit-native`)
+
+`UI-000` is deliberately outside the layer stack above. It is a C11 host-side spike that proves a
+clean-room UIKit-shaped object model can render a blank window through a native X11 surface
+(software ARGB, no web view). It does not use Metal, IOSurface, Apple UIKit, or the guest
+Mach-O/runtime path, and it does not satisfy UI-G1. See
+[Native UIKit window spike](./uikit-window.md).
+
 ## Design invariants
 
 1. **No Apple binaries in the repository.** Tests generate Mach-O files; the optional integration

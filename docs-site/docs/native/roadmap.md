@@ -145,6 +145,10 @@ correct colour and no leaks. Then a window shows it at interactive latency.
 
 **Gate:** UI-G1. **Tasks:** `UI-001..009`.
 
+**Spike delivered:** `UI-000` implements a clean-room UIKit-compatible blank window in a native
+X11 window (software renderer, no web view). It does not satisfy UI-G1; it de-risks the host
+window/renderer boundary. See the [spike page](./uikit-window.md).
+
 - Build or obtain a UIKit-compatible layer for the simulator runtime.
 - AppKit replacement for host windows, menus, and pasteboard.
 - Accessibility translation and a test harness.

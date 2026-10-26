@@ -27,8 +27,9 @@ WebSocket, a Linux-friendly CLI, and a browser viewer.
   runbooks. Built with Docusaurus.
 - **Tests:** unit/contract tests on any OS, Linux container E2E, gated macOS integration with a
   real simulator and a fixture UIKit app.
-- **Native research track (this branch):** `packages/darwin-compat` and `apps/native`, with
-  per-layer tests, generated Mach-O fixtures, and a real-clang smoke test.
+- **Native research track (this branch):** `packages/darwin-compat`, `apps/native`, and the
+  clean-room `packages/uikit-native` native X11 window, with per-layer tests, generated Mach-O
+  fixtures, a real-clang smoke test, and a Linux Xvfb window test.
 
 ## Quickstart
 
@@ -78,6 +79,8 @@ bun apps/native/src/bin.ts demo                 # generated arm64 Mach-O, exit 4
 bun apps/native/src/bin.ts inspect <macho>      # segments, imports, fixups, exports
 bun apps/native/src/bin.ts run <macho>          # jailed, budgeted execution
 bun apps/native/src/bin.ts launchd <plist>      # launchd-style jobs
+bun run build:uikit
+bun apps/native/src/bin.ts window                # native X11 blank window (clean-room UIKit)
 
 # optional: build a real Mach-O from our assembly with Xcode clang
 ./scripts/build-native-fixtures.sh
@@ -85,10 +88,11 @@ bun apps/native/src/bin.ts launchd <plist>      # launchd-style jobs
 
 Implemented: Mach-O parsing and chained fixups, user-space dyld with slides and dependency
 linking, an AArch64 integer interpreter, Mach rights/messages/reply ports/bootstrap services,
-MIG-lite, an XPC-style codec, a Darwin syscall subset, and launchd-style plists.
+MIG-lite, an XPC-style codec, a Darwin syscall subset, launchd-style plists, and a clean-room
+UIKit-compatible native X11 blank window (software renderer, no web view).
 
 Not implemented: threads/blocking Mach receive, legacy dyld bindings, the shared cache,
-Objective-C/Swift/Foundation, Metal/IOSurface/QuartzCore, UIKit/AppKit, code signing, TCC,
+Objective-C/Swift/Foundation, Metal/IOSurface/QuartzCore, Apple UIKit/AppKit, code signing, TCC,
 `launchd_sim`, CoreSimulator, SpringBoard, and APFS images. It cannot run the simulator or an
 Apple app. The [native platform roadmap](docs-site/docs/native/roadmap.md) sequences the
 remaining multi-year work, the [technical roadmap](docs-site/docs/roadmaps/native/technical.md)
@@ -154,6 +158,8 @@ bun run test            # unit + contract, any OS
 bun run test:linux      # Docker/OrbStack Linux E2E
 bun run test:macos      # real simulator (macOS, gated)
 bun run test:native     # native substrate tests only
+bun run build:uikit     # build the native X11 UIKitLite window
+bun run test:uikit      # Linux X11 CLI/window integration (Docker)
 bun run native          # build and run the native CLI
 bun run docs:build
 bun run verify          # local full check
@@ -177,6 +183,7 @@ pipx install fb-idb
 - [Native architecture](docs-site/docs/native/architecture.md)
 - [Native ABI](docs-site/docs/native/abi.md)
 - [Native limitations](docs-site/docs/native/limitations.md)
+- [Native UIKit window spike](docs-site/docs/native/uikit-window.md)
 - [Roadmap system](docs-site/docs/roadmaps/index.md)
 - [Native technical roadmap](docs-site/docs/roadmaps/native/technical.md)
 - [Native backlog](docs-site/docs/roadmaps/native/backlog.md)

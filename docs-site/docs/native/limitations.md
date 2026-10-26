@@ -62,6 +62,8 @@ an Apple runtime can execute.
 - **launchd output paths and working directories are recorded, not applied.**
 - **Performance is interpreter-grade.** There is no JIT; the goal is correctness and
   inspectability, not speed.
+- **The UIKit window spike is host-side C, not an iOS app.** It uses a clean-room API subset and
+  a software renderer; there is no Apple UIKit, Metal, touch, text, or accessibility path yet.
 
 ## Security posture
 

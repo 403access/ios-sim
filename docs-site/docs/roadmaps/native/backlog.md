@@ -23,7 +23,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals (scheduled work):** 19 done · 1 next · 21 ready · remaining blocked/proposed.
+**Totals (scheduled work):** 20 done · 1 next · 21 ready · remaining blocked/proposed.
 
 ## 2. Ready queue
 
@@ -106,6 +106,15 @@ exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evi
 | `A0-REL-01`     | Build/CI hooks, Dockerfile, Linux E2E script | `bun run build`, `scripts/native-smoke.sh`                             |
 | `A0-DOC-01`     | Overview/architecture/ABI/limitations/ADR    | `docs-site/docs/native/`, ADR 0006                                     |
 | `A0-REAL-01`    | Real clang Mach-O smoke test                 | `scripts/build-native-fixtures.sh`, `tests/native/macos-clang.test.ts` |
+
+### Spike — native UIKitLite window (out of order)
+
+| ID       | Task                                                   | Status   | Evidence                                                                                                                             |
+| -------- | ------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `UI-000` | Clean-room UIKit-compatible blank window in native X11 | **done** | `bun run test:uikit` → native X11 window 402x874, pixel `srgb(30,30,46)`, resize 320x480; `bun run build:uikit` unit test 0 failures |
+
+This spike does not satisfy UI-G1 or change the critical path. It exists to de-risk the host
+window/software renderer boundary while KRN/LDR/RT gates remain open.
 
 ### A1 — kernel, threads, observability, quality foundation
 
