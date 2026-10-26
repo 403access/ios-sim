@@ -18,11 +18,14 @@ import {
   MapFileProvider,
   bootReport,
   buildDemoProgram,
+  disassembleRange,
   describeLoaderError,
+  formatDisassembly,
   formatInspectReport,
   formatLoaderDiagnostic,
   inspectMachO,
   parseLaunchdManifest,
+  parseMachO,
   type InspectReport,
   type ProcessResult,
 } from "@ios-sim/darwin-compat";
@@ -58,9 +61,33 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .description("parse a Mach-O and print segments, dependencies, exports, and fixups")
     .argument("<file>", "Mach-O file")
     .option("--json", "print JSON")
-    .action((file: string, options: { json?: boolean }) => {
+    .option("--disasm", "disassemble __TEXT,__text")
+    .option("--disasm-limit <count>", "maximum instructions to decode", parseInteger, 200)
+    .action((file: string, options: { json?: boolean; disasm?: boolean; disasmLimit?: number }) => {
       const bytes = readFileSync(file);
       const report = inspectMachO(bytes, file);
+      if (options.disasm) {
+        const { image } = parseMachO(bytes);
+        const section = image.sections.find((entry) => entry.name === "__text");
+        if (!section) {
+          io.stderr("inspect: image has no __TEXT,__text section\n");
+          requestedExit = 1;
+          return;
+        }
+        const instructions = disassembleRange(
+          bytes.subarray(section.fileOffset, section.fileOffset + section.size),
+          BigInt(section.address),
+          options.disasmLimit,
+        );
+        if (options.json) {
+          io.stdout(`${JSON.stringify({ ...report, disassembly: instructions }, null, 2)}\n`);
+        } else {
+          io.stdout(
+            `${formatInspectReport(report)}\n\ndisassembly:\n${formatDisassembly(instructions)}\n`,
+          );
+        }
+        return;
+      }
       if (options.json) io.stdout(`${JSON.stringify(report, null, 2)}\n`);
       else io.stdout(`${formatInspectReport(report)}\n`);
     });

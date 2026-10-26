@@ -484,8 +484,9 @@ policy layer: warning notifies, critical kills background/daemon/foreground in t
 largest footprint. REL-005 adds a relative-link checker and makes Docusaurus fail on broken links
 and broken Markdown links; CI and `verify` run it. REL-003 builds both packages and emits
 `build/packages/*.tgz` plus a SHA-256 manifest; no Apple files are included. OBS-004 exports events
-as Chrome Trace Event JSON (process slices + instants, unmatched starts closed). DX-001
-(disassembler) is next.
+as Chrome Trace Event JSON (process slices + instants, unmatched starts closed). DX-001 adds an
+AArch64 integer/syscall disassembler and `inspect --disasm`; unknown words print `.word`. LEG-001
+(provenance ledger) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

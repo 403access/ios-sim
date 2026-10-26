@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 66 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 67 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -45,15 +45,15 @@ started by a human with host access, not by a Linux-only agent.
 |    10 | `LDR-010` | Loader        | M    | A0          | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `DX-001` is the next task;
-`LEG-001` remains in the legal lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LEG-001` is the next task;
+`OBS-005` remains in the observability lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-35 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
+Sessions 1-36 are complete (A0 substrate, kernel boundary, threads/clock, user-space loader,
 THR-012 stress, fuzzing, corpus, benchmarks, events, statistics, native CI, QA-005, soak,
-reproducible fixtures, boot reports, jetsam, docs gates, packaging, and trace export). This is the
-next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+reproducible fixtures, boot reports, jetsam, docs gates, packaging, trace export, and disassembly).
+This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -197,12 +197,12 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `REL-005`  | Docs gates                     | P1       | S    | **done**  | A0               | Broken relative links fail                                 |
 | `REL-006`  | Supply-chain checks            | P2       | S    | blocked   | REL-001          | Audit/lockfile                                             |
 | `REL-007`  | Maintenance calendar           | P2       | S    | blocked   | SB-008           | Quarterly runbook                                          |
-| `LEG-001`  | Provenance ledger              | P0       | S    | **ready** | A0               | Every claim sourced                                        |
+| `LEG-001`  | Provenance ledger              | P0       | S    | **next**  | A0               | Every claim sourced                                        |
 | `LEG-002`  | Runtime legal review           | P0       | M    | blocked   | LEG-001          | Written gate                                               |
 | `LEG-003`  | Hosting/deployment model       | P1       | M    | blocked   | LEG-002          | Allowed patterns                                           |
 | `LEG-004`  | Claims audit                   | P1       | S    | **ready** | A0               | No false simulator claims                                  |
 | `LEG-005`  | Kill/continue log              | P1       | S    | blocked   | gates            | Written outcomes                                           |
-| `DX-001`   | Disassembler                   | P1       | M    | **next**  | A0               | `inspect --disasm`                                         |
+| `DX-001`   | Disassembler                   | P1       | M    | **done**  | A0               | `inspect --disasm`                                         |
 | `DX-002`   | Trace UX                       | P2       | S    | blocked   | OBS-005          | Filtered trace                                             |
 | `DX-003`   | Capability doctor              | P2       | S    | **ready** | A0               | JSON schema/tests                                          |
 | `DX-004`   | Repro bundle                   | P2       | M    | blocked   | OBS-004          | Reproduce on another host                                  |

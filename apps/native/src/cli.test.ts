@@ -56,6 +56,11 @@ describe("ios-sim-native CLI", () => {
     expect(report.architecture).toBe("arm64");
     expect(report.segments.map((segment: { name: string }) => segment.name)).toContain("__TEXT");
 
+    const disasmIo = capture();
+    expect(await main(["inspect", file, "--disasm"], disasmIo)).toBe(0);
+    expect(disasmIo.out.join("")).toContain("svc #128");
+    expect(disasmIo.out.join("")).toContain("movz");
+
     const runIo = capture();
     expect(await main(["run", file, "--json"], runIo)).toBe(42);
     const run = JSON.parse(runIo.out.join(""));
