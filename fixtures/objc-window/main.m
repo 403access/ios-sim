@@ -220,6 +220,10 @@ static unsigned gTick;
              action:@selector(switchChanged:)
    forControlEvents:UIControlEventValueChanged];
   [window addSubview:toggle];
+  UIImage *icon = [UIImage imageNamed:"assets/icon.png"];
+  UIImageView *picture = [[UIImageView alloc] initWithImage:icon];
+  [picture setFrame:CGRectMake(250, 140, 80, 80)];
+  [window addSubview:picture];
   gSlider = [[UISlider alloc] initWithFrame:CGRectMake(20, 560, 300, 24)];
   [gSlider addTarget:self
               action:@selector(sliderChanged:)

@@ -8,10 +8,16 @@
  * binary that loops forever fails visibly instead of wedging the CLI.
  */
 
+import { isAbsolute, join, normalize } from "node:path";
 import { RuntimeError } from "../errors.js";
 import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
-import { ImageLoader, type FileProvider, type LoadedProgram } from "../dyld/loader.js";
+import {
+  ImageLoader,
+  NodeFileProvider,
+  type FileProvider,
+  type LoadedProgram,
+} from "../dyld/loader.js";
 import { MachKernel, type MachTask } from "../mach/kernel.js";
 import { ObjcHost, type CapturedFrame, type InputEvent } from "../objc/host.js";
 import {
@@ -103,6 +109,7 @@ export class DarwinRuntime {
   private readonly deadlineMs: number;
   private readonly strictSyscalls: boolean;
   private nextPid = 100;
+  private readonly resourceCache = new Map<string, Uint8Array | null>();
 
   constructor(options: RuntimeOptions = {}) {
     this.mach = options.mach ?? new MachKernel();
@@ -113,6 +120,31 @@ export class DarwinRuntime {
     this.maxInstructions = options.maxInstructions ?? DEFAULT_MAX_INSTRUCTIONS;
     this.deadlineMs = options.deadlineMs ?? DEFAULT_DEADLINE_MS;
     this.strictSyscalls = options.strictSyscalls ?? true;
+  }
+
+  /** Resolve an app resource under `rootDir`; missing files read as null. */
+  private readResource(name: string): Uint8Array | null {
+    if (this.resourceCache.has(name)) return this.resourceCache.get(name) ?? null;
+    let bytes: Uint8Array | null = null;
+    const normalized = normalize(name);
+    if (!isAbsolute(normalized) && !normalized.split(/[\\/]/).includes("..")) {
+      const path = join(this.rootDir, normalized);
+      // Virtual providers only see their own files; resources may still live
+      // on disk next to the image, so fall back to the host filesystem.
+      try {
+        bytes = this.provider
+          ? this.provider.readFile(path)
+          : new NodeFileProvider().readFile(path);
+      } catch {
+        try {
+          bytes = new NodeFileProvider().readFile(path);
+        } catch {
+          bytes = null;
+        }
+      }
+    }
+    this.resourceCache.set(name, bytes);
+    return bytes;
   }
 
   createProcess(options: CreateProcessOptions): DarwinProcess {
@@ -132,6 +164,7 @@ export class DarwinRuntime {
             log: (bytes) => {
               errorSink.write(bytes);
             },
+            resources: (name) => this.readResource(name),
           });
     const loader = new ImageLoader({
       provider: this.provider,

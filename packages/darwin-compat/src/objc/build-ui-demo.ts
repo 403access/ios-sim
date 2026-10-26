@@ -78,6 +78,8 @@ const SELECTORS = {
   delayedTick: "delayedTick:",
   postNotificationUserInfo: "postNotificationName:object:userInfo:",
   userInfo: "userInfo",
+  imageNamed: "imageNamed:",
+  initWithImage: "initWithImage:",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -201,7 +203,11 @@ type SlotName =
   | "slider"
   | "sliderChanges"
   | "delayedMarker"
-  | "userInfoValue";
+  | "userInfoValue"
+  | "classImage"
+  | "classImageView"
+  | "image"
+  | "imageView";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -252,6 +258,7 @@ interface Plan {
   readonly statusRect: number;
   readonly switchRect: number;
   readonly sliderRect: number;
+  readonly imageRect: number;
   readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
@@ -383,6 +390,10 @@ function planData(): Plan {
     "sliderChanges",
     "delayedMarker",
     "userInfoValue",
+    "classImage",
+    "classImageView",
+    "image",
+    "imageView",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -414,6 +425,7 @@ function planData(): Plan {
     "Seen",
     "Count",
     "count",
+    "assets/icon.png",
     "theme",
     "Lifecycle",
     "Tappable",
@@ -527,6 +539,8 @@ function planData(): Plan {
   cursor += 32;
   const sliderRect = cursor;
   cursor += 32;
+  const imageRect = cursor;
+  cursor += 32;
   const timerInterval = cursor;
   cursor += 8;
   const half = cursor;
@@ -639,6 +653,7 @@ function planData(): Plan {
     statusRect,
     switchRect,
     sliderRect,
+    imageRect,
     timerInterval,
     half,
     size: cursor,
@@ -1365,6 +1380,39 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UIImageView *picture = [[UIImageView alloc] initWithImage:
+    //     [UIImage imageNamed:"assets/icon.png"]];
+    emitPointer(0, slot("classImage"));
+    emitAddress(1, selector(SELECTORS.imageNamed));
+    emitAddress(2, dataAddress(plan.stringOffsets["assets/icon.png"]!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("image"));
+    emitPointer(0, slot("classImageView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithImage));
+    emitPointer(2, slot("image"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setFrame));
+    emitDouble(0, dataAddress(plan.imageRect));
+    emitDouble(1, dataAddress(plan.imageRect + 8));
+    emitDouble(2, dataAddress(plan.imageRect + 16));
+    emitDouble(3, dataAddress(plan.imageRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(21, slot("imageView"));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // UILabel *label = [[UILabel alloc] initWithFrame:(20,400,300,40)];
     emitPointer(0, slot("classLabel"));
     emitAddress(1, selector(SELECTORS.alloc));
@@ -1911,6 +1959,7 @@ function emitData(
     "Seen",
     "Count",
     "count",
+    "assets/icon.png",
     "theme",
     "Lifecycle",
     "Tappable",
@@ -2161,6 +2210,8 @@ function emitData(
   bind(plan.slotOffsets.classTimer, "_OBJC_CLASS_$_NSTimer");
   bind(plan.slotOffsets.classSwitch, "_OBJC_CLASS_$_UISwitch");
   bind(plan.slotOffsets.classSlider, "_OBJC_CLASS_$_UISlider");
+  bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
+  bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
@@ -2227,6 +2278,10 @@ function emitData(
   f64(plan.sliderRect + 8, 560);
   f64(plan.sliderRect + 16, 300);
   f64(plan.sliderRect + 24, 24);
+  f64(plan.imageRect, 250);
+  f64(plan.imageRect + 8, 140);
+  f64(plan.imageRect + 16, 80);
+  f64(plan.imageRect + 24, 80);
   f64(plan.timerInterval, 1);
   f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {

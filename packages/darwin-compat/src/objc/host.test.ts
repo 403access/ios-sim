@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DarwinRuntime } from "../runtime/process.js";
 import { CaptureSink } from "../syscall/kernel.js";
@@ -9,7 +10,7 @@ function runDemo(events?: readonly InputEvent[]) {
   const demo = buildUIKitDemo();
   const runtime = new DarwinRuntime({
     provider: new MapFileProvider(new Map([["/UIKitDemo", demo.built.bytes]])),
-    rootDir: process.cwd(),
+    rootDir: join(process.cwd(), "fixtures/objc-window"),
     defaultStdout: new CaptureSink(),
     defaultStderr: new CaptureSink(),
   });
@@ -185,6 +186,20 @@ describe("ObjC UIKit demo", () => {
       result.program.memory.read(result.program.resolveExport("_notificationMarker")!, 8),
     ).toBe(1n);
     expect(result.program.memory.read(result.program.resolveExport("_userInfoValue")!, 8)).toBe(7n);
+  });
+
+  it("draws a PNG-backed UIImageView scaled to its frame", () => {
+    const result = runDemo();
+    const frame = result.frames[0]!;
+    const at = (x: number, y: number): number[] => {
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    // Four quadrants of the 8x8 fixture: red, green, blue, half-black.
+    expect(at(254, 144)).toEqual([255, 0, 0]);
+    expect(at(325, 144)).toEqual([0, 255, 0]);
+    expect(at(254, 215)).toEqual([0, 0, 255]);
+    expect(at(325, 215)).toEqual([127, 127, 127]);
   });
 
   it("toggles a UISwitch and sends a value-changed action", () => {

@@ -227,6 +227,19 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (double)maximumValue;
 @end
 
+// Image names are paths under the runtime root, as C strings; Apple takes an
+// NSString without an extension. Only 8-bit non-interlaced PNGs decode.
+@interface UIImage : NSObject
++ (id)imageNamed:(const char *)name;
+- (CGSize)size;
+@end
+
+@interface UIImageView : UIView
+- (id)initWithImage:(UIImage *)image;
+- (void)setImage:(UIImage *)image;
+- (UIImage *)image;
+@end
+
 @interface UIWindow : UIView
 - (void)makeKeyAndVisible;
 - (void)setRootViewController:(id)controller;

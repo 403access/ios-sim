@@ -91,6 +91,53 @@ export class Framebuffer {
     }
   }
 
+  /**
+   * Draw an RGBA image into the given rectangle with nearest-neighbour
+   * sampling. Source alpha is multiplied by `alpha` before blending.
+   */
+  drawImage(
+    image: { width: number; height: number; pixels: Uint8Array },
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    clip: { x: number; y: number; width: number; height: number },
+    alpha = 1,
+  ): void {
+    if (image.width <= 0 || image.height <= 0 || width <= 0 || height <= 0) return;
+    if (image.pixels.length !== image.width * image.height * 4) {
+      throw new Error("image pixel buffer does not match its dimensions");
+    }
+    const left = Math.max(0, clip.x, Math.round(x));
+    const top = Math.max(0, clip.y, Math.round(y));
+    const right = Math.min(this.width, clip.x + clip.width, Math.round(x + width));
+    const bottom = Math.min(this.height, clip.y + clip.height, Math.round(y + height));
+    if (right <= left || bottom <= top) return;
+    for (let row = top; row < bottom; row += 1) {
+      const sourceY = Math.min(image.height - 1, Math.floor(((row - y) * image.height) / height));
+      for (let column = left; column < right; column += 1) {
+        const sourceX = Math.min(image.width - 1, Math.floor(((column - x) * image.width) / width));
+        const from = (sourceY * image.width + sourceX) * 4;
+        const source = {
+          r: image.pixels[from]!,
+          g: image.pixels[from + 1]!,
+          b: image.pixels[from + 2]!,
+          a: image.pixels[from + 3]! * Math.max(0, Math.min(1, alpha)),
+        };
+        if (source.a === 0) continue;
+        const offset = (row * this.width + column) * 4;
+        if (source.a >= 255) {
+          this.pixels[offset] = source.r;
+          this.pixels[offset + 1] = source.g;
+          this.pixels[offset + 2] = source.b;
+          this.pixels[offset + 3] = 255;
+        } else {
+          blendPixel(this.pixels, offset, source);
+        }
+      }
+    }
+  }
+
   /** Stable fingerprint of the pixel data. */
   digest(): string {
     return createHash("sha256").update(this.pixels).digest("hex");

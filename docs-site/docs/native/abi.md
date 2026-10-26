@@ -190,6 +190,16 @@ as `objcStats` in the process result and CLI JSON: allocations, retains, release
 autoreleases, pool pushes/pops, deallocs, associations, weak stores/loads/zeroings, and
 message dispatch totals split into host and guest IMPs.
 
+### Resources and images
+
+`UIImage` resolves its name through the host's resource loader: names are relative to the runtime
+root (the fixture directory for the demo, the image directory for a built app) and may omit the
+`.png` extension. The loader tries the process file provider, then the host filesystem, so virtual
+providers still work for images next to an app. Only 8-bit, non-interlaced PNGs with RGB or RGBA
+pixels decode; anything else fails the load and `+imageNamed:` returns nil, which `UIImageView`
+renders as nothing. `UIImageView` ignores `contentMode` and always stretches to its frame with
+nearest-neighbour sampling, multiplied by the view's alpha.
+
 ### Shim classes
 
 These are original metadata with host IMP trampolines, not Apple classes:

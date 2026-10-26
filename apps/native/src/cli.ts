@@ -175,7 +175,8 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
         const demo = buildUIKitDemo();
         const runtime = new DarwinRuntime({
           provider: new MapFileProvider(new Map([["/UIKitDemo", demo.built.bytes]])),
-          rootDir: process.cwd(),
+          // The demo loads UIImage assets from the fixture directory.
+          rootDir: join(import.meta.dirname, "../../../fixtures/objc-window"),
         });
         const result = runtime.run("/UIKitDemo", {
           events: inputEvents(options.tap, options.drag, options.tick),

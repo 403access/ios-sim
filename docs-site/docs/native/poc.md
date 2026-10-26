@@ -115,6 +115,9 @@ bun apps/native/src/bin.ts uikit-demo --tap 30,30 --out-dir /tmp/frames
 bun apps/native/src/bin.ts uikit-demo --drag 30,30,60,60,3 --out-dir /tmp/drag
 bun apps/native/src/bin.ts uikit-demo --tick 4 --out-dir /tmp/ticks
 
+# the demo's UIImageView loads this 8x8 fixture PNG from the fixture directory
+bun scripts/make-fixture-image.ts
+
 # optional: the same pipeline with clang output (macOS + Xcode)
 ./scripts/build-objc-fixture.sh
 bun apps/native/src/bin.ts inspect fixtures/objc-window/build/ObjcWindow --objc

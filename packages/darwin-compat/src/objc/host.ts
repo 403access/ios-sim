@@ -19,6 +19,7 @@ import type { LoadedProgram } from "../dyld/loader.js";
 import type { VirtualMemory } from "../dyld/vm.js";
 import { BLACK, Framebuffer, WHITE, type Rgba } from "../ui/framebuffer.js";
 import { drawText, textWidth } from "../ui/font.js";
+import { decodePng, type DecodedImage } from "../ui/png.js";
 import {
   adrp,
   b,
@@ -98,6 +99,13 @@ const STRING_INSTANCE_SIZE = 16;
 const NUMBER_VALUE = 8;
 const NUMBER_INSTANCE_SIZE = 16;
 
+const IMAGE_WIDTH = 8;
+const IMAGE_HEIGHT = 16;
+const IMAGE_INSTANCE_SIZE = 24;
+
+const IMAGE_VIEW_IMAGE = 64;
+const IMAGE_VIEW_INSTANCE_SIZE = 72;
+
 const SWITCH_ON = 64;
 const SWITCH_INSTANCE_SIZE = 72;
 
@@ -156,6 +164,8 @@ interface TouchStep {
 }
 
 export interface ObjcHostOptions {
+  /** Resolve an app resource (e.g. `assets/icon.png`) to bytes, or null. */
+  readonly resources?: (name: string) => Uint8Array | null;
   readonly memory: VirtualMemory;
   readonly width?: number;
   readonly height?: number;
@@ -285,6 +295,9 @@ export class ObjcHost {
   private initializeStubCursor: bigint;
   private readonly resendAddress: bigint;
   private readonly log: ((bytes: Uint8Array) => void) | undefined;
+  private readonly resources: ((name: string) => Uint8Array | null) | undefined;
+  private readonly images = new Map<bigint, DecodedImage>();
+  private readonly imageCache = new Map<string, DecodedImage | null>();
   private loadsPrepared = false;
   private readonly children = new Map<bigint, bigint[]>();
   private readonly windows: bigint[] = [];
@@ -303,6 +316,7 @@ export class ObjcHost {
     this.maxFrames = options.maxFrames ?? MAX_FRAMES;
     this.events = options.events ?? [];
     this.log = options.log;
+    this.resources = options.resources;
     this.touchScript = buildTouchScript(this.events);
     this.arena = this.memory.allocate(ARENA_SIZE, { tag: "objc-host", protection: 3 });
     this.arenaCursor = this.arena;
@@ -1727,6 +1741,69 @@ export class ObjcHost {
     });
     this.registerClass(scroll);
 
+    const image = this.defineClass({
+      name: "UIImage",
+      superclass: "NSObject",
+      instanceSize: IMAGE_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "size",
+          types: "{CGSize=dd}16@0:8",
+          run: (cpu, receiver) => {
+            cpu.writeVectorDouble(0, this.readDouble(receiver, IMAGE_WIDTH));
+            cpu.writeVectorDouble(1, this.readDouble(receiver, IMAGE_HEIGHT));
+          },
+        },
+      ],
+      classMethods: [
+        {
+          selector: "imageNamed:",
+          types: "@24@0:8*16",
+          run: (cpu) => {
+            const decoded = this.loadImage(this.stringValue(cpu.readRegister(2)));
+            cpu.writeRegister(0, decoded === null ? 0n : this.newImage(decoded));
+          },
+        },
+      ],
+    });
+    this.registerClass(image);
+
+    const imageView = this.defineClass({
+      name: "UIImageView",
+      superclass: "UIView",
+      instanceSize: IMAGE_VIEW_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "initWithImage:",
+          types: "@24@0:8@16",
+          run: (cpu, receiver) => {
+            const picture = cpu.readRegister(2);
+            this.memory.write(receiver + BigInt(IMAGE_VIEW_IMAGE), 8, picture);
+            this.writeDouble(receiver, VIEW_ALPHA, 1);
+            const source = this.images.get(picture);
+            if (source) {
+              this.writeRect(receiver, { x: 0, y: 0, width: source.width, height: source.height });
+            }
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "setImage:",
+          types: "v24@0:8@16",
+          run: (cpu, receiver) =>
+            this.memory.write(receiver + BigInt(IMAGE_VIEW_IMAGE), 8, cpu.readRegister(2)),
+        },
+        {
+          selector: "image",
+          types: "@16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(IMAGE_VIEW_IMAGE), 8)),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(imageView);
+
     const label = this.defineClass({
       name: "UILabel",
       superclass: "UIView",
@@ -2678,6 +2755,33 @@ export class ObjcHost {
     return klass ? `<${klass.name}>` : `<object 0x${receiver.toString(16)}>`;
   }
 
+  /** Decode and cache a resource image; a missing or bad file yields null. */
+  private loadImage(name: string): DecodedImage | null {
+    if (this.imageCache.has(name)) return this.imageCache.get(name) ?? null;
+    let decoded: DecodedImage | null = null;
+    const path = name.includes(".") ? name : `${name}.png`;
+    const bytes = this.resources?.(path) ?? null;
+    if (bytes !== null) {
+      try {
+        decoded = decodePng(bytes);
+      } catch {
+        decoded = null;
+      }
+    }
+    this.imageCache.set(name, decoded);
+    return decoded;
+  }
+
+  private newImage(decoded: DecodedImage): bigint {
+    const klass = this.classes.get("UIImage");
+    if (!klass) throw new ObjcError("internal_error", "UIImage is missing");
+    const instance = this.allocateInstance(klass);
+    this.images.set(instance, decoded);
+    this.writeDouble(instance, IMAGE_WIDTH, decoded.width);
+    this.writeDouble(instance, IMAGE_HEIGHT, decoded.height);
+    return instance;
+  }
+
   /** Allocate an NSNumber holding a signed 64-bit value. */
   private newNumber(value: bigint): bigint {
     const numberClass = this.classes.get("NSNumber");
@@ -3215,6 +3319,12 @@ export class ObjcHost {
       this.paintSwitch(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UISlider") {
       this.paintSlider(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
+    } else if (klass?.name === "UIImageView") {
+      const picture = this.memory.read(view + BigInt(IMAGE_VIEW_IMAGE), 8);
+      const source = picture === 0n ? undefined : this.images.get(picture);
+      if (source) {
+        framebuffer.drawImage(source, absoluteX, absoluteY, rect.width, rect.height, clip, alpha);
+      }
     }
     if (klass?.name === "UILabel") {
       const textPointer = this.memory.read(view + BigInt(LABEL_TEXT), 8);

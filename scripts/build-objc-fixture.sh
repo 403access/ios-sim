@@ -27,6 +27,10 @@ mkdir -p "$build"
 
 bun scripts/build-objc-shim.ts "$build"
 
+# The clang fixture loads UIImage assets relative to its own directory.
+bun scripts/make-fixture-image.ts "$build/assets/icon.png" >/dev/null
+mkdir -p "$build/assets"
+
 build_app() {
   local output="$1"
   local fixups="$2"
