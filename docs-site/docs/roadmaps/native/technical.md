@@ -231,9 +231,10 @@ deduplication and stage-attributed failures. LDR-004 adds reference-counted dyna
 (`open`/`symbol`/`close`) with unload/eviction; guest `dlopen` traps are not wired. LDR-005 adds
 dependency-ordinal two-level binds, flat load-order collision handling, and `__interpose`
 replacement pairs. LDR-010 parses embedded signatures (superblob, CodeDirectory, XML
-entitlements) without verifying hashes or certificates. LDR-013 (loader diagnostics) is next.
-Executable lazy-stub trampolines, general weak-definition coalescing, broader namespace policy,
-and signature verification are explicitly still absent.
+entitlements) without verifying hashes or certificates. LDR-013 adds structured loader
+diagnostics and a CLI failure report. LDR-012 (fileset/dSYM metadata) is next. Executable
+lazy-stub trampolines, general weak-definition coalescing, broader namespace policy, and signature
+verification are explicitly still absent.
 
 | ID      | Task                                     | Size | Depends          | Deliverable                                        | Acceptance                                                                    |
 | ------- | ---------------------------------------- | ---- | ---------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |

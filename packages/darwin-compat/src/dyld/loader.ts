@@ -38,6 +38,7 @@ import {
 } from "../macho/legacy-fixups.js";
 import type { MachOImage } from "../macho/types.js";
 import { VirtualMemory } from "./vm.js";
+import { describeLoaderError, type LoaderReport } from "./diagnostics.js";
 
 export interface FileProvider {
   readFile(path: string): Uint8Array;
@@ -304,6 +305,28 @@ export class ImageLoader {
       interpositions: this.interpositions,
       interpositionList: this.interpositionList,
     };
+  }
+
+  /** Load with a structured, actionable failure report instead of throwing. */
+  diagnose(path: string): LoaderReport {
+    try {
+      const program = this.load(path);
+      return {
+        ok: true,
+        path: normalize(path),
+        program,
+        diagnostic: null,
+        stats: { ...this.stats, images: this.order.length },
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        path: normalize(path),
+        program: null,
+        diagnostic: describeLoaderError(error, normalize(path)),
+        stats: { ...this.stats, images: this.order.length },
+      };
+    }
   }
 
   private loadImage(path: string, context: LoadContext): LoadedImage {

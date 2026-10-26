@@ -13,9 +13,12 @@ import {
   CaptureSink,
   DarwinRuntime,
   Launchd,
+  LoaderError,
   MapFileProvider,
   buildDemoProgram,
+  describeLoaderError,
   formatInspectReport,
+  formatLoaderDiagnostic,
   inspectMachO,
   parseLaunchdManifest,
   type InspectReport,
@@ -239,6 +242,17 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
       if (error.code === "commander.helpDisplayed" || error.code === "commander.version") return 0;
       io.stderr(`${error.message}\n`);
       return error.exitCode === 0 ? 1 : error.exitCode;
+    }
+    if (error instanceof LoaderError) {
+      const details = (error.details ?? {}) as Record<string, unknown>;
+      const path =
+        typeof details.path === "string"
+          ? details.path
+          : typeof details.from === "string"
+            ? details.from
+            : "<unknown>";
+      io.stderr(`${formatLoaderDiagnostic(describeLoaderError(error, path))}\n`);
+      return 1;
     }
     const code =
       typeof error === "object" && error !== null && "code" in error ? String(error.code) : "error";

@@ -160,6 +160,11 @@ slot counts, optional executable segment), XML entitlements, requirements, DER e
 the signature wrapper presence. **Nothing is verified**: hashes, certificates, CMS, and
 entitlement policy are deliberately out of scope until a later security task.
 
+`ImageLoader.diagnose(path)` returns `{ ok, program, diagnostic, stats }` instead of throwing.
+Diagnostics name the code, stage, path, unresolved dependency or symbol, and one concrete next
+action; `formatLoaderDiagnostic` renders it for the CLI. `ios-sim-native run` prints the same
+report on a loader failure.
+
 ## MIG-lite
 
 `MigWriter`/`MigReader` are 4-byte aligned and bounded:

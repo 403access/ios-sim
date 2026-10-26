@@ -134,7 +134,8 @@ load dependencies → apply fixups.
 coalescing, namespace/interposition policy beyond `__interpose` pairs and ordinals, and
 code-signing validation. Legacy `LC_DYLD_INFO` rebase/bind, lazy, and weak streams are decoded (LDR-001/002);
 module init/term arrays run around `main` (LDR-003); dynamic handles support `dlopen`/`dlsym`/
-`dlclose` semantics at the loader API (LDR-004), but guest syscalls are not wired. Two-level
+`dlclose` semantics at the loader API (LDR-004), but guest syscalls are not wired. Loader
+failures produce actionable diagnostics (LDR-013). Two-level
 ordinals, flat load-order collisions, and `__interpose` replacement pairs are implemented
 (LDR-005); broader namespace/interposition policy is not. Threaded bind streams remain unsupported.
 

@@ -71,12 +71,8 @@ export function inspectMachO(bytes: Uint8Array, file = "<memory>"): InspectRepor
   }
   if (image.codeSignature)
     warnings.push("code signature is present but not verified by this layer");
-  if (
-    image.dyldInfo &&
-    (image.dyldInfo.bindSize > 0 || image.dyldInfo.lazyBindSize > 0) &&
-    !image.chainedFixups
-  ) {
-    warnings.push("legacy dyld bind opcodes are present; only chained fixups are implemented");
+  if (image.dyldInfo && image.dyldInfo.lazyBindSize > 0 && !image.chainedFixups) {
+    warnings.push("lazy dyld bind entries are recorded; callers must bind them on first use");
   }
   if (image.symbols.some((symbol) => symbol.name.startsWith("___chkstk_darwin"))) {
     warnings.push("uses stack probing helpers from libSystem, which is not provided");
