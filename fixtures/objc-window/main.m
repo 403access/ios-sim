@@ -17,6 +17,17 @@ static char kColorKey;
 static int gBaseInit;
 static int gTapInit;
 static int gInitOrder;
+static int gLifecycle;
+
+@interface UIViewController (Lifecycle)
+- (void)viewDidLoad;
+@end
+
+@implementation UIViewController (Lifecycle)
+- (void)viewDidLoad {
+  gLifecycle = 1;
+}
+@end
 
 @protocol Tappable
 @end
@@ -35,7 +46,7 @@ static int gInitOrder;
 - (void)touchesBegan:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;
-  if (!(gBaseInit && gTapInit && gInitOrder == 2)) {
+  if (!(gBaseInit && gTapInit && gInitOrder == 2 && gLifecycle == 1)) {
     self.backgroundColor = [UIColor purpleColor];
     return;
   }
@@ -139,6 +150,8 @@ static unsigned gTick;
   UIView *scrollBlue = [[UIView alloc] initWithFrame:CGRectMake(0, 80, 300, 120)];
   scrollBlue.backgroundColor = [UIColor blueColor];
   [scroll addSubview:scrollBlue];
+  UIViewController *controller = [[UIViewController alloc] init];
+  (void)[controller view];
   UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(20, 400, 300, 40)];
   [label setText:"HELLO 42"];
   [label setTextColor:[UIColor blackColor]];

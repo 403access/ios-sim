@@ -223,6 +223,9 @@ export class ObjcHost {
   private readonly defaults = new Map<string, bigint>();
   private readonly notificationPage: bigint;
   private notificationCursor: bigint;
+  private readonly lifecyclePage: bigint;
+  private lifecycleCursor: bigint;
+  private readonly loadedControllers = new Set<bigint>();
   private readonly deallocPage: bigint;
   private deallocCursor: bigint;
   private readonly autoreleasePools: bigint[][] = [];
@@ -274,6 +277,11 @@ export class ObjcHost {
       protection: 7,
     });
     this.notificationCursor = this.notificationPage;
+    this.lifecyclePage = this.memory.allocate(0x1000, {
+      tag: "objc-lifecycle-stubs",
+      protection: 7,
+    });
+    this.lifecycleCursor = this.lifecyclePage;
 
     // Data symbols some metadata references directly.
     const emptyCache = this.allocBytes(16);
@@ -442,6 +450,17 @@ export class ObjcHost {
       );
     });
     this.registerSymbol("_objc_sync_exit", () => ({ value: 0n }));
+
+    this.registerSymbol("_objc_alloc_init", (cpu) => {
+      const klass = this.byAddress.get(cpu.readRegister(0));
+      if (!klass) throw new ObjcError("bad_receiver", "objc_alloc_init receiver is not a class");
+      const instance = this.allocateInstance(klass);
+      const method = this.resolveFrom(klass, "init");
+      if (!method) return { value: instance };
+      cpu.writeRegister(0, instance);
+      cpu.writeRegister(1, this.internString("init"));
+      return this.invoke(method, cpu);
+    });
 
     this.registerSymbol("_objc_setAssociatedObject", (cpu) => {
       this.setAssociated(
@@ -836,7 +855,7 @@ export class ObjcHost {
           run: (cpu, receiver) => {
             const controller = cpu.readRegister(2);
             this.memory.write(receiver + BigInt(CONTROLLER_VIEW), 8, controller);
-            const child = this.controllerView(controller);
+            const child = this.controllerView(controller, cpu);
             if (child !== 0n) this.addSubview(receiver, child);
           },
         },
@@ -1180,7 +1199,7 @@ export class ObjcHost {
         {
           selector: "view",
           types: "@16@0:8",
-          run: (cpu, receiver) => cpu.writeRegister(0, this.controllerView(receiver)),
+          run: (cpu, receiver) => cpu.writeRegister(0, this.controllerView(receiver, cpu)),
         },
         {
           selector: "setView:",
@@ -2051,7 +2070,7 @@ export class ObjcHost {
     this.children.set(parent, list);
   }
 
-  private controllerView(controller: bigint): bigint {
+  private controllerView(controller: bigint, cpu: Arm64Cpu): bigint {
     if (controller === 0n) return 0n;
     const existing = this.memory.read(controller + BigInt(CONTROLLER_VIEW), 8);
     if (existing !== 0n) return existing;
@@ -2060,7 +2079,44 @@ export class ObjcHost {
     const view = this.allocateInstance(klass);
     this.writeRect(view, { x: 0, y: 0, width: this.width, height: this.height });
     this.memory.write(controller + BigInt(CONTROLLER_VIEW), 8, view);
+    this.scheduleViewDidLoad(controller, view, cpu);
     return view;
+  }
+
+  /** Send -viewDidLoad once after the controller creates its view. */
+  private scheduleViewDidLoad(controller: bigint, view: bigint, cpu: Arm64Cpu): void {
+    if (this.loadedControllers.has(controller)) return;
+    const method = this.resolve(controller, "viewDidLoad");
+    if (!method || this.hostMethods.has(method.imp)) return;
+    this.loadedControllers.add(controller);
+    const address = this.lifecycleCursor;
+    this.lifecycleCursor += 128n;
+    if (this.lifecycleCursor > this.lifecyclePage + 0x1000n) {
+      throw new ObjcError("stub_limit", "the lifecycle stub page overflowed");
+    }
+    const selector = this.internString("viewDidLoad");
+    const code: number[] = [
+      stpPre(29, 30, 31, -16),
+      ldrLiteral(0, 0),
+      ldrLiteral(1, 0),
+      ldrLiteral(16, 0),
+      blr(16),
+      ldrLiteral(0, 0),
+      ldpPost(29, 30, 31, 16),
+      ret(),
+    ];
+    const literalStart = 32;
+    code[1] = ldrLiteral(0, literalStart - 1 * 4);
+    code[2] = ldrLiteral(1, literalStart + 8 - 2 * 4);
+    code[3] = ldrLiteral(16, literalStart + 16 - 3 * 4);
+    code[5] = ldrLiteral(0, literalStart + 24 - 5 * 4);
+    code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
+    this.memory.write(address + 32n, 8, controller);
+    this.memory.write(address + 40n, 8, selector);
+    this.memory.write(address + 48n, 8, method.imp);
+    this.memory.write(address + 56n, 8, view);
+    cpu.writeRegister(0, view);
+    cpu.pc = address;
   }
 
   private uiApplicationMain(cpu: Arm64Cpu): SyscallResult {

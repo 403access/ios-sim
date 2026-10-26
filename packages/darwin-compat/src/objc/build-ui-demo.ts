@@ -53,6 +53,8 @@ const DEMO_BASE_CLASS_NAME = "BaseView";
 
 const SELECTORS = {
   alloc: "alloc",
+  init: "init",
+  view: "view",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -102,6 +104,7 @@ const SELECTORS = {
   boolForKey: "boolForKey:",
   setInteger: "setInteger:forKey:",
   integerForKey: "integerForKey:",
+  viewDidLoad: "viewDidLoad",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -143,7 +146,9 @@ type SlotName =
   | "notificationMarker"
   | "classDefaults"
   | "defaultsMarker"
-  | "defaultsInt";
+  | "defaultsInt"
+  | "classController"
+  | "lifecycleMarker";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -154,6 +159,8 @@ interface Plan {
   readonly appClassMethods: number;
   readonly appCategoryMethods: number;
   readonly appCategory: number;
+  readonly lifecycleCategory: number;
+  readonly lifecycleMethods: number;
   readonly tapRo: number;
   readonly tapMetaRo: number;
   readonly tapEmptyMethods: number;
@@ -289,6 +296,8 @@ function planData(): Plan {
     "classDefaults",
     "defaultsMarker",
     "defaultsInt",
+    "classController",
+    "lifecycleMarker",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -319,6 +328,7 @@ function planData(): Plan {
     "ThemeChanged",
     "Seen",
     "Count",
+    "Lifecycle",
     "Tappable",
     "_pressed",
     "B",
@@ -341,6 +351,10 @@ function planData(): Plan {
   cursor += 8 + 6 * 24;
   const appCategory = cursor;
   cursor += 48;
+  const lifecycleCategory = cursor;
+  cursor += 48;
+  const lifecycleMethods = cursor;
+  cursor += 8 + 24;
 
   const tapRo = cursor;
   cursor += 72;
@@ -389,7 +403,7 @@ function planData(): Plan {
   const classList = cursor;
   cursor += 24;
   const categoryList = cursor;
-  cursor += 8;
+  cursor += 16;
   const protocolList = cursor;
   cursor += 8;
 
@@ -462,7 +476,7 @@ function planData(): Plan {
     {
       name: "__objc_catlist",
       offset: categoryList,
-      size: 8,
+      size: 16,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -491,6 +505,8 @@ function planData(): Plan {
     appClassMethods,
     appCategoryMethods,
     appCategory,
+    lifecycleCategory,
+    lifecycleMethods,
     tapRo,
     tapMetaRo,
     tapEmptyMethods,
@@ -654,6 +670,10 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
 
+  label("viewDidLoad");
+  emitMarker(slot("lifecycleMarker"), 1);
+  emitWord(ret());
+
   label("themeChanged");
   emitWord(stpPre(29, 30, 31, -16));
   emitWord(stpPre(19, 20, 31, -16));
@@ -702,6 +722,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("appActive") ?? 0),
     bases.textBase + (code.labels.get("appTerminate") ?? 0),
     bases.textBase + (code.labels.get("themeChanged") ?? 0),
+    bases.textBase + (code.labels.get("viewDidLoad") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -747,6 +768,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_terminateMarker",
         value: dataAddress(plan.slotOffsets.terminateMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_lifecycleMarker",
+        value: dataAddress(plan.slotOffsets.lifecycleMarker),
         sectionIndex: 2,
       },
       {
@@ -1204,6 +1230,20 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(blr(16));
     emitStore(0, slot("defaultsInt"));
 
+    // UIViewController *controller = [[UIViewController alloc] init]; (void)[controller view];
+    emitPointer(0, slot("classController"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitAddress(1, selector(SELECTORS.init));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.view));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -1362,6 +1402,7 @@ function emitData(
   appActiveImp: number,
   appTerminateImp: number,
   themeChangedImp: number,
+  viewDidLoadImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -1381,6 +1422,7 @@ function emitData(
     "ThemeChanged",
     "Seen",
     "Count",
+    "Lifecycle",
     "Tappable",
     "_pressed",
     "B",
@@ -1453,6 +1495,17 @@ function emitData(
   rebase(plan.appCategory, address(plan.stringOffsets[DEMO_CATEGORY_NAME]!));
   rebase(plan.appCategory + 8, address(plan.appClass));
   rebase(plan.appCategory + 16, address(plan.appCategoryMethods));
+
+  // UIViewController (Lifecycle) category.
+  rebase(plan.lifecycleCategory, address(plan.stringOffsets.Lifecycle!));
+  bind(plan.lifecycleCategory + 8, "_OBJC_CLASS_$_UIViewController");
+  rebase(plan.lifecycleCategory + 16, address(plan.lifecycleMethods));
+  u32(plan.lifecycleMethods, 24);
+  u32(plan.lifecycleMethods + 4, 1);
+  const lifecycleEntry = plan.lifecycleMethods + 8;
+  rebase(lifecycleEntry, selector(SELECTORS.viewDidLoad));
+  rebase(lifecycleEntry + 8, selector(TYPES));
+  rebase(lifecycleEntry + 16, viewDidLoadImp);
 
   rebase(plan.appRo + 24, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
   rebase(plan.appRo + 32, address(plan.appEmptyMethods));
@@ -1569,6 +1622,7 @@ function emitData(
   rebase(plan.classList + 8, address(plan.tapClass));
   rebase(plan.classList + 16, address(plan.baseClass));
   rebase(plan.categoryList, address(plan.appCategory));
+  rebase(plan.categoryList + 8, address(plan.lifecycleCategory));
 
   // Import slots used by the code.
   bind(plan.slotOffsets.classWindow, "_OBJC_CLASS_$_UIWindow");
@@ -1587,6 +1641,7 @@ function emitData(
   bind(plan.slotOffsets.classScroll, "_OBJC_CLASS_$_UIScrollView");
   bind(plan.slotOffsets.classCenter, "_OBJC_CLASS_$_NSNotificationCenter");
   bind(plan.slotOffsets.classDefaults, "_OBJC_CLASS_$_NSUserDefaults");
+  bind(plan.slotOffsets.classController, "_OBJC_CLASS_$_UIViewController");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));

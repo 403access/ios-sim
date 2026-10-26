@@ -24,7 +24,7 @@ describe("ObjC UIKit demo", () => {
     expect(result.objcClasses).toEqual(
       expect.arrayContaining(["NSObject", "UIView", "UIWindow", "BaseView", "AppDelegate"]),
     );
-    expect(result.objcCategories).toEqual(["AppDelegate(Window)"]);
+    expect(result.objcCategories).toEqual(["AppDelegate(Window)", "UIViewController(Lifecycle)"]);
     expect(result.objcProtocols).toContain("TapView:Tappable");
 
     // The category supplies the delegate method and +initialize increments the
@@ -50,6 +50,9 @@ describe("ObjC UIKit demo", () => {
       1n,
     );
     expect(result.program.memory.read(result.program.resolveExport("_defaultsInt")!, 8)).toBe(7n);
+    expect(result.program.memory.read(result.program.resolveExport("_lifecycleMarker")!, 8)).toBe(
+      1n,
+    );
     expect(result.objcStats.defaultsStores).toBe(2);
     expect(result.objcStats.defaultsReads).toBe(2);
     expect(result.program.memory.read(result.program.resolveExport("_terminateMarker")!, 8)).toBe(
