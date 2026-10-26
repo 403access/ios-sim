@@ -14,7 +14,7 @@ It is layered so the same document is not asked to answer every planning questio
 | L3       | [Bridge backlog](docs-site/docs/roadmaps/bridge/backlog.md)                   | Live shipping queue and next bridge task        |
 | L3       | [Native backlog](docs-site/docs/roadmaps/native/backlog.md)                   | Live status, ready queue, pick-next protocol    |
 
-**Current next tasks:** `THR-006a` (native process syscall wiring) and `BR-HOST-01` (bridge upload hardening).
+**Current next tasks:** `THR-007` (native posix_spawn attributes) and `BR-HOST-01` (bridge upload hardening).
 Use separate worktrees per track.
 
 **Recently completed:** `KRN-001..005` (C11/Bun-FFI kernel boundary), `THR-001..004` (thread

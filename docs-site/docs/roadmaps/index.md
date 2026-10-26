@@ -65,7 +65,8 @@ single commit.
   block/unblock, and instruction budgets (`THR-002`), a blocking Mach bridge with
   timeout/interrupt tests (`THR-003`) wired into `mach_msg_trap` (`THR-003a`), and a pthread core
   shim with an 8-worker fixture (`THR-004`), and guest signals with handler/mask/raise/kill
-  (`THR-005`), and a process table with fork/exec/waitpid and groups (`THR-006`).
+  (`THR-005`), a process table with fork/exec/waitpid and groups (`THR-006`), and guest
+  process syscalls (`THR-006a`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,
