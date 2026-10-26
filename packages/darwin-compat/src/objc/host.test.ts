@@ -89,6 +89,27 @@ describe("ObjC UIKit demo", () => {
     ]);
   });
 
+  it("moves the view on ticks", () => {
+    const result = runDemo([
+      { kind: "tick" },
+      { kind: "tick" },
+      { kind: "tick" },
+      { kind: "tick" },
+    ]);
+    expect(result.frames).toHaveLength(5);
+    const redAt = (frameIndex: number, x: number, y: number): boolean => {
+      const frame = result.frames[frameIndex]!;
+      const offset = (y * frame.width + x) * 4;
+      return frame.pixels[offset] === 255 && frame.pixels[offset + 1] === 0;
+    };
+    expect(redAt(0, 30, 30)).toBe(true);
+    expect(redAt(1, 30, 30)).toBe(false);
+    expect(redAt(1, 70, 30)).toBe(true);
+    expect(redAt(2, 110, 30)).toBe(true);
+    expect(redAt(3, 150, 30)).toBe(true);
+    expect(redAt(4, 30, 30)).toBe(true);
+  });
+
   it("produces a deterministic frame digest", () => {
     const first = runDemo();
     const second = runDemo();

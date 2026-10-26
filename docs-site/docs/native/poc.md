@@ -111,6 +111,7 @@ bun run --cwd packages/darwin-compat build
 bun apps/native/src/bin.ts uikit-demo --out /tmp/uikit-demo.png
 bun apps/native/src/bin.ts uikit-demo --tap 30,30 --out-dir /tmp/frames
 bun apps/native/src/bin.ts uikit-demo --drag 30,30,60,60,3 --out-dir /tmp/drag
+bun apps/native/src/bin.ts uikit-demo --tick 4 --out-dir /tmp/ticks
 
 # optional: the same pipeline with clang output (macOS + Xcode)
 ./scripts/build-objc-fixture.sh

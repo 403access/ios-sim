@@ -51,6 +51,7 @@ started.
 - [x] Bounded frame capture, de-duplicated
 - [x] Hit-testing and touch delivery with one frame per callback
 - [x] Taps and multi-sample drags (`touchesMoved:`)
+- [x] Scripted ticks (`tick:` to the delegate) with an animated view
 - [~] Real event source, timers, display link, text, a live window
 - [~] Run loop, input, text, CoreAnimation, a live host window (headless one-shot frame only)
 

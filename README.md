@@ -88,6 +88,8 @@ bun apps/native/src/bin.ts uikit-demo --tap 30,30 --out-dir frames
                                                 # tap -> red, blue, green frames
 bun apps/native/src/bin.ts uikit-demo --drag 30,30,60,60,3 --out-dir drag
                                                 # drag -> red, blue, yellow, green frames
+bun apps/native/src/bin.ts uikit-demo --tick 4 --out-dir ticks
+                                                # ticks -> the view moves across four frames
 
 # optional: build a real Mach-O from our assembly with Xcode clang
 ./scripts/build-native-fixtures.sh

@@ -67,8 +67,9 @@ macOS-gated test runs compiler output end to end.
 - **XPC/MIG are not byte-compatible with Apple.** They are versioned research protocols.
 - **launchd output paths and working directories are recorded, not applied.**
 - **The run loop is scripted and headless.** `UIApplicationMain` runs the delegate callback, then
-  a bounded loop over CLI-supplied taps, rendering after each callback. There is no real event
-  source, display link, timers, multitouch, gesture recognisers, or host window.
+  a bounded loop over CLI-supplied taps, drags, and ticks, rendering after each callback. There is
+  no real event source, display link, wall-clock timer, multitouch, gesture recognisers, or host
+  window.
 - **ARC is approximated, not implemented.** Retain/release update a refcount and autorelease
   pools drain on pop, but zero-count objects are not reclaimed, `-dealloc` is not called, and weak
   references are not zeroed. Objects live until the process exits; the PoC is short-lived.

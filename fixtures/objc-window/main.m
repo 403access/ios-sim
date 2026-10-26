@@ -38,8 +38,12 @@
 }
 @end
 
+static UIView *gView;
+static unsigned gTick;
+
 @interface AppDelegate : NSObject
 - (BOOL)application:(id)application didFinishLaunchingWithOptions:(id)options;
+- (void)tick:(id)ignored;
 @end
 
 @implementation AppDelegate
@@ -48,10 +52,18 @@
   (void)options;
   UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 375, 667)];
   TapView *view = [[TapView alloc] initWithFrame:CGRectMake(20, 20, 200, 100)];
+  gView = view;
   view.backgroundColor = [UIColor redColor];
   [window addSubview:view];
   [window makeKeyAndVisible];
   return YES;
+}
+
+- (void)tick:(id)ignored {
+  (void)ignored;
+  gTick++;
+  CGFloat x = 20 + (gTick & 3) * 40;
+  [gView setFrame:CGRectMake(x, 20, 200, 100)];
 }
 @end
 

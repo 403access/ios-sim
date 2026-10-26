@@ -24,6 +24,7 @@ import {
   inspectMachO,
   inspectObjc,
   parseLaunchdManifest,
+  type InputEvent,
   type InspectReport,
   type ProcessResult,
 } from "@ios-sim/darwin-compat";
@@ -89,6 +90,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .option("--out-dir <dir>", "write every captured frame as frame-<n>.png")
     .option("--tap <x,y>", "scripted tap event (repeatable)", collectTap, [])
     .option("--drag <x1,y1,x2,y2[,steps]>", "scripted drag (repeatable)", collectDrag, [])
+    .option("--tick <count>", "send N ticks to the application delegate", parseInteger, 0)
     .option("--json", "print JSON result")
     .action((file: string, options: RunOptions) => {
       const absolute = resolve(file);
@@ -159,6 +161,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .option("--out-dir <dir>", "write every frame as frame-<n>.png")
     .option("--tap <x,y>", "scripted tap event (repeatable)", collectTap, [])
     .option("--drag <x1,y1,x2,y2[,steps]>", "scripted drag (repeatable)", collectDrag, [])
+    .option("--tick <count>", "send N ticks to the application delegate", parseInteger, 0)
     .option("--json", "print JSON")
     .action(
       (options: {
@@ -166,6 +169,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
         outDir?: string;
         tap: TapPoint[];
         drag: DragInput[];
+        tick: number;
         json?: boolean;
       }) => {
         const demo = buildUIKitDemo();
@@ -173,7 +177,9 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
           provider: new MapFileProvider(new Map([["/UIKitDemo", demo.built.bytes]])),
           rootDir: process.cwd(),
         });
-        const result = runtime.run("/UIKitDemo", { events: [...options.tap, ...options.drag] });
+        const result = runtime.run("/UIKitDemo", {
+          events: inputEvents(options.tap, options.drag, options.tick),
+        });
         const frame = result.frames.at(-1);
         if (!frame) {
           throw new Error("the demo app did not present a frame");
@@ -313,6 +319,14 @@ interface DragInput {
   steps?: number;
 }
 
+function inputEvents(
+  taps: readonly TapPoint[],
+  drags: readonly DragInput[],
+  ticks: number,
+): InputEvent[] {
+  return [...taps, ...drags, ...Array.from({ length: ticks }, () => ({ kind: "tick" as const }))];
+}
+
 function collectDrag(value: string, previous: DragInput[]): DragInput[] {
   const parts = value.split(",").map(Number);
   if (parts.length < 4 || parts.length > 5 || parts.some((part) => !Number.isFinite(part))) {
@@ -435,7 +449,7 @@ function doctorReport() {
       "Darwin syscall subset with a jailed file layer and anonymous mmap",
       "launchd-style plist jobs, MachServices, RunAtLoad, bounded KeepAlive",
       "Objective-C 2 metadata, dispatch, protocols, categories, refcounts, and a host UIKit shim",
-      "deterministic PNG/PPM frame capture, scripted taps, and touch callbacks",
+      "deterministic PNG/PPM frames, scripted taps/drags/ticks, and touch callbacks",
       "generated arm64 fixture program executed end-to-end on Linux/macOS",
     ],
     notImplemented: [

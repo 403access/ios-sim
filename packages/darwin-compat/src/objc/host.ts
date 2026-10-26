@@ -101,9 +101,14 @@ export interface DragEvent {
   readonly steps?: number;
 }
 
-export type InputEvent = TapEvent | DragEvent;
+export interface TickEvent {
+  readonly kind: "tick";
+}
+
+export type InputEvent = TapEvent | DragEvent | TickEvent;
 
 interface TouchStep {
+  readonly kind: "touch" | "tick";
   readonly x: number;
   readonly y: number;
   readonly selector: string;
@@ -1403,27 +1408,34 @@ export class ObjcHost {
     const step = this.touchScript[this.eventIndex];
     if (!step) return { value: 0n };
     this.eventIndex += 1;
-    const window = this.keyWindow ?? this.windows.at(-1) ?? null;
-    if (window === null) return { value: 0n };
-    const hit = this.hitTest(window, step);
-    if (hit === null) return { value: 0n };
 
-    const touchClass = this.classes.get("UITouch");
-    const setClass = this.classes.get("NSSet");
-    const uiEventClass = this.classes.get("UIEvent");
-    if (!touchClass || !setClass || !uiEventClass) {
-      throw new ObjcError("internal_error", "event objects are not registered");
+    let receiver: bigint | null;
+    if (step.kind === "tick") {
+      receiver = this.applicationDelegate;
+    } else {
+      const window = this.keyWindow ?? this.windows.at(-1) ?? null;
+      receiver = window === null ? null : this.hitTest(window, step);
     }
-    const touch = this.allocateInstance(touchClass);
-    this.memory.write(touch + 8n, 8, doubleBits(step.x));
-    this.memory.write(touch + 16n, 8, doubleBits(step.y));
-    const touches = this.allocateInstance(setClass);
-    this.memory.write(touches + 8n, 8, touch);
-    const uiEvent = this.allocateInstance(uiEventClass);
+    if (receiver === null) return { value: 0n };
+
     const record = this.memory.allocate(32, { tag: "objc-event" });
-    this.memory.write(record, 8, hit);
-    this.memory.write(record + 8n, 8, touches);
-    this.memory.write(record + 16n, 8, uiEvent);
+    this.memory.write(record, 8, receiver);
+    if (step.kind === "touch") {
+      const touchClass = this.classes.get("UITouch");
+      const setClass = this.classes.get("NSSet");
+      const uiEventClass = this.classes.get("UIEvent");
+      if (!touchClass || !setClass || !uiEventClass) {
+        throw new ObjcError("internal_error", "event objects are not registered");
+      }
+      const touch = this.allocateInstance(touchClass);
+      this.memory.write(touch + 8n, 8, doubleBits(step.x));
+      this.memory.write(touch + 16n, 8, doubleBits(step.y));
+      const touches = this.allocateInstance(setClass);
+      this.memory.write(touches + 8n, 8, touch);
+      const uiEvent = this.allocateInstance(uiEventClass);
+      this.memory.write(record + 8n, 8, touches);
+      this.memory.write(record + 16n, 8, uiEvent);
+    }
     this.memory.write(record + 24n, 8, this.internString(step.selector));
     return { value: record };
   }
@@ -1522,22 +1534,27 @@ function buildTouchScript(events: readonly InputEvent[]): TouchStep[] {
   const moved = "touchesMoved:withEvent:";
   const ended = "touchesEnded:withEvent:";
   for (const event of events) {
+    if ("kind" in event) {
+      steps.push({ kind: "tick", x: 0, y: 0, selector: "tick:" });
+      continue;
+    }
     if ("x" in event) {
-      steps.push({ x: event.x, y: event.y, selector: began });
-      steps.push({ x: event.x, y: event.y, selector: ended });
+      steps.push({ kind: "touch", x: event.x, y: event.y, selector: began });
+      steps.push({ kind: "touch", x: event.x, y: event.y, selector: ended });
       continue;
     }
     const samples = Math.max(2, Math.min(event.steps ?? 4, 64));
-    steps.push({ x: event.fromX, y: event.fromY, selector: began });
+    steps.push({ kind: "touch", x: event.fromX, y: event.fromY, selector: began });
     for (let index = 1; index < samples - 1; index += 1) {
       const ratio = index / (samples - 1);
       steps.push({
+        kind: "touch",
         x: event.fromX + (event.toX - event.fromX) * ratio,
         y: event.fromY + (event.toY - event.fromY) * ratio,
         selector: moved,
       });
     }
-    steps.push({ x: event.toX, y: event.toY, selector: ended });
+    steps.push({ kind: "touch", x: event.toX, y: event.toY, selector: ended });
   }
   return steps;
 }

@@ -25,6 +25,7 @@ import type { MachOLayout } from "../macho/build.js";
 import { S_CSTRING_LITERALS, S_REGULAR } from "../macho/constants.js";
 import {
   addImm,
+  addReg,
   adrp,
   b,
   blr,
@@ -32,11 +33,13 @@ import {
   ldpPost,
   ldrDouble,
   ldrUnsigned,
+  lslImm,
   movReg,
   movz,
   ret,
   stpPre,
   strUnsigned,
+  ubfm,
 } from "../arm64/assembler.js";
 
 export const DEMO_SCREEN = { width: 375, height: 667 } as const;
@@ -68,6 +71,7 @@ const SELECTORS = {
   didFinishLaunching: "application:didFinishLaunchingWithOptions:",
   initialize: "initialize",
   load: "load",
+  tick: "tick:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -81,7 +85,9 @@ type SlotName =
   | "uiApplicationMain"
   | "delegateName"
   | "initializeMarker"
-  | "loadMarker";
+  | "loadMarker"
+  | "currentView"
+  | "tickIndex";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -108,6 +114,7 @@ interface Plan {
   readonly protocolList: number;
   readonly windowRect: number;
   readonly viewRect: number;
+  readonly rectTable: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
 }
@@ -181,6 +188,8 @@ function planData(): Plan {
     "delegateName",
     "initializeMarker",
     "loadMarker",
+    "currentView",
+    "tickIndex",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -221,7 +230,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 24;
+  cursor += 8 + 2 * 24;
   const appCategory = cursor;
   cursor += 48;
 
@@ -266,6 +275,8 @@ function planData(): Plan {
   cursor += 32;
   const viewRect = cursor;
   cursor += 32;
+  const rectTable = cursor;
+  cursor += 4 * 32;
 
   const sections: BuildDataSection[] = [
     {
@@ -320,7 +331,7 @@ function planData(): Plan {
     {
       name: "__const",
       offset: windowRect,
-      size: 64,
+      size: 64 + 4 * 32,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -351,6 +362,7 @@ function planData(): Plan {
     protocolList,
     windowRect,
     viewRect,
+    rectTable,
     size: cursor,
     sections,
   };
@@ -381,6 +393,10 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   const emitDouble = (register: number, address: number): void => {
     emitWord(adrp(9, address, pc()));
     emitWord(ldrDouble(register, 9, address & 0xfff));
+  };
+  const emitStore = (register: number, address: number): void => {
+    emitWord(adrp(9, address, pc()));
+    emitWord(strUnsigned(register, 9, address & 0xfff));
   };
   const label = (name: string): void => {
     code.labels.set(name, code.words.length * 4);
@@ -415,6 +431,9 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(strUnsigned(2, 1, 0));
   emitWord(ret());
 
+  label("tick");
+  emitTick();
+
   label("delegate");
   emitDelegate();
 
@@ -432,6 +451,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("delegate") ?? 0),
     bases.textBase + (code.labels.get("initialize") ?? 0),
     bases.textBase + (code.labels.get("load") ?? 0),
+    bases.textBase + (code.labels.get("tick") ?? 0),
     bases.textBase + (code.labels.get("tapBegan") ?? 0),
     bases.textBase + (code.labels.get("tapMoved") ?? 0),
     bases.textBase + (code.labels.get("tapEnded") ?? 0),
@@ -463,6 +483,33 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     ],
   };
 
+  function emitTick(): void {
+    emitWord(stpPre(29, 30, 31, -16));
+    emitWord(stpPre(19, 20, 31, -16));
+    // index = index + 1
+    emitAddress(9, slot("tickIndex"));
+    emitWord(ldrUnsigned(10, 9, 0));
+    emitWord(addImm(10, 10, 1));
+    emitWord(strUnsigned(10, 9, 0));
+    // x11 = rectTable + (index & 3) * 32
+    emitWord(ubfm(11, 10, 0, 1));
+    emitWord(lslImm(11, 11, 5));
+    emitAddress(12, dataAddress(plan.rectTable));
+    emitWord(addReg(11, 12, 11));
+    // [currentView setFrame:...]
+    emitPointer(0, slot("currentView"));
+    emitAddress(1, selector(SELECTORS.setFrame));
+    emitWord(ldrDouble(0, 11, 0));
+    emitWord(ldrDouble(1, 11, 8));
+    emitWord(ldrDouble(2, 11, 16));
+    emitWord(ldrDouble(3, 11, 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(ldpPost(19, 20, 31, 16));
+    emitWord(ldpPost(29, 30, 31, 16));
+    emitWord(ret());
+  }
+
   function emitDelegate(): void {
     // -[AppDelegate(Window) application:didFinishLaunchingWithOptions:] -> BOOL
     emitWord(stpPre(29, 30, 31, -16));
@@ -489,6 +536,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
     emitWord(movReg(20, 0));
+    emitStore(20, slot("currentView"));
 
     // [view setFrame:...];
     emitWord(movReg(0, 20));
@@ -602,6 +650,7 @@ function emitData(
   delegateImp: number,
   initializeImp: number,
   loadImp: number,
+  tickImp: number,
   tapBeganImp: number,
   tapMovedImp: number,
   tapEndedImp: number,
@@ -648,7 +697,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 1);
+  u32(plan.appCategoryMethods + 4, 2);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -664,6 +713,10 @@ function emitData(
   rebase(categoryEntry, selector(SELECTORS.didFinishLaunching));
   rebase(categoryEntry + 8, selector(TYPES));
   rebase(categoryEntry + 16, delegateImp);
+  const tickEntry = plan.appCategoryMethods + 32;
+  rebase(tickEntry, selector(SELECTORS.tick));
+  rebase(tickEntry + 8, selector(TYPES));
+  rebase(tickEntry + 16, tickImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }
@@ -758,6 +811,13 @@ function emitData(
   f64(plan.viewRect + 8, DEMO_VIEW_RECT.y);
   f64(plan.viewRect + 16, DEMO_VIEW_RECT.width);
   f64(plan.viewRect + 24, DEMO_VIEW_RECT.height);
+  for (let index = 0; index < 4; index += 1) {
+    const rect = plan.rectTable + index * 32;
+    f64(rect, DEMO_VIEW_RECT.x + index * 40);
+    f64(rect + 8, DEMO_VIEW_RECT.y);
+    f64(rect + 16, DEMO_VIEW_RECT.width);
+    f64(rect + 24, DEMO_VIEW_RECT.height);
+  }
 
   return { bytes, fixups };
 }

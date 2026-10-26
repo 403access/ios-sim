@@ -78,6 +78,11 @@ describe("ios-sim-native CLI", () => {
     const drag = JSON.parse(dragIo.out.join(""));
     expect(drag.frames).toHaveLength(4);
 
+    const tickIo = capture();
+    expect(await main(["uikit-demo", "--tick", "4", "--json"], tickIo)).toBe(0);
+    const ticks = JSON.parse(tickIo.out.join(""));
+    expect(ticks.frames).toHaveLength(5);
+
     const file = join(temp(), "frame.png");
     expect(await main(["uikit-demo", "--out", file], capture())).toBe(0);
     const bytes = readFileSync(file);
