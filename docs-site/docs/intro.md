@@ -82,7 +82,9 @@ The full comparison, including cost and risk, is in
   in a Linux container through OrbStack.
 - **Native track (this branch):** substrate implemented and tested; threads, shared cache,
   Metal, UIKit, CoreSimulator, and SpringBoard remain open gates. See the
-  [native roadmap](./native/roadmap.md).
+  [native platform roadmap](./native/roadmap.md), the
+  [technical roadmap](./roadmaps/native/technical.md), and the
+  [backlog](./roadmaps/native/backlog.md).
 - **Not implemented:** H.264/WebRTC video, multi-tenant isolation, native Linux simulator.
   These are deliberate roadmap items, not accidental omissions. See the
   [roadmap](./plans/roadmap.md).
@@ -102,3 +104,5 @@ The full comparison, including cost and risk, is in
 4. [Quickstart](./guides/quickstart.md) — run the bridge in about five minutes.
 5. [Native track overview](./native/overview.md) — what Option A actually runs today, and what it
    does not.
+6. [Roadmap system](./roadmaps/index.md) — how the product, native, quality, and legal roadmaps
+   fit together, and how to pick the next task.

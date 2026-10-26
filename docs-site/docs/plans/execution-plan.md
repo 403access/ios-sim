@@ -9,6 +9,9 @@ description: Phases, work breakdown, acceptance criteria, risks, and rollout for
 **Decision:** implement a remote Mac bridge (Option C). The simulator stays on macOS; Linux
 clients get lifecycle, pixels, input, app upload, and logs over HTTP/WebSocket.
 
+This is the bridge execution plan. The [roadmap system](../roadmaps/index.md) explains how it
+connects to the product roadmap, the native technical roadmap, and the live backlog.
+
 **Current state:** Phase 0 (research) and Phase 1 (bridge MVP) are complete in this repository.
 Phases 2–4 are planned. This page is the plan of record, not a wish list: every phase has an
 acceptance gate and a rollback.
@@ -111,6 +114,10 @@ the chosen option passes technical and legal gates.
 | 2.9  | Observability                                              | Structured logs, request IDs, health details, optional metrics               |
 | 2.10 | Release automation                                         | Versioned packages, signed tags, changelog                                   |
 
+**Status:** 2.8 is partially complete. `.github/workflows/ci.yml` runs Linux unit/contract/docs,
+the Linux container E2E, and a macOS build/test job. The gated macOS integration job and the
+release gate remain (`BR-CI-02` in the [bridge backlog](../roadmaps/bridge/backlog.md)).
+
 **Gate G2:** Security review signed off; a 30-minute soak with two clients shows no leak or
 unbounded memory; a Linux user can connect through an SSH tunnel using only the docs.
 
@@ -164,7 +171,9 @@ next spike starts from executable code instead of a diagram:
 
 **Still open:** threads/blocking receive, shared cache, legacy dyld bindings, Apple runtime ABI,
 Metal/IOSurface, UIKit/AppKit, code signing/TCC, CoreSimulator, SpringBoard. The
-[native roadmap](../native/roadmap.md) orders them and defines the gates.
+[native platform roadmap](../native/roadmap.md) orders them, the
+[native technical roadmap](../roadmaps/native/technical.md) decomposes them, and the
+[backlog](../roadmaps/native/backlog.md) tracks the next task.
 
 ## 4. Work breakdown and estimates
 

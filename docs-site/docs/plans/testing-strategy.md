@@ -6,6 +6,9 @@ description: How the bridge is tested on macOS and Linux, what is mocked, and wh
 
 # Testing strategy
 
+The cross-cutting quality roadmap is [Engineering quality](../roadmaps/engineering-quality.md).
+This page defines the bridge-specific test matrix and fixtures.
+
 The hard part of testing this project is the platform split: the host needs macOS and Xcode, but
 the client must be proven on Linux. The strategy is therefore built around a **fake host** for
 fast feedback and a **real simulator** for fidelity.

@@ -27,7 +27,8 @@ This repository is a research-backed reference implementation. Keep it honest an
 - `apps/host` — macOS daemon; `simctl`/`idb` adapters; embedded viewer.
 - `apps/cli` — `ios-sim` commands, coordinate conversion, output.
 - `apps/native` — `ios-sim-native` CLI for the Option A research track.
-- `docs-site` — Docusaurus; research and plans live here.
+- `docs-site` — Docusaurus; research, plans, and roadmaps live here.
+- `docs-site/docs/roadmaps` — roadmap hub, native technical roadmap, native backlog, quality/legal roadmaps.
 - `scripts` — verify, Linux E2E, macOS smoke/measure, fixture build, REA evidence.
 - `tests/macos` — gated real-simulator integration.
 - `tests/native` — gated real-clang Mach-O integration; must print its skip reason.
@@ -48,6 +49,16 @@ bun run verify
 ```
 
 Bun 1.4.4 is the tested version. `bun install --frozen-lockfile` is the supported install.
+
+## Picking up work
+
+Start at `docs-site/docs/roadmaps/index.md`. Pick a track and use its backlog:
+[bridge](docs-site/docs/roadmaps/bridge/backlog.md) or
+[native](docs-site/docs/roadmaps/native/backlog.md). The backlog owns status and the next-task
+queue; the [native technical roadmap](docs-site/docs/roadmaps/native/technical.md) and
+[bridge execution plan](docs-site/docs/plans/execution-plan.md) define scope and acceptance. One
+critical-path task plus one independent task is the work-in-progress limit. Record evidence and
+update the backlog when a task is done.
 
 ## Change checklist
 

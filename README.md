@@ -90,8 +90,25 @@ MIG-lite, an XPC-style codec, a Darwin syscall subset, and launchd-style plists.
 Not implemented: threads/blocking Mach receive, legacy dyld bindings, the shared cache,
 Objective-C/Swift/Foundation, Metal/IOSurface/QuartzCore, UIKit/AppKit, code signing, TCC,
 `launchd_sim`, CoreSimulator, SpringBoard, and APFS images. It cannot run the simulator or an
-Apple app. The [roadmap](docs-site/docs/native/roadmap.md) sequences the remaining multi-year
-work with kill criteria.
+Apple app. The [native platform roadmap](docs-site/docs/native/roadmap.md) sequences the
+remaining multi-year work, the [technical roadmap](docs-site/docs/roadmaps/native/technical.md)
+decomposes it into workstreams and acceptance criteria, and the
+[backlog](docs-site/docs/roadmaps/native/backlog.md) tracks the next task.
+
+## Planning
+
+The repository uses four planning altitudes:
+
+| Altitude | Document                                                                      | Use                                            |
+| -------- | ----------------------------------------------------------------------------- | ---------------------------------------------- |
+| L0       | [Product roadmap](docs-site/docs/plans/roadmap.md)                            | Outcomes, releases, non-goals                  |
+| L1       | [Native platform roadmap](docs-site/docs/native/roadmap.md)                   | Phases, gates, critical path                   |
+| L1       | [Engineering quality roadmap](docs-site/docs/roadmaps/engineering-quality.md) | Fuzzing, differential testing, CI, performance |
+| L1       | [Research and legal roadmap](docs-site/docs/roadmaps/research-legal.md)       | Evidence, provenance, licensing gates          |
+| L2       | [Native technical roadmap](docs-site/docs/roadmaps/native/technical.md)       | Workstreams, work packages, acceptance         |
+| L3       | [Native backlog](docs-site/docs/roadmaps/native/backlog.md)                   | Live status and next ready task                |
+
+Start at the [roadmap system](docs-site/docs/roadmaps/index.md) if you are picking up the project.
 
 ## Why not native as the shipping product?
 
@@ -160,6 +177,9 @@ pipx install fb-idb
 - [Native architecture](docs-site/docs/native/architecture.md)
 - [Native ABI](docs-site/docs/native/abi.md)
 - [Native limitations](docs-site/docs/native/limitations.md)
+- [Roadmap system](docs-site/docs/roadmaps/index.md)
+- [Native technical roadmap](docs-site/docs/roadmaps/native/technical.md)
+- [Native backlog](docs-site/docs/roadmaps/native/backlog.md)
 - [Feasibility matrix](docs-site/docs/research/feasibility-matrix.md)
 - [Execution plan](docs-site/docs/plans/execution-plan.md)
 - [Testing strategy](docs-site/docs/plans/testing-strategy.md)

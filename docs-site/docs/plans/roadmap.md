@@ -1,10 +1,14 @@
 ---
-title: Roadmap
-sidebar_position: 3
-description: Now, next, later — with explicit non-goals and revisit triggers.
+title: Product roadmap
+sidebar_position: 2
+description: High-level product and release outcomes, with explicit non-goals and revisit triggers.
 ---
 
-# Roadmap
+# Product roadmap
+
+This is the **L0 product roadmap**. It describes outcomes and release themes, not individual
+engineering tasks. The [roadmap system](../roadmaps/index.md) explains how it connects to the
+native technical roadmap, the backlog, and the quality/legal roadmaps.
 
 The roadmap is intentionally short. The goal is a dependable Linux workflow, not a simulator
 platform.
@@ -23,16 +27,16 @@ requires `idb`; no session isolation.
 
 ## Next — v0.2 (hardening)
 
-| Item                                            | Why                                  | Exit criteria                                      |
-| ----------------------------------------------- | ------------------------------------ | -------------------------------------------------- |
-| TLS termination guide + optional in-process TLS | Safe access beyond loopback          | HTTPS/WSS works; tests                             |
-| SSH tunnel and launchd/systemd units            | Zero-exposure deployment             | A new user can follow the guide unaided            |
-| Shared capture loop per device                  | Avoid N processes for N viewers      | Two viewers, one capture loop, stable CPU          |
-| Upload hardening                                | Treat app bundles as untrusted input | Size/entry/path/symlink tests pass                 |
-| Rate limits and quotas                          | Protect a shared Mac                 | Configurable; tested                               |
-| CI matrix                                       | Prevent Linux regressions            | Linux unit/E2E + docs on each PR; macOS on release |
-| Better observability                            | Operate a shared host                | Request IDs, structured logs, health detail        |
-| Release automation                              | Consumable packages                  | Versioned packages + changelog                     |
+| Item                                            | Why                                  | Exit criteria                                                    |
+| ----------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
+| TLS termination guide + optional in-process TLS | Safe access beyond loopback          | HTTPS/WSS works; tests                                           |
+| SSH tunnel and launchd/systemd units            | Zero-exposure deployment             | A new user can follow the guide unaided                          |
+| Shared capture loop per device                  | Avoid N processes for N viewers      | Two viewers, one capture loop, stable CPU                        |
+| Upload hardening                                | Treat app bundles as untrusted input | Size/entry/path/symlink tests pass                               |
+| Rate limits and quotas                          | Protect a shared Mac                 | Configurable; tested                                             |
+| CI matrix                                       | Prevent Linux regressions            | Linux unit/E2E + docs on each PR; macOS integration/release gate |
+| Better observability                            | Operate a shared host                | Request IDs, structured logs, health detail                      |
+| Release automation                              | Consumable packages                  | Versioned packages + changelog                                   |
 
 ## Later — v1.0 (performance and multi-user)
 
@@ -53,7 +57,9 @@ then choose. The protocol keeps a transport seam so the API shape does not chang
 A native Darwin compatibility layer is **not** on the product roadmap. It is a separate track with
 explicit kill criteria. Branch `option-a-native-darwin` implements the A0 substrate (loader,
 interpreter, Mach, syscalls, launchd jobs) and documents the remaining gates in the
-[native roadmap](../native/roadmap.md). The next spikes are:
+[native platform roadmap](../native/roadmap.md). Detailed work is in the
+[native technical roadmap](../roadmaps/native/technical.md) and
+[backlog](../roadmaps/native/backlog.md). The next spikes are:
 
 1. Run `launchd_sim` under the substrate far enough to report its version.
 2. Render a trivial UIKit view offscreen with a Metal-on-Vulkan shim.
@@ -70,6 +76,18 @@ If a spike fails its time box, it stops. No product commitments depend on it.
 - A general-purpose remote desktop.
 - A SaaS control plane in v1.
 - Android or cross-platform emulation.
+
+## Release and quality dependencies
+
+| Release                 | Product outcome                        | Quality/technical dependencies                                                                          |
+| ----------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| v0.2                    | Safe shared host on a private network  | CI matrix, upload hardening, rate limits, TLS/tunnel guide, shared capture loop, observability baseline |
+| v0.3                    | Predictable performance and operations | Structured events, request IDs, performance budgets, compatibility matrix, release automation           |
+| v1.0                    | Multi-user/scale pilot                 | Device leases, audit log, fairness, soak results, security review                                       |
+| Native A1–A2 (research) | Real concurrency and loader/runtime    | KRN/THR/LDR/RT gates; see [backlog](../roadmaps/native/backlog.md)                                      |
+
+The [engineering quality roadmap](../roadmaps/engineering-quality.md) owns the cross-cutting
+evidence; the [research and legal roadmap](../roadmaps/research-legal.md) owns the native gates.
 
 ## Metrics that matter
 
@@ -94,3 +112,13 @@ Re-run the [analysis](../research/analysis-plan.md) if:
 - A commercial cloud becomes cheaper than operating Mac hosts for the team.
 - Demand shifts from "develop on Linux" to "run iOS apps on Linux" (a different, much harder
   product).
+- A native phase gate changes the maintenance or legal assumptions in this roadmap.
+
+## Detailed planning
+
+- [Roadmap system](../roadmaps/index.md)
+- [Execution plan](./execution-plan.md)
+- [Testing strategy](./testing-strategy.md)
+- [Native platform roadmap](../native/roadmap.md)
+- [Bridge backlog](../roadmaps/bridge/backlog.md)
+- [Native technical roadmap and backlog](../roadmaps/native/technical.md)
