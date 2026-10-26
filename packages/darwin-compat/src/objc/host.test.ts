@@ -188,6 +188,24 @@ describe("ObjC UIKit demo", () => {
     expect(result.program.memory.read(result.program.resolveExport("_userInfoValue")!, 8)).toBe(7n);
   });
 
+  it("wraps a multi-line UILabel and honours the line limit", () => {
+    const result = runDemo();
+    const frame = result.frames[0]!;
+    const inkInRows = (top: number, bottom: number): number => {
+      let ink = 0;
+      for (let y = top; y <= bottom; y += 1) {
+        for (let x = 20; x < 320; x += 1) {
+          const offset = (y * frame.width + x) * 4;
+          if (frame.pixels[offset] === 0 && frame.pixels[offset + 1] === 0) ink += 1;
+        }
+      }
+      return ink;
+    };
+    expect(inkInRows(244, 253)).toBeGreaterThan(0);
+    expect(inkInRows(260, 269)).toBeGreaterThan(0);
+    expect(inkInRows(254, 259)).toBe(0);
+  });
+
   it("draws a PNG-backed UIImageView scaled to its frame", () => {
     const result = runDemo();
     const frame = result.frames[0]!;

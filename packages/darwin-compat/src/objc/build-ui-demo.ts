@@ -80,6 +80,7 @@ const SELECTORS = {
   userInfo: "userInfo",
   imageNamed: "imageNamed:",
   initWithImage: "initWithImage:",
+  setNumberOfLines: "setNumberOfLines:",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -259,6 +260,7 @@ interface Plan {
   readonly switchRect: number;
   readonly sliderRect: number;
   readonly imageRect: number;
+  readonly wrapRect: number;
   readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
@@ -426,6 +428,7 @@ function planData(): Plan {
     "Count",
     "count",
     "assets/icon.png",
+    "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
     "Tappable",
@@ -541,6 +544,8 @@ function planData(): Plan {
   cursor += 32;
   const imageRect = cursor;
   cursor += 32;
+  const wrapRect = cursor;
+  cursor += 32;
   const timerInterval = cursor;
   cursor += 8;
   const half = cursor;
@@ -654,6 +659,7 @@ function planData(): Plan {
     switchRect,
     sliderRect,
     imageRect,
+    wrapRect,
     timerInterval,
     half,
     size: cursor,
@@ -1380,6 +1386,36 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UILabel *wrapped = [[UILabel alloc] initWithFrame:(20,240,300,60)];
+    emitPointer(0, slot("classLabel"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.wrapRect));
+    emitDouble(1, dataAddress(plan.wrapRect + 8));
+    emitDouble(2, dataAddress(plan.wrapRect + 16));
+    emitDouble(3, dataAddress(plan.wrapRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setText));
+    emitAddress(2, dataAddress(plan.stringOffsets["WRAP THE LABEL\nSECOND LINE"]!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setNumberOfLines));
+    emitWord(movz(2, 0));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // UIImageView *picture = [[UIImageView alloc] initWithImage:
     //     [UIImage imageNamed:"assets/icon.png"]];
     emitPointer(0, slot("classImage"));
@@ -1960,6 +1996,7 @@ function emitData(
     "Count",
     "count",
     "assets/icon.png",
+    "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
     "Tappable",
@@ -2282,6 +2319,10 @@ function emitData(
   f64(plan.imageRect + 8, 140);
   f64(plan.imageRect + 16, 80);
   f64(plan.imageRect + 24, 80);
+  f64(plan.wrapRect, 20);
+  f64(plan.wrapRect + 8, 240);
+  f64(plan.wrapRect + 16, 300);
+  f64(plan.wrapRect + 24, 60);
   f64(plan.timerInterval, 1);
   f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {

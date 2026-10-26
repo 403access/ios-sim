@@ -199,6 +199,8 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (id)text;
 - (void)setTextColor:(UIColor *)color;
 - (void)setTextAlignment:(long)alignment;
+- (void)setNumberOfLines:(long)lines;
+- (long)numberOfLines;
 @end
 
 @interface UIControl : UIView

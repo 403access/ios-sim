@@ -18,7 +18,7 @@ import { Arm64Cpu, type SyscallResult } from "../arm64/cpu.js";
 import type { LoadedProgram } from "../dyld/loader.js";
 import type { VirtualMemory } from "../dyld/vm.js";
 import { BLACK, Framebuffer, WHITE, type Rgba } from "../ui/framebuffer.js";
-import { drawText, textWidth } from "../ui/font.js";
+import { drawText, lineHeight, textWidth } from "../ui/font.js";
 import { decodePng, type DecodedImage } from "../ui/png.js";
 import {
   adrp,
@@ -91,7 +91,8 @@ const LABEL_TEXT = 64;
 const LABEL_COLOR = 72;
 const LABEL_SCALE = 80;
 const LABEL_ALIGNMENT = 88;
-const LABEL_INSTANCE_SIZE = 96;
+const LABEL_LINES = 96;
+const LABEL_INSTANCE_SIZE = 104;
 
 const STRING_POINTER = 8;
 const STRING_INSTANCE_SIZE = 16;
@@ -1815,6 +1816,7 @@ export class ObjcHost {
           run: (cpu, receiver) => {
             this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, doubleBits(1));
             this.memory.write(receiver + BigInt(LABEL_SCALE), 8, doubleBits(2));
+            this.memory.write(receiver + BigInt(LABEL_LINES), 8, 1n);
             cpu.writeRegister(0, receiver);
           },
         },
@@ -1825,6 +1827,7 @@ export class ObjcHost {
             this.writeRect(receiver, this.readRect(cpu));
             this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, doubleBits(1));
             this.memory.write(receiver + BigInt(LABEL_SCALE), 8, doubleBits(2));
+            this.memory.write(receiver + BigInt(LABEL_LINES), 8, 1n);
             cpu.writeRegister(0, receiver);
           },
         },
@@ -1863,6 +1866,18 @@ export class ObjcHost {
           types: "v20@0:8q16",
           run: (cpu, receiver) =>
             this.memory.write(receiver + BigInt(LABEL_ALIGNMENT), 8, cpu.readRegister(2)),
+        },
+        {
+          selector: "setNumberOfLines:",
+          types: "v24@0:8q16",
+          run: (cpu, receiver) =>
+            this.memory.write(receiver + BigInt(LABEL_LINES), 8, cpu.readRegister(2)),
+        },
+        {
+          selector: "numberOfLines",
+          types: "q16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(LABEL_LINES), 8)),
         },
         {
           selector: "textAlignment",
@@ -3333,17 +3348,22 @@ export class ObjcHost {
         const colorPointer = this.memory.read(view + BigInt(LABEL_COLOR), 8);
         const color = colorPointer === 0n ? BLACK : (this.colorAtPointer(colorPointer) ?? BLACK);
         const scale = Math.max(1, Math.min(8, Math.round(this.readDouble(view, LABEL_SCALE) || 2)));
-        const width = textWidth(text, scale);
         const alignment = Number(this.memory.read(view + BigInt(LABEL_ALIGNMENT), 8));
-        const offset =
-          alignment === 1
-            ? Math.max(0, (rect.width - width) / 2)
-            : alignment === 2
-              ? Math.max(0, rect.width - width - scale * 2)
-              : scale * 2;
-        drawText(framebuffer, absoluteX + offset, absoluteY + scale * 2, text, {
-          scale,
-          color,
+        const limit = Number(this.memory.read(view + BigInt(LABEL_LINES), 8));
+        const lines = this.layoutLabelLines(text, rect.width, scale, limit);
+        const advance = lineHeight(scale) + scale * 2;
+        lines.forEach((line, index) => {
+          const width = textWidth(line, scale);
+          const offset =
+            alignment === 1
+              ? Math.max(0, (rect.width - width) / 2)
+              : alignment === 2
+                ? Math.max(0, rect.width - width - scale * 2)
+                : scale * 2;
+          drawText(framebuffer, absoluteX + offset, absoluteY + scale * 2 + index * advance, line, {
+            scale,
+            color,
+          });
         });
       }
     }
@@ -3361,6 +3381,37 @@ export class ObjcHost {
     for (const child of this.children.get(view) ?? []) {
       this.paint(child, framebuffer, childOriginX, childOriginY, childClip, alpha);
     }
+  }
+
+  /**
+   * Split label text into lines: explicit newlines always break, and labels
+   * with more than one line also wrap greedily at the frame width.
+   */
+  private layoutLabelLines(text: string, width: number, scale: number, limit: number): string[] {
+    const paragraphs = text.split("\n");
+    const lines: string[] = [];
+    for (const paragraph of paragraphs) {
+      if (limit === 1) {
+        lines.push(paragraph);
+        continue;
+      }
+      const words = paragraph.split(" ").filter((word) => word.length > 0);
+      if (words.length === 0) {
+        lines.push("");
+        continue;
+      }
+      let current = words[0]!;
+      for (const word of words.slice(1)) {
+        const candidate = `${current} ${word}`;
+        if (textWidth(candidate, scale) <= width) current = candidate;
+        else {
+          lines.push(current);
+          current = word;
+        }
+      }
+      lines.push(current);
+    }
+    return limit > 0 ? lines.slice(0, limit) : lines;
   }
 
   /** Draw a pill track and a round knob: deterministic, no images or layers. */

@@ -220,6 +220,10 @@ static unsigned gTick;
              action:@selector(switchChanged:)
    forControlEvents:UIControlEventValueChanged];
   [window addSubview:toggle];
+  UILabel *wrapped = [[UILabel alloc] initWithFrame:CGRectMake(20, 240, 300, 60)];
+  [wrapped setText:[NSString stringWithUTF8String:"WRAP THE LABEL\nSECOND LINE"]];
+  [wrapped setNumberOfLines:0];
+  [window addSubview:wrapped];
   UIImage *icon = [UIImage imageNamed:"assets/icon.png"];
   UIImageView *picture = [[UIImageView alloc] initWithImage:icon];
   [picture setFrame:CGRectMake(250, 140, 80, 80)];

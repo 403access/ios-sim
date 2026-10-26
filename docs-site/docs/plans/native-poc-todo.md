@@ -76,6 +76,7 @@ started.
 - [x] `performSelector:withObject:afterDelay:` and cancellation on the virtual clock
 - [x] Notification `userInfo` dictionaries
 - [x] `UIImage`/`UIImageView` with a PNG decoder and resource loading
+- [x] Multi-line `UILabel` text: newlines, greedy wrapping, and a line limit
 - [x] `UIViewController -viewDidLoad` once, via a category or subclass
 - [x] `UIViewController -viewWillAppear:`/`-viewDidAppear:` when the root view is shown
 - [x] `UILabel` with a 3×5 bitmap font (left/centre/right alignment)

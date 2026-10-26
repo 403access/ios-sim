@@ -14,6 +14,11 @@ const GLYPH_HEIGHT = 5;
 const ADVANCE = 4;
 const LINE_HEIGHT = 6;
 
+/** Line advance in pixels for the bitmap font at `scale`. */
+export function lineHeight(scale = 2): number {
+  return LINE_HEIGHT * scale;
+}
+
 const GLYPHS: Record<string, readonly string[]> = {
   A: ["010", "101", "111", "101", "101"],
   B: ["110", "101", "110", "101", "110"],
