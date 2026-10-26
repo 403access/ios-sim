@@ -66,6 +66,7 @@ describe("ObjC UIKit demo", () => {
     expect(at(10, 10)).toEqual([255, 255, 255, 255]);
     expect(at(DEMO_VIEW_RECT.x - 1, DEMO_VIEW_RECT.y - 1)).toEqual([255, 255, 255, 255]);
     expect(at(300, 100)).toEqual([127, 255, 127, 255]);
+    expect(at(30, 480)).toEqual([0, 0, 255, 255]);
     let blackPixels = 0;
     for (let y = 400; y < 440; y += 1) {
       for (let x = 20; x < 320; x += 1) {

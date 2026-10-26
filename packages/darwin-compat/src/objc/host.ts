@@ -80,6 +80,12 @@ const COLOR_BLUE = 24;
 const COLOR_ALPHA = 32;
 const COLOR_INSTANCE_SIZE = 40;
 
+const SCROLL_OFFSET_X = 64;
+const SCROLL_OFFSET_Y = 72;
+const SCROLL_CONTENT_WIDTH = 80;
+const SCROLL_CONTENT_HEIGHT = 88;
+const SCROLL_INSTANCE_SIZE = 96;
+
 const LABEL_TEXT = 64;
 const LABEL_COLOR = 72;
 const LABEL_SCALE = 80;
@@ -866,6 +872,75 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(button);
+
+    const scroll = this.defineClass({
+      name: "UIScrollView",
+      superclass: "UIView",
+      instanceSize: SCROLL_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "init",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, doubleBits(1));
+            this.memory.write(receiver + BigInt(VIEW_CLIPS), 1, 1n);
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "initWithFrame:",
+          types: "@48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",
+          run: (cpu, receiver) => {
+            this.writeRect(receiver, this.readRect(cpu));
+            this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, doubleBits(1));
+            this.memory.write(receiver + BigInt(VIEW_CLIPS), 1, 1n);
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "setContentOffset:",
+          types: "v32@0:8{CGPoint=dd}16",
+          run: (cpu, receiver) => {
+            this.memory.write(receiver + BigInt(SCROLL_OFFSET_X), 8, cpu.readVectorBits(0, 64));
+            this.memory.write(receiver + BigInt(SCROLL_OFFSET_Y), 8, cpu.readVectorBits(1, 64));
+          },
+        },
+        {
+          selector: "contentOffset",
+          types: "{CGPoint=dd}16@0:8",
+          run: (cpu, receiver) => {
+            cpu.writeVectorDouble(0, this.readDouble(receiver, SCROLL_OFFSET_X));
+            cpu.writeVectorDouble(1, this.readDouble(receiver, SCROLL_OFFSET_Y));
+          },
+        },
+        {
+          selector: "setContentSize:",
+          types: "v32@0:8{CGSize=dd}16",
+          run: (cpu, receiver) => {
+            this.memory.write(
+              receiver + BigInt(SCROLL_CONTENT_WIDTH),
+              8,
+              cpu.readVectorBits(0, 64),
+            );
+            this.memory.write(
+              receiver + BigInt(SCROLL_CONTENT_HEIGHT),
+              8,
+              cpu.readVectorBits(1, 64),
+            );
+          },
+        },
+        {
+          selector: "contentSize",
+          types: "{CGSize=dd}16@0:8",
+          run: (cpu, receiver) => {
+            cpu.writeVectorDouble(0, this.readDouble(receiver, SCROLL_CONTENT_WIDTH));
+            cpu.writeVectorDouble(1, this.readDouble(receiver, SCROLL_CONTENT_HEIGHT));
+          },
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(scroll);
 
     const label = this.defineClass({
       name: "UILabel",
@@ -1995,7 +2070,9 @@ export class ObjcHost {
       ) {
         continue;
       }
-      const hit = this.hitTest(child, point, absoluteX, absoluteY);
+      const childOriginX = absoluteX - this.scrollOffsetX(view);
+      const childOriginY = absoluteY - this.scrollOffsetY(view);
+      const hit = this.hitTest(child, point, childOriginX, childOriginY);
       if (hit !== null) return hit;
     }
     return containsPoint(frame, { x: point.x - originX, y: point.y - originY }) ? view : null;
@@ -2075,9 +2152,23 @@ export class ObjcHost {
             width: rect.width,
             height: rect.height,
           });
+    const childOriginX = absoluteX - this.scrollOffsetX(view);
+    const childOriginY = absoluteY - this.scrollOffsetY(view);
     for (const child of this.children.get(view) ?? []) {
-      this.paint(child, framebuffer, absoluteX, absoluteY, childClip, alpha);
+      this.paint(child, framebuffer, childOriginX, childOriginY, childClip, alpha);
     }
+  }
+
+  private scrollOffsetX(view: bigint): number {
+    return this.instances.get(view)?.name === "UIScrollView"
+      ? this.readDouble(view, SCROLL_OFFSET_X)
+      : 0;
+  }
+
+  private scrollOffsetY(view: bigint): number {
+    return this.instances.get(view)?.name === "UIScrollView"
+      ? this.readDouble(view, SCROLL_OFFSET_Y)
+      : 0;
   }
 
   private colorOf(view: bigint): Rgba | null {

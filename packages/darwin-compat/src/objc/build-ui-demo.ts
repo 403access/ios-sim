@@ -91,6 +91,8 @@ const SELECTORS = {
   willTerminate: "applicationWillTerminate:",
   setTextAlignment: "setTextAlignment:",
   setClips: "setClipsToBounds:",
+  setContentOffset: "setContentOffset:",
+  setContentSize: "setContentSize:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -126,7 +128,8 @@ type SlotName =
   | "classLabel"
   | "activeMarker"
   | "terminateMarker"
-  | "nslog";
+  | "nslog"
+  | "classScroll";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -167,6 +170,10 @@ interface Plan {
   readonly nestedRect: number;
   readonly labelRect: number;
   readonly clipRect: number;
+  readonly scrollRect: number;
+  readonly scrollContent: number;
+  readonly scrollOffset: number;
+  readonly scrollChildren: number;
   readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
@@ -262,6 +269,7 @@ function planData(): Plan {
     "activeMarker",
     "terminateMarker",
     "nslog",
+    "classScroll",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -382,6 +390,14 @@ function planData(): Plan {
   cursor += 32;
   const clipRect = cursor;
   cursor += 32;
+  const scrollRect = cursor;
+  cursor += 32;
+  const scrollContent = cursor;
+  cursor += 16;
+  const scrollOffset = cursor;
+  cursor += 16;
+  const scrollChildren = cursor;
+  cursor += 64;
   const half = cursor;
   cursor += 8;
 
@@ -438,7 +454,7 @@ function planData(): Plan {
     {
       name: "__const",
       offset: windowRect,
-      size: 64 + 4 * 32 + 32 + 32 + 64 + 32 + 32 + 8,
+      size: 64 + 4 * 32 + 32 + 32 + 64 + 32 + 32 + 64 + 64 + 8,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -483,6 +499,10 @@ function planData(): Plan {
     nestedRect,
     labelRect,
     clipRect,
+    scrollRect,
+    scrollContent,
+    scrollOffset,
+    scrollChildren,
     half,
     size: cursor,
     sections,
@@ -990,6 +1010,96 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:(20,470,300,80)];
+    emitPointer(0, slot("classScroll"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.scrollRect));
+    emitDouble(1, dataAddress(plan.scrollRect + 8));
+    emitDouble(2, dataAddress(plan.scrollRect + 16));
+    emitDouble(3, dataAddress(plan.scrollRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setContentSize));
+    emitDouble(0, dataAddress(plan.scrollContent));
+    emitDouble(1, dataAddress(plan.scrollContent + 8));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setContentOffset));
+    emitDouble(0, dataAddress(plan.scrollOffset));
+    emitDouble(1, dataAddress(plan.scrollOffset + 8));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // Red child at (0,0,300,80) and blue child at (0,80,300,120) inside the scroll view.
+    emitWord(movReg(22, 21));
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.scrollChildren));
+    emitDouble(1, dataAddress(plan.scrollChildren + 8));
+    emitDouble(2, dataAddress(plan.scrollChildren + 16));
+    emitDouble(3, dataAddress(plan.scrollChildren + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.redColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 22));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    // blue child
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.scrollChildren + 32));
+    emitDouble(1, dataAddress(plan.scrollChildren + 40));
+    emitDouble(2, dataAddress(plan.scrollChildren + 48));
+    emitDouble(3, dataAddress(plan.scrollChildren + 56));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.blueColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 22));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -1362,6 +1472,7 @@ function emitData(
   bind(plan.slotOffsets.classView, "_OBJC_CLASS_$_UIView");
   bind(plan.slotOffsets.classLabel, "_OBJC_CLASS_$_UILabel");
   bind(plan.slotOffsets.nslog, "_NSLog");
+  bind(plan.slotOffsets.classScroll, "_OBJC_CLASS_$_UIScrollView");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
@@ -1400,6 +1511,22 @@ function emitData(
   f64(plan.clipRect + 8, 50);
   f64(plan.clipRect + 16, 100);
   f64(plan.clipRect + 24, 40);
+  f64(plan.scrollRect, 20);
+  f64(plan.scrollRect + 8, 470);
+  f64(plan.scrollRect + 16, 300);
+  f64(plan.scrollRect + 24, 80);
+  f64(plan.scrollContent, 300);
+  f64(plan.scrollContent + 8, 200);
+  f64(plan.scrollOffset, 0);
+  f64(plan.scrollOffset + 8, 80);
+  f64(plan.scrollChildren, 0);
+  f64(plan.scrollChildren + 8, 0);
+  f64(plan.scrollChildren + 16, 300);
+  f64(plan.scrollChildren + 24, 80);
+  f64(plan.scrollChildren + 32, 0);
+  f64(plan.scrollChildren + 40, 80);
+  f64(plan.scrollChildren + 48, 300);
+  f64(plan.scrollChildren + 56, 120);
   f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {
     const rect = plan.rectTable + index * 32;

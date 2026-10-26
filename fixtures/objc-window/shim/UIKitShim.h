@@ -92,6 +92,25 @@ __attribute__((objc_root_class))
 - (void)touchesEnded:(id)touches withEvent:(id)event;
 @end
 
+static inline CGPoint CGPointMake(CGFloat x, CGFloat y) {
+  CGPoint point;
+  point.x = x;
+  point.y = y;
+  return point;
+}
+
+static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
+  CGSize size;
+  size.width = width;
+  size.height = height;
+  return size;
+}
+
+@interface UIScrollView : UIView
+- (void)setContentOffset:(CGPoint)offset;
+- (void)setContentSize:(CGSize)size;
+@end
+
 @interface UILabel : UIView
 - (void)setText:(const char *)text;
 - (void)setTextColor:(UIColor *)color;
