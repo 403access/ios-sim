@@ -63,6 +63,7 @@ export interface ProcessResult {
   readonly errorSink: ByteSink;
   readonly frames: readonly CapturedFrame[];
   readonly objcClasses: readonly string[];
+  readonly objcCategories: readonly string[];
 }
 
 export interface CreateProcessOptions extends ProcessOptions {
@@ -250,6 +251,7 @@ export class DarwinProcess {
       errorSink: this.errorSink,
       frames: this.objc?.frames ?? [],
       objcClasses: this.objc ? [...this.objc.classes.keys()] : [],
+      objcCategories: this.objc?.categories ?? [],
     };
   }
 }

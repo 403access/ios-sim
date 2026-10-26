@@ -32,6 +32,21 @@ export interface ObjcMethod {
   readonly imp: bigint;
 }
 
+export interface ObjcIvar {
+  readonly name: string;
+  readonly type: string;
+  readonly offset: number;
+  readonly size: number;
+  readonly alignment: number;
+}
+
+export interface ObjcCategory {
+  readonly name: string;
+  readonly classAddress: bigint;
+  readonly methods: ReadonlyMap<string, ObjcMethod>;
+  readonly classMethods: ReadonlyMap<string, ObjcMethod>;
+}
+
 export interface ObjcClass {
   readonly name: string;
   readonly address: bigint;
@@ -42,6 +57,7 @@ export interface ObjcClass {
   readonly isRoot: boolean;
   readonly methods: ReadonlyMap<string, ObjcMethod>;
   readonly classMethods: ReadonlyMap<string, ObjcMethod>;
+  readonly ivars: readonly ObjcIvar[];
 }
 
 /**
@@ -84,6 +100,7 @@ function parseClass(memory: VirtualMemory, image: LoadedImage, address: bigint):
   const instanceSize = readU32(memory, data + 8n, "class instanceSize");
   const flags = readU32(memory, data, "class flags");
   const methods = parseMethodList(memory, readPointer(memory, data + 32n, "class methods"));
+  const ivars = parseIvarList(memory, readPointer(memory, data + 48n, "class ivars"));
 
   const metaData = readPointer(memory, isa + 32n, "metaclass data") & ~0x7n;
   const metaSuperclass = readPointer(memory, isa + 8n, "metaclass superclass");
@@ -102,7 +119,88 @@ function parseClass(memory: VirtualMemory, image: LoadedImage, address: bigint):
     isRoot: (flags & RO_ROOT) !== 0,
     methods,
     classMethods,
+    ivars,
   };
+}
+
+/** Parse a category list (`__objc_catlist`) from an image. */
+export function parseObjcCategories(memory: VirtualMemory, image: LoadedImage): ObjcCategory[] {
+  const sections = image.image.sections.filter((section) => section.name === "__objc_catlist");
+  if (sections.length === 0) return [];
+  const categories: ObjcCategory[] = [];
+  for (const section of sections) {
+    if (section.zeroFill) continue;
+    const start = sectionAddress(image, section.address);
+    const count = Math.floor(section.size / 8);
+    if (count > MAX_CLASSES) {
+      throw new ObjcError(
+        "bad_objc_metadata",
+        `${image.path}: __objc_catlist has ${count} entries (limit ${MAX_CLASSES})`,
+      );
+    }
+    for (let index = 0; index < count; index += 1) {
+      const pointer = readPointer(memory, start + BigInt(index * 8), "category list");
+      if (pointer === 0n) continue;
+      const name = readCString(memory, readPointer(memory, pointer, "category name"));
+      const classAddress = readPointer(memory, pointer + 8n, "category class");
+      categories.push({
+        name,
+        classAddress,
+        methods: parseMethodList(memory, readPointer(memory, pointer + 16n, "category methods")),
+        classMethods: parseMethodList(
+          memory,
+          readPointer(memory, pointer + 24n, "category class methods"),
+        ),
+      });
+    }
+  }
+  return categories;
+}
+
+function parseIvarList(memory: VirtualMemory, address: bigint): ObjcIvar[] {
+  if (address === 0n) return [];
+  const header = readU32(memory, address, "ivar list header");
+  const count = readU32(memory, address + 4n, "ivar list count");
+  if (count > MAX_METHODS) {
+    throw new ObjcError("bad_objc_metadata", `ivar list claims ${count} entries`);
+  }
+  const relative = (header & METHOD_LIST_RELATIVE) !== 0;
+  const entrySize = header & (relative ? 0x7fff_fffc : 0x0000_fffc);
+  const minimum = relative ? 12 : 32;
+  if (entrySize < minimum || entrySize > 256) {
+    throw new ObjcError(
+      "bad_objc_metadata",
+      `ivar list entry size ${entrySize} is out of range (relative=${relative})`,
+    );
+  }
+  const ivars: ObjcIvar[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const entry = address + 8n + BigInt(index * entrySize);
+    const offset = readS32(memory, entry, "ivar offset");
+    let namePointer: bigint;
+    let typePointer: bigint;
+    let alignment: number;
+    let size: number;
+    if (relative) {
+      namePointer = entry + 4n + BigInt(readS32(memory, entry + 4n, "ivar name"));
+      typePointer = entry + 8n + BigInt(readS32(memory, entry + 8n, "ivar type"));
+      alignment = 0;
+      size = 0;
+    } else {
+      namePointer = readPointer(memory, entry + 8n, "ivar name");
+      typePointer = readPointer(memory, entry + 16n, "ivar type");
+      alignment = readU32(memory, entry + 24n, "ivar alignment");
+      size = readU32(memory, entry + 28n, "ivar size");
+    }
+    ivars.push({
+      name: readCString(memory, namePointer),
+      type: readTypes(memory, typePointer),
+      offset,
+      size,
+      alignment,
+    });
+  }
+  return ivars;
 }
 
 function parseMethodList(memory: VirtualMemory, address: bigint): Map<string, ObjcMethod> {

@@ -11,19 +11,19 @@ exists so no reader can mistake the substrate for a working iOS Simulator.
 
 ## Status by area
 
-| Area                | Required by the simulator                                         | This branch                                                                        | Gate to advance                                                                                  |
-| ------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Kernel interface    | Mach ports/task ports, MIG, kqueue, Darwin VM semantics           | User-space port model and a syscall shim; no kernel                                | A real kernel boundary (microkernel host, or kernel module) with blocking threads and VM objects |
-| IPC                 | XPC client/server, port rights in messages, launchd registration  | Semantic ports, rights, reply ports, bootstrap registry, MIG-lite                  | Port/memory descriptors, port sets, notifications, byte-compatible MIG/XPC                       |
-| Process model       | `launchd_sim`, `posix_spawn` attributes, roles, jetsam            | Single-threaded jobs, bounded KeepAlive                                            | Threads, signals, process groups, memory pressure, spawn attributes                              |
-| Loader              | `dyld_sim`, shared cache, chained fixups, code signing            | Thin/fat parse, user-space loading, chained fixups, export tries                   | Shared-cache mapping, legacy bindings, initializers, `dlopen`, signature validation              |
-| Runtimes            | Objective-C runtime ABI, Swift runtime, Foundation/CoreFoundation | ObjC 2 metadata, `objc_msgSend`, instances; no Foundation, Swift, or ARC semantics | A libobjc2/Foundation-compatible substrate, then Swift metadata and Foundation conformance       |
-| Graphics            | Metal, IOSurface, QuartzCore/CoreAnimation, display link, colour  | CPU RGBA framebuffer with deterministic PNG/PPM; solid rectangles only             | A Metal-on-Vulkan-class implementation with stable frames and IOSurface sharing                  |
-| UI                  | AppKit host, UIKit simulator build, accessibility                 | Clean-room shim: `UIApplicationMain`, window, view, colour                         | Real UIKit build plus AppKit-replacement windowing/accessibility                                 |
-| Input               | IOKit HID, Indigo/DTUHID, CGEvent                                 | None in this layer                                                                 | HID transport and event translation compatible with SimulatorKit                                 |
-| Security            | Codesign, entitlements, TCC, keychain, device identity            | None; signatures are parsed but not verified                                       | Trust model, entitlement evaluation, TCC database, keychain                                      |
-| Storage             | APFS-compatible disk images, snapshots, `simdiskimaged`           | Jailed host files only                                                             | APFS image format and snapshot semantics                                                         |
-| Real Apple software | CoreSimulator, simulator runtime, SpringBoard                     | Not loaded, not redistributed                                                      | A licence-compatible path and a maintained compatibility surface                                 |
+| Area                | Required by the simulator                                         | This branch                                                                                                       | Gate to advance                                                                                  |
+| ------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Kernel interface    | Mach ports/task ports, MIG, kqueue, Darwin VM semantics           | User-space port model and a syscall shim; no kernel                                                               | A real kernel boundary (microkernel host, or kernel module) with blocking threads and VM objects |
+| IPC                 | XPC client/server, port rights in messages, launchd registration  | Semantic ports, rights, reply ports, bootstrap registry, MIG-lite                                                 | Port/memory descriptors, port sets, notifications, byte-compatible MIG/XPC                       |
+| Process model       | `launchd_sim`, `posix_spawn` attributes, roles, jetsam            | Single-threaded jobs, bounded KeepAlive                                                                           | Threads, signals, process groups, memory pressure, spawn attributes                              |
+| Loader              | `dyld_sim`, shared cache, chained fixups, code signing            | Thin/fat parse, user-space loading, chained fixups, export tries                                                  | Shared-cache mapping, legacy bindings, initializers, `dlopen`, signature validation              |
+| Runtimes            | Objective-C runtime ABI, Swift runtime, Foundation/CoreFoundation | ObjC 2 metadata, `objc_msgSend`, categories, `+initialize`, ivar metadata; no Foundation, Swift, or ARC semantics | A libobjc2/Foundation-compatible substrate, then Swift metadata and Foundation conformance       |
+| Graphics            | Metal, IOSurface, QuartzCore/CoreAnimation, display link, colour  | CPU RGBA framebuffer with deterministic PNG/PPM; solid rectangles only                                            | A Metal-on-Vulkan-class implementation with stable frames and IOSurface sharing                  |
+| UI                  | AppKit host, UIKit simulator build, accessibility                 | Clean-room shim: `UIApplicationMain`, window, view, colour                                                        | Real UIKit build plus AppKit-replacement windowing/accessibility                                 |
+| Input               | IOKit HID, Indigo/DTUHID, CGEvent                                 | None in this layer                                                                                                | HID transport and event translation compatible with SimulatorKit                                 |
+| Security            | Codesign, entitlements, TCC, keychain, device identity            | None; signatures are parsed but not verified                                                                      | Trust model, entitlement evaluation, TCC database, keychain                                      |
+| Storage             | APFS-compatible disk images, snapshots, `simdiskimaged`           | Jailed host files only                                                                                            | APFS image format and snapshot semantics                                                         |
+| Real Apple software | CoreSimulator, simulator runtime, SpringBoard                     | Not loaded, not redistributed                                                                                     | A licence-compatible path and a maintained compatibility surface                                 |
 
 ## What the end-to-end tests actually prove
 
@@ -72,12 +72,12 @@ macOS-gated test runs compiler output end to end.
   autorelease pools are markers. Objects live until the process exits; the PoC is short-lived.
 - **Selectors are C strings.** The shim follows the modern direct-selector convention; a selector
   registered as an opaque `objc_selector` struct is not supported.
-- **Classes are realised eagerly.** `+initialize`, categories, `+load`, protocols, and weak
-  references are not implemented. A missing method fails with `unrecognized_selector`, not a
-  message-send crash.
-- **Application ivars are not laid out.** Instances get an `isa` and the class's `instanceSize`;
-  the shim's own ivars are documented offsets. This is enough for the demo, not for arbitrary
-  classes with instance variables.
+- **Classes are realised eagerly.** Categories and `+initialize` are implemented; `+load`,
+  protocols, associated objects, and weak references are not. A missing method fails with
+  `unrecognized_selector`, not a message-send crash.
+- **Ivar metadata is parsed, not synthesised.** Instances get an `isa` and the class's
+  `instanceSize`; compiler-assigned ivar offsets work because the guest uses its own layout. The
+  shim does not provide reflective ivar access, and its own ivars are fixed offsets.
 - **The frame is headless.** It is written as PNG/PPM; there is no host window, colour management,
   text, fonts, paths, or CoreAnimation transactions. `CALayer` does not exist.
 - **Performance is interpreter-grade.** There is no JIT; the goal is correctness and

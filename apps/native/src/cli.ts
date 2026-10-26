@@ -306,6 +306,7 @@ function runJson(result: ProcessResult) {
     fixups: result.program.stats,
     unsupportedSyscalls: Object.fromEntries(result.unsupportedSyscalls),
     objcClasses: result.objcClasses,
+    objcCategories: result.objcCategories,
     frames: result.frames.map((frame) => ({
       width: frame.width,
       height: frame.height,

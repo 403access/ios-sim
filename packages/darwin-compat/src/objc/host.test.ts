@@ -23,6 +23,13 @@ describe("ObjC UIKit demo", () => {
     expect(result.objcClasses).toEqual(
       expect.arrayContaining(["NSObject", "UIView", "UIWindow", "AppDelegate"]),
     );
+    expect(result.objcCategories).toEqual(["AppDelegate(Window)"]);
+
+    // The category supplies the delegate method and +initialize increments the
+    // marker exactly once before the first message.
+    const marker = result.program.resolveExport("_initializeMarker");
+    expect(marker).not.toBeNull();
+    expect(result.program.memory.read(marker!, 8)).toBe(1n);
 
     const frame = result.frames[0]!;
     expect(frame.width).toBe(DEMO_SCREEN.width);

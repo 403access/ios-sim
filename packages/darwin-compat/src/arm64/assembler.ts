@@ -66,6 +66,20 @@ export function blr(reg: number): number {
   return 0xd63f0000 | (reg << 5);
 }
 
+/** `stp qN, qM, [Xn, #-offset]!` (128-bit pair, pre-index). */
+export function stpQuadPre(rt: number, rt2: number, rn: number, offset: number): number {
+  if (offset % 16 !== 0 || offset > 0 || offset < -512)
+    throw new Error(`unaligned or out-of-range quad pair pre-index ${offset}`);
+  return 0xad000000 | (3 << 23) | (((offset / 16) & 0x7f) << 15) | (rt2 << 10) | (rn << 5) | rt;
+}
+
+/** `ldp qN, qM, [Xn], #offset` (128-bit pair, post-index). */
+export function ldpQuadPost(rt: number, rt2: number, rn: number, offset: number): number {
+  if (offset % 16 !== 0 || offset < 0 || offset > 504)
+    throw new Error(`unaligned or out-of-range quad pair post-index ${offset}`);
+  return 0xad400000 | (1 << 23) | (((offset / 16) & 0x7f) << 15) | (rt2 << 10) | (rn << 5) | rt;
+}
+
 /** `ldr dN, [Xn, #offset]` (scalar double, unsigned immediate). */
 export function ldrDouble(rt: number, rn: number, offset: number): number {
   if (offset % 8 !== 0 || offset < 0 || offset > 0x7f8)

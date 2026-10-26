@@ -21,13 +21,17 @@ import { Framebuffer, WHITE, type Rgba } from "../ui/framebuffer.js";
 import {
   adrp,
   blr,
+  br,
   ldpPost,
+  ldpQuadPost,
   ldrLiteral,
   ldrUnsigned,
   movReg,
+  movk,
   movz,
   ret,
   stpPre,
+  stpQuadPre,
   svc,
 } from "../arm64/assembler.js";
 import {
@@ -35,7 +39,9 @@ import {
   CLASS_T_SIZE,
   RO_META,
   RO_ROOT,
+  parseObjcCategories,
   parseObjcClasses,
+  type ObjcCategory,
   type ObjcClass,
   type ObjcMethod,
 } from "./abi.js";
@@ -51,6 +57,8 @@ const MAX_INSTANCES = 512;
 const MAX_FRAMES = 8;
 const MAX_CHILDREN = 64;
 const MAX_STUBS = 8;
+const MAX_INITIALIZE_STUBS = 32;
+const INITIALIZE_PAGE = 0x2000;
 
 /** UIView ivar offsets, chosen by this shim and documented in the PoC page. */
 const VIEW_FRAME_X = 8;
@@ -112,6 +120,7 @@ interface Rect {
 export class ObjcHost {
   readonly symbols = new Map<string, bigint>();
   readonly classes = new Map<string, ObjcClass>();
+  readonly categories: string[] = [];
   readonly frames: CapturedFrame[] = [];
   readonly width: number;
   readonly height: number;
@@ -133,6 +142,11 @@ export class ObjcHost {
   private readonly byMetaAddress = new Map<bigint, ObjcClass>();
   private readonly selectors = new Map<string, bigint>();
   private readonly instances = new Map<bigint, ObjcClass>();
+  private readonly initialized = new Set<bigint>();
+  private readonly initializeStubs = new Map<bigint, bigint>();
+  private readonly initializePage: bigint;
+  private initializeStubCursor: bigint;
+  private readonly resendAddress: bigint;
   private readonly children = new Map<bigint, bigint[]>();
   private readonly windows: bigint[] = [];
   private keyWindow: bigint | null = null;
@@ -155,6 +169,11 @@ export class ObjcHost {
     this.trampolineCursor = this.trampolinePage;
     this.stubPage = this.memory.allocate(STUB_PAGE, { tag: "objc-stubs", protection: 7 });
     this.stubCursor = this.stubPage;
+    this.initializePage = this.memory.allocate(INITIALIZE_PAGE, {
+      tag: "objc-initialize-stubs",
+      protection: 7,
+    });
+    this.initializeStubCursor = this.initializePage;
 
     // Data symbols some metadata references directly.
     const emptyCache = this.allocBytes(16);
@@ -167,9 +186,10 @@ export class ObjcHost {
       this.present();
       return { value: cpu.readRegister(0) };
     });
+    this.resendAddress = this.allocateTrampoline((cpu) => this.messageSend(cpu));
   }
 
-  /** Register the classes of every loaded image. */
+  /** Register the classes of every loaded image, then merge categories. */
   attach(program: LoadedProgram): void {
     for (const image of program.images) {
       for (const parsed of parseObjcClasses(this.memory, image)) {
@@ -181,6 +201,11 @@ export class ObjcHost {
           );
         }
         this.registerClass(parsed);
+      }
+    }
+    for (const image of program.images) {
+      for (const category of parseObjcCategories(this.memory, image)) {
+        this.applyCategory(category);
       }
     }
   }
@@ -256,6 +281,7 @@ export class ObjcHost {
     this.registerSymbol("_objc_alloc", (cpu) => {
       const klass = this.byAddress.get(cpu.readRegister(0));
       if (!klass) throw new ObjcError("bad_receiver", "objc_alloc receiver is not a class");
+      if (this.ensureInitialized(cpu)) return { value: cpu.readRegister(0) };
       // objc_alloc must honour a guest +alloc override, not allocate directly.
       const method = this.resolveClassMethod(klass, "alloc");
       if (method) return this.invoke(method, cpu);
@@ -624,6 +650,7 @@ export class ObjcHost {
       isRoot: spec.isRoot ?? false,
       methods: methodMap,
       classMethods: classMap,
+      ivars: [],
     };
     this.symbols.set(`_OBJC_CLASS_$_${spec.name}`, classAddress);
     this.symbols.set(`_OBJC_METACLASS_$_${spec.name}`, metaclass);
@@ -659,6 +686,105 @@ export class ObjcHost {
   }
 
   private readonly impByMethod = new Map<HostMethodSpec, bigint>();
+
+  private applyCategory(category: ObjcCategory): void {
+    const klass = this.byAddress.get(category.classAddress);
+    if (!klass) {
+      throw new ObjcError(
+        "unknown_category_class",
+        `category ${category.name} targets 0x${category.classAddress.toString(16)}, which is not a loaded class`,
+      );
+    }
+    const methods = new Map(klass.methods);
+    for (const [selector, method] of category.methods) methods.set(selector, method);
+    const classMethods = new Map(klass.classMethods);
+    for (const [selector, method] of category.classMethods) classMethods.set(selector, method);
+    const updated: ObjcClass = { ...klass, methods, classMethods };
+    this.classes.set(updated.name, updated);
+    this.byAddress.set(updated.address, updated);
+    this.byMetaAddress.set(updated.metaclass, updated);
+    this.categories.push(`${klass.name}(${category.name})`);
+  }
+
+  /**
+   * Run `+initialize` exactly once before the first message to a class.
+   *
+   * A guest initializer must not clobber the pending message's arguments, so
+   * a stub saves x0..x7 and q0..q7, calls the initializer, restores the
+   * registers, then jumps to the resend trap. The resend re-enters dispatch
+   * with the original receiver and selector, and `LR` still points at the
+   * original caller.
+   */
+  private ensureInitialized(cpu: Arm64Cpu): boolean {
+    const receiver = cpu.readRegister(0);
+    if (receiver === 0n) return false;
+    const classObject = this.byAddress.get(receiver);
+    const klass = classObject ?? this.byAddress.get(this.memory.read(receiver, 8));
+    if (!klass || this.initialized.has(klass.address)) return false;
+    const method = klass.classMethods.get("initialize");
+    this.initialized.add(klass.address);
+    if (!method) return false;
+    // The shim's +initialize is a no-op; running it in TypeScript would only
+    // risk clobbering the pending arguments.
+    if (this.hostMethods.has(method.imp)) return false;
+    cpu.pc = this.initializeStub(klass.address, method.imp);
+    return true;
+  }
+
+  private initializeStub(classAddress: bigint, imp: bigint): bigint {
+    const cached = this.initializeStubs.get(classAddress);
+    if (cached) return cached;
+    if (this.initializeStubs.size >= MAX_INITIALIZE_STUBS) {
+      throw new ObjcError(
+        "stub_limit",
+        `more than ${MAX_INITIALIZE_STUBS} classes needed a +initialize stub`,
+      );
+    }
+    const address = this.initializeStubCursor;
+    this.initializeStubCursor += 256n;
+    if (this.initializeStubCursor > this.initializePage + BigInt(INITIALIZE_PAGE)) {
+      throw new ObjcError("stub_limit", "the +initialize stub area overflowed");
+    }
+    const selector = this.internString("initialize");
+    const head: number[] = [
+      stpPre(29, 30, 31, -16),
+      stpPre(0, 1, 31, -16),
+      stpPre(2, 3, 31, -16),
+      stpPre(4, 5, 31, -16),
+      stpPre(6, 7, 31, -16),
+      stpQuadPre(0, 1, 31, -32),
+      stpQuadPre(2, 3, 31, -32),
+      stpQuadPre(4, 5, 31, -32),
+      stpQuadPre(6, 7, 31, -32),
+      ...loadImmediate(0, Number(classAddress)),
+      ...loadImmediate(1, Number(selector)),
+    ];
+    const afterInit: number[] = [
+      blr(16),
+      ldpQuadPost(6, 7, 31, 32),
+      ldpQuadPost(4, 5, 31, 32),
+      ldpQuadPost(2, 3, 31, 32),
+      ldpQuadPost(0, 1, 31, 32),
+      ldpPost(6, 7, 31, 16),
+      ldpPost(4, 5, 31, 16),
+      ldpPost(2, 3, 31, 16),
+      ldpPost(0, 1, 31, 16),
+      ldpPost(29, 30, 31, 16),
+      ldrLiteral(16, 0),
+      br(16),
+    ];
+    const code = [...head, ldrLiteral(16, 0), ...afterInit];
+    const literalStart = code.length * 4;
+    const impIndex = head.length;
+    const resendIndex = head.length + 1 + afterInit.length - 2;
+    code[impIndex] = ldrLiteral(16, literalStart - impIndex * 4);
+    code[resendIndex] = ldrLiteral(16, literalStart + 8 - resendIndex * 4);
+    code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
+    this.memory.write(address + BigInt(literalStart), 8, imp);
+    this.memory.write(address + BigInt(literalStart + 8), 8, this.resendAddress);
+    this.initializeStubs.set(classAddress, address);
+    return address;
+  }
 
   private registerClass(record: ObjcClass): void {
     if (this.classes.has(record.name)) {
@@ -703,6 +829,7 @@ export class ObjcHost {
       cpu.writeRegister(0, 0n);
       return { value: 0n };
     }
+    if (this.ensureInitialized(cpu)) return { value: receiver };
     const selector = this.readCString(cpu.readRegister(1));
     const method = this.resolve(receiver, selector);
     if (!method) {
@@ -718,6 +845,7 @@ export class ObjcHost {
   private messageSendSuper2(cpu: Arm64Cpu): SyscallResult {
     const superPointer = cpu.readRegister(0);
     const receiver = this.memory.read(superPointer, 8);
+    if (this.ensureInitialized(cpu)) return { value: receiver };
     const superclass = this.memory.read(superPointer + 8n, 8);
     const selector = this.readCString(cpu.readRegister(1));
     const start = this.byAddress.get(superclass);
@@ -879,7 +1007,9 @@ export class ObjcHost {
       if (this.stubCount >= MAX_STUBS) {
         throw new ObjcError("stub_limit", `more than ${MAX_STUBS} UIApplicationMain calls`);
       }
-      const stub = this.writeApplicationStub(method.imp, this.presentAddress);
+      const messageSend = this.symbols.get("_objc_msgSend");
+      if (!messageSend) throw new ObjcError("internal_error", "objc_msgSend is not registered");
+      const stub = this.writeApplicationStub(messageSend, this.presentAddress);
       cpu.writeRegister(0, delegate);
       cpu.writeRegister(1, this.internString("application:didFinishLaunchingWithOptions:"));
       cpu.writeRegister(2, application);
@@ -892,49 +1022,58 @@ export class ObjcHost {
   }
 
   /**
-   * Guest stub that runs the delegate callback and then the host presenter:
+   * Guest stub that sends the delegate message through `objc_msgSend` and then
+   * runs the host presenter:
    *
-   *   stp x19, x20, [sp, #-16]!
-   *   mov x19, x0            ; delegate
-   *   mov x20, x1            ; selector
-   *   ldr x16, =imp
-   *   mov x0, x19
-   *   mov x1, x20
-   *   blr x16
-   *   ldr x16, =present
-   *   blr x16
-   *   ldp x19, x20, [sp], #16
-   *   ret
+   *   save x19..x22, x29, x30
+   *   x0..x3 = delegate, selector, application, options
+   *   blr objc_msgSend
+   *   x0 = 0
+   *   blr presenter
+   *   restore, ret
    *
-   * A normal `bl` keeps the guest ABI intact: the delegate's own stack frame
-   * and callee-saved registers are the application's business.
+   * Going through `objc_msgSend` (instead of calling the IMP directly) makes
+   * `+initialize` and category overrides part of the normal path.
    */
-  private writeApplicationStub(imp: bigint, present: bigint): bigint {
+  private writeApplicationStub(messageSend: bigint, present: bigint): bigint {
     const address = this.stubCursor;
-    const code = [
+    if (this.stubCursor + 256n > this.stubPage + BigInt(STUB_PAGE)) {
+      throw new ObjcError("stub_limit", "the ObjC stub page overflowed");
+    }
+    const head: number[] = [
       stpPre(29, 30, 31, -16),
       stpPre(19, 20, 31, -16),
+      stpPre(21, 22, 31, -16),
       movReg(19, 0),
       movReg(20, 1),
-      ldrLiteral(16, 40),
+      movReg(21, 2),
+      movReg(22, 3),
+    ];
+    const tail: number[] = [
       movReg(0, 19),
       movReg(1, 20),
+      movReg(2, 21),
+      movReg(3, 22),
       blr(16),
       movz(0, 0),
-      ldrLiteral(16, 28),
+      ldrLiteral(16, 0),
       blr(16),
+      ldpPost(21, 22, 31, 16),
       ldpPost(19, 20, 31, 16),
       ldpPost(29, 30, 31, 16),
       ret(),
     ];
+    const code = [...head, ldrLiteral(16, 0), ...tail];
+    const literalStart = code.length * 4;
+    const sendIndex = head.length;
+    const presentIndex = head.length + 1 + 6;
+    code[sendIndex] = ldrLiteral(16, literalStart - sendIndex * 4);
+    code[presentIndex] = ldrLiteral(16, literalStart + 8 - presentIndex * 4);
     code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
-    this.memory.write(address + 56n, 8, imp);
-    this.memory.write(address + 64n, 8, present);
+    this.memory.write(address + BigInt(literalStart), 8, messageSend);
+    this.memory.write(address + BigInt(literalStart + 8), 8, present);
     this.stubCount += 1;
-    this.stubCursor += 64n;
-    if (this.stubCursor > this.stubPage + BigInt(STUB_PAGE)) {
-      throw new ObjcError("stub_limit", "the ObjC stub page overflowed");
-    }
+    this.stubCursor += 256n;
     return address;
   }
 
@@ -1012,6 +1151,15 @@ export class ObjcHost {
   private writeU64(address: bigint, value: bigint | number): void {
     this.memory.write(address, 8, BigInt(value));
   }
+}
+
+function loadImmediate(register: number, value: number): number[] {
+  const words = [movz(register, value & 0xffff)];
+  for (let shift = 16; shift < 64; shift += 16) {
+    const chunk = Math.floor(value / 2 ** shift) & 0xffff;
+    if (chunk !== 0) words.push(movk(register, chunk, shift));
+  }
+  return words;
 }
 
 function doubleBits(value: number): bigint {

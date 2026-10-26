@@ -2,12 +2,14 @@
  * The generated Objective-C application used by the UIKit proof of concept.
  *
  * It is a real arm64 Mach-O image with a real `__objc_classlist`, a class and
- * metaclass, an absolute method list, and a `main` that calls
+ * metaclass, an absolute method list, a category, and a `main` that calls
  * `UIApplicationMain`. The delegate builds a window, a red view, and presents.
  *
- * Nothing here is Apple code: the bytes are emitted by this repository's
- * assembler and Mach-O writer, so the fixture is reproducible on Linux with no
- * SDK, compiler, or committed binary.
+ * The delegate implementation lives in a category so the category merge is
+ * exercised; the class itself implements `+initialize`, which increments a
+ * marker the tests read back. Nothing here is Apple code: the bytes are emitted
+ * by this repository's assembler and Mach-O writer, so the fixture is
+ * reproducible on Linux with no SDK, compiler, or committed binary.
  */
 
 import {
@@ -29,12 +31,14 @@ import {
   movz,
   ret,
   stpPre,
+  strUnsigned,
 } from "../arm64/assembler.js";
 
 export const DEMO_SCREEN = { width: 375, height: 667 } as const;
 export const DEMO_VIEW_RECT = { x: 20, y: 20, width: 200, height: 100 } as const;
 export const DEMO_VIEW_COLOR = { r: 1, g: 0, b: 0, a: 1 } as const;
 export const DEMO_CLASS_NAME = "AppDelegate";
+export const DEMO_CATEGORY_NAME = "Window";
 
 const SELECTORS = {
   alloc: "alloc",
@@ -45,23 +49,33 @@ const SELECTORS = {
   makeKeyAndVisible: "makeKeyAndVisible",
   redColor: "redColor",
   didFinishLaunching: "application:didFinishLaunchingWithOptions:",
+  initialize: "initialize",
 } as const;
 
 const TYPES = "v16@0:8";
 
 type SlotName =
-  "classWindow" | "classView" | "classColor" | "msgSend" | "uiApplicationMain" | "delegateName";
+  | "classWindow"
+  | "classView"
+  | "classColor"
+  | "msgSend"
+  | "uiApplicationMain"
+  | "delegateName"
+  | "initializeMarker";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
   readonly stringOffsets: Readonly<Record<string, number>>;
   readonly ro: number;
   readonly metaRo: number;
-  readonly methods: number;
-  readonly metaMethods: number;
+  readonly emptyMethods: number;
+  readonly classMethods: number;
+  readonly categoryMethods: number;
+  readonly category: number;
   readonly classAddress: number;
   readonly metaclass: number;
   readonly classList: number;
+  readonly categoryList: number;
   readonly windowRect: number;
   readonly viewRect: number;
   readonly size: number;
@@ -134,6 +148,7 @@ function planData(): Plan {
     "msgSend",
     "uiApplicationMain",
     "delegateName",
+    "initializeMarker",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -152,6 +167,7 @@ function planData(): Plan {
   for (const selector of Object.values(SELECTORS)) intern(selector);
   intern(TYPES);
   intern(DEMO_CLASS_NAME);
+  intern(DEMO_CATEGORY_NAME);
   const stringsEnd = cursor;
 
   cursor = align(cursor);
@@ -160,10 +176,14 @@ function planData(): Plan {
   cursor += 72;
   const metaRo = cursor;
   cursor += 72;
-  const methods = cursor;
-  cursor += 8 + 24;
-  const metaMethods = cursor;
+  const emptyMethods = cursor;
   cursor += 8;
+  const classMethods = cursor;
+  cursor += 8 + 24;
+  const categoryMethods = cursor;
+  cursor += 8 + 24;
+  const category = cursor;
+  cursor += 48;
   const constEnd = cursor;
 
   cursor = align(cursor);
@@ -176,6 +196,8 @@ function planData(): Plan {
 
   cursor = align(cursor);
   const classList = cursor;
+  cursor += 8;
+  const categoryList = cursor;
   cursor += 8;
 
   cursor = align(cursor);
@@ -221,6 +243,13 @@ function planData(): Plan {
       flags: S_REGULAR,
     },
     {
+      name: "__objc_catlist",
+      offset: categoryList,
+      size: 8,
+      alignment: 3,
+      flags: S_REGULAR,
+    },
+    {
       name: "__const",
       offset: windowRect,
       size: 64,
@@ -234,11 +263,14 @@ function planData(): Plan {
     stringOffsets,
     ro,
     metaRo,
-    methods,
-    metaMethods,
+    emptyMethods,
+    classMethods,
+    categoryMethods,
+    category,
     classAddress,
     metaclass,
     classList,
+    categoryList,
     windowRect,
     viewRect,
     size: cursor,
@@ -286,10 +318,18 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
 
+  // +[AppDelegate initialize] { ++marker; }
+  code.labels.set("initialize", code.words.length * 4);
+  emitAddress(1, slot("initializeMarker"));
+  emitWord(ldrUnsigned(2, 1, 0));
+  emitWord(addImm(2, 2, 1));
+  emitWord(strUnsigned(2, 1, 0));
+  emitWord(ret());
+
   const delegate = code.words.length * 4;
   code.labels.set("delegate", delegate);
 
-  // -[AppDelegate application:didFinishLaunching:] -> BOOL
+  // -[AppDelegate(Window) application:didFinishLaunchingWithOptions:] -> BOOL
   emitWord(stpPre(29, 30, 31, -16));
   emitWord(stpPre(19, 20, 31, -16));
 
@@ -354,8 +394,13 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
 
-  const imp = bases.textBase + delegate;
-  const dataBlob = emitData(bases, plan, selector, imp);
+  const data = emitData(
+    bases,
+    plan,
+    selector,
+    bases.textBase + (code.labels.get("delegate") ?? 0),
+    bases.textBase + (code.labels.get("initialize") ?? 0),
+  );
 
   const text = new Uint8Array(code.words.length * 4);
   const view = new DataView(text.buffer);
@@ -363,12 +408,21 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
 
   return {
     text,
-    data: dataBlob.bytes,
-    fixups: dataBlob.fixups,
+    data: data.bytes,
+    fixups: data.fixups,
     sections: plan.sections,
     symbols: [
       { name: "_main", value: bases.textBase, sectionIndex: 1 },
-      { name: "_OBJC_CLASS_$_AppDelegate", value: dataAddress(plan.classAddress), sectionIndex: 6 },
+      {
+        name: "_OBJC_CLASS_$_AppDelegate",
+        value: dataAddress(plan.classAddress),
+        sectionIndex: 5,
+      },
+      {
+        name: "_initializeMarker",
+        value: dataAddress(plan.slotOffsets.initializeMarker),
+        sectionIndex: 2,
+      },
     ],
   };
 }
@@ -378,6 +432,7 @@ function emitData(
   plan: Plan,
   selector: (name: string) => number,
   delegateImp: number,
+  initializeImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -385,7 +440,7 @@ function emitData(
   const f64 = (offset: number, value: number): void => view.setFloat64(offset, value, true);
 
   const encoder = new TextEncoder();
-  for (const value of [...Object.values(SELECTORS), TYPES, DEMO_CLASS_NAME]) {
+  for (const value of [...Object.values(SELECTORS), TYPES, DEMO_CLASS_NAME, DEMO_CATEGORY_NAME]) {
     const offset = plan.stringOffsets[value];
     if (offset === undefined) throw new Error(`string ${value} is not planned`);
     bytes.set(encoder.encode(value), offset);
@@ -408,20 +463,33 @@ function emitData(
   u32(plan.metaRo + 4, 40);
   u32(plan.metaRo + 8, 40);
 
-  u32(plan.methods, 24); // sizeof(method_t), absolute
-  u32(plan.methods + 4, 1);
-  u32(plan.metaMethods, 24);
-  u32(plan.metaMethods + 4, 0);
+  u32(plan.emptyMethods, 24);
+  u32(plan.emptyMethods + 4, 0);
+  u32(plan.classMethods, 24);
+  u32(plan.classMethods + 4, 1);
+  u32(plan.categoryMethods, 24);
+  u32(plan.categoryMethods + 4, 1);
 
-  const methodEntry = plan.methods + 8;
-  rebase(methodEntry, selector(SELECTORS.didFinishLaunching));
-  rebase(methodEntry + 8, selector(TYPES));
-  rebase(methodEntry + 16, delegateImp);
+  const initializeEntry = plan.classMethods + 8;
+  rebase(initializeEntry, selector(SELECTORS.initialize));
+  rebase(initializeEntry + 8, selector(TYPES));
+  rebase(initializeEntry + 16, initializeImp);
+
+  const categoryEntry = plan.categoryMethods + 8;
+  rebase(categoryEntry, selector(SELECTORS.didFinishLaunching));
+  rebase(categoryEntry + 8, selector(TYPES));
+  rebase(categoryEntry + 16, delegateImp);
+
+  // category_t { name, cls, instanceMethods, classMethods, protocols,
+  //              properties, classProperties }
+  rebase(plan.category, address(plan.stringOffsets[DEMO_CATEGORY_NAME]!));
+  rebase(plan.category + 8, address(plan.classAddress));
+  rebase(plan.category + 16, address(plan.categoryMethods));
 
   rebase(plan.ro + 24, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
-  rebase(plan.ro + 32, address(plan.methods));
+  rebase(plan.ro + 32, address(plan.emptyMethods));
   rebase(plan.metaRo + 24, address(plan.stringOffsets[DEMO_CLASS_NAME]!));
-  rebase(plan.metaRo + 32, address(plan.metaMethods));
+  rebase(plan.metaRo + 32, address(plan.classMethods));
 
   // class_t and metaclass.
   rebase(plan.classAddress, address(plan.metaclass));
@@ -432,6 +500,7 @@ function emitData(
   rebase(plan.metaclass + 32, address(plan.metaRo));
 
   rebase(plan.classList, address(plan.classAddress));
+  rebase(plan.categoryList, address(plan.category));
 
   // Import slots used by the code.
   bind(plan.slotOffsets.classWindow, "_OBJC_CLASS_$_UIWindow");
