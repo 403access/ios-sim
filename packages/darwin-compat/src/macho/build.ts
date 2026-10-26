@@ -17,6 +17,7 @@ import {
   LC_BUILD_VERSION,
   LC_DYLD_CHAINED_FIXUPS,
   LC_DYLD_EXPORTS_TRIE,
+  LC_CODE_SIGNATURE,
   LC_DYLD_INFO_ONLY,
   LC_ID_DYLIB,
   LC_LOAD_DYLIB,
@@ -104,6 +105,8 @@ export interface BuildMachOOptions {
   readonly moduleTermFunctions?: readonly number[];
   /** Interposition pairs written to `__DATA,__interpose`. */
   readonly interpositions?: ReadonlyArray<{ replacement: number; replaced: number }>;
+  /** Raw embedded code-signature superblob written to `__LINKEDIT`. */
+  readonly codeSignature?: Uint8Array;
   readonly dependencies?: readonly BuildDependency[];
   readonly installName?: string;
   readonly uuid?: Uint8Array;
@@ -303,7 +306,9 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   const legacyBindOffset = align(legacyRebaseOffset + legacyRebases.length, 8);
   const legacyWeakOffset = align(legacyBindOffset + legacyBinds.length, 8);
   const legacyLazyOffset = align(legacyWeakOffset + legacyWeakBinds.length, 8);
-  const linkeditLength = legacyLazyOffset + legacyLazyBinds.length;
+  const codeSignature = options.codeSignature ?? new Uint8Array();
+  const codeSignatureOffset = align(legacyLazyOffset + legacyLazyBinds.length, 16);
+  const linkeditLength = codeSignatureOffset + codeSignature.length;
   const fileSize = align(linkeditOffset + linkeditLength, pageSize);
   const linkeditVm = PREFERRED_BASE + linkeditOffset;
 
@@ -468,6 +473,15 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
     addLoadCommand(command.toUint8Array());
   }
 
+  if (codeSignature.length > 0) {
+    const command = new BinaryWriter();
+    command.u32(LC_CODE_SIGNATURE);
+    command.u32(16);
+    command.u32(linkeditOffset + codeSignatureOffset);
+    command.u32(codeSignature.length);
+    addLoadCommand(command.toUint8Array());
+  }
+
   const uuid = options.uuid ?? deriveUuid(options.text, cstring);
   const uuidCommand = new BinaryWriter();
   uuidCommand.u32(LC_UUID);
@@ -520,6 +534,9 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   if (chainedFixups) {
     file.set(chainedFixups.bytes, linkeditOffset + chainedFixupsOffset);
     applyBuiltFixups(file, chainedFixups, dataFileOffset);
+  }
+  if (codeSignature.length > 0) {
+    file.set(codeSignature, linkeditOffset + codeSignatureOffset);
   }
   if (hasLegacyStreams) {
     file.set(legacyRebases, linkeditOffset + legacyRebaseOffset);

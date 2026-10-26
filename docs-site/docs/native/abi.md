@@ -154,6 +154,12 @@ flat (`-2`/`-3`) lookup walks the image graph in load order and the first match 
 binds, and `dynamicLoader.symbol` applies the same table. Registration order is exposed as
 `LoadedProgram.interpositions`; later pairs for the same target do not override earlier ones.
 
+Embedded signatures (`LC_CODE_SIGNATURE`) are parsed by `src/macho/code-signature.ts` (LDR-010):
+superblob index, CodeDirectory (identifier, team id, flags, hash type/size, page size, code limit,
+slot counts, optional executable segment), XML entitlements, requirements, DER entitlements, and
+the signature wrapper presence. **Nothing is verified**: hashes, certificates, CMS, and
+entitlement policy are deliberately out of scope until a later security task.
+
 ## MIG-lite
 
 `MigWriter`/`MigReader` are 4-byte aligned and bounded:

@@ -107,7 +107,7 @@ code, or performance is worse than a VM alternative.
 - Real `dyld` semantics: lazy-stub trampolines, weak coalescing, full namespace policy, guest `dlopen` traps,
   weak coalescing, two-level namespaces.
 - Shared-cache reader and mapping, including split caches and chained fixups in the cache.
-- Code-signature parsing and an ad-hoc validation policy; entitlement evaluation hooks.
+- Code-signature verification and an ad-hoc validation policy; entitlement evaluation hooks.
 - A minimal Objective-C runtime compatible with Apple's ABI (classes, selectors, message send,
   associated objects, exceptions), then Foundation/CoreFoundation replacements with a conformance
   suite.

@@ -9,6 +9,7 @@
 
 import type { ChainedFixups } from "./fixups.js";
 import type { ExportEntry } from "./exports-trie.js";
+import type { CodeSignatureInfo } from "./code-signature.js";
 
 export interface MachHeader {
   readonly magic: number;
@@ -158,6 +159,8 @@ export interface MachOImage {
     exports: ReadonlyMap<string, ExportEntry>;
   } | null;
   readonly codeSignature: LinkEditData | null;
+  /** Parsed embedded signature; null when the image is unsigned or malformed. */
+  readonly codeSignatureInfo: CodeSignatureInfo | null;
   readonly functionStarts: {
     dataOffset: number;
     dataSize: number;

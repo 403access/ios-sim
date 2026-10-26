@@ -48,6 +48,7 @@ import {
   S_ZEROFILL,
   SECTION_TYPE,
 } from "./constants.js";
+import { parseCodeSignature } from "./code-signature.js";
 import { parseExportsTrie } from "./exports-trie.js";
 import { parseChainedFixups } from "./fixups.js";
 import { parseFatHeader, selectSlice } from "./fat.js";
@@ -166,6 +167,7 @@ export function parseMachO(input: Uint8Array, options: ParseOptions = {}): Parse
   let chainedFixupsOffset: { offset: number; size: number } | null = null;
   let exportsTrieOffset: { offset: number; size: number } | null = null;
   let codeSignature: { dataOffset: number; dataSize: number } | null = null;
+  let codeSignatureInfo: MachOImage["codeSignatureInfo"] = null;
   let functionStartsOffset: { offset: number; size: number } | null = null;
   let encryptionInfo: EncryptionInfo | null = null;
   let dylibOrdinal = 0;
@@ -607,6 +609,9 @@ export function parseMachO(input: Uint8Array, options: ParseOptions = {}): Parse
   if (codeSignature && codeSignature.dataOffset + codeSignature.dataSize > bytes.byteLength) {
     throw new MachOError("code_signature_out_of_bounds", "LC_CODE_SIGNATURE exceeds the file");
   }
+  if (codeSignature && codeSignature.dataSize > 0) {
+    codeSignatureInfo = parseCodeSignature(bytes, codeSignature.dataOffset, codeSignature.dataSize);
+  }
 
   const image: MachOImage = {
     byteLength: bytes.byteLength,
@@ -630,6 +635,7 @@ export function parseMachO(input: Uint8Array, options: ParseOptions = {}): Parse
     chainedFixups,
     exportsTrie,
     codeSignature,
+    codeSignatureInfo,
     functionStarts,
     encryptionInfo,
     preferredBase,
