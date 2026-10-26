@@ -369,7 +369,7 @@ static unsigned gTick;
 - (void)gestureTapped:(id)recognizer {
   (void)recognizer;
   gGesture = 1;
-  [gLabel setText:[NSString stringWithUTF8String:"TAPPED"]];
+  [gLabel setText:@"TAPPED"];
 }
 
 - (void)delayedTick:(id)object {

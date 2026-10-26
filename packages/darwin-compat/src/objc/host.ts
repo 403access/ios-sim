@@ -119,6 +119,8 @@ const LAYER_MASKS = 16;
 const LAYER_OPACITY = 24;
 const LAYER_INSTANCE_SIZE = 32;
 
+const CONSTANT_STRING_DATA = 16;
+
 const DATA_BYTES = 8;
 const DATA_LENGTH = 16;
 const DATA_INSTANCE_SIZE = 24;
@@ -355,6 +357,7 @@ export class ObjcHost {
   private readonly segments = new Map<bigint, string[]>();
   private readonly tableRows = new Map<bigint, string[]>();
   private readonly viewLayers = new Map<bigint, bigint>();
+  private constantStringClass: bigint | null = null;
   private readonly viewTransforms = new Map<
     bigint,
     { a: number; b: number; c: number; d: number; tx: number; ty: number }
@@ -1510,7 +1513,14 @@ export class ObjcHost {
           selector: "UTF8String",
           types: "*16@0:8",
           run: (cpu, receiver) =>
-            cpu.writeRegister(0, this.memory.read(receiver + BigInt(STRING_POINTER), 8)),
+            cpu.writeRegister(
+              0,
+              this.memory.read(
+                receiver +
+                  BigInt(this.isConstantString(receiver) ? CONSTANT_STRING_DATA : STRING_POINTER),
+                8,
+              ),
+            ),
         },
         {
           selector: "length",
@@ -1578,6 +1588,18 @@ export class ObjcHost {
       ],
     });
     this.registerClass(string);
+
+    // Compiled @"..." literals use this class as their isa.
+    const constantString = this.defineClass({
+      name: "__NSCFConstantString",
+      superclass: "NSString",
+      instanceSize: 32,
+      methods: [],
+      classMethods: [],
+    });
+    this.registerClass(constantString);
+    this.constantStringClass = constantString.address;
+    this.symbols.set("___CFConstantStringClassReference", constantString.address);
 
     const number = this.defineClass({
       name: "NSNumber",
@@ -3986,11 +4008,25 @@ export class ObjcHost {
    */
   private stringValue(address: bigint): string {
     if (address === 0n) return "";
+    if (this.isConstantString(address)) {
+      const pointer = this.memory.read(address + BigInt(CONSTANT_STRING_DATA), 8);
+      return pointer === 0n ? "" : this.memory.readCString(pointer, 4096);
+    }
     if (this.instanceKindOf(address, "NSString")) {
       const pointer = this.memory.read(address + BigInt(STRING_POINTER), 8);
       return pointer === 0n ? "" : this.memory.readCString(pointer, 4096);
     }
     return this.memory.readCString(address, 4096);
+  }
+
+  /**
+   * Compiled `@"..."` literals are `__CFConstantString` structs: isa at 0,
+   * metadata at 8, UTF-8 pointer at 16, length at 24.
+   */
+  private isConstantString(address: bigint): boolean {
+    if (this.constantStringClass === null) return false;
+    const isa = this.memory.read(address, 8);
+    return isa === this.constantStringClass;
   }
 
   private instanceKindOf(instance: bigint, name: string): boolean {

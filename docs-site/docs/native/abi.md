@@ -200,6 +200,15 @@ navigation view from its superview (a demo convenience). There are no animated t
 interactive pop gesture, no navigation-bar customisation, and pushed controllers' lifecycle
 callbacks are not sent.
 
+### Constant strings
+
+Compiled `@"..."` literals bind their `isa` to `___CFConstantStringClassReference`, which this
+runtime exports as a real subclass of `NSString` (`__NSCFConstantString`). The literal is a 32-byte
+`__CFConstantString`: `isa` at 0, metadata at 8, the UTF-8 pointer at 16, and the length at 24. Host
+string reads (`-UTF8String`, equality, length, formatting, dictionary keys) detect that class and
+read the literal layout, so both clang-emitted literals and the generated fixture's hand-built
+struct behave like `NSString` objects. Release/retain on literals is a no-op.
+
 ### Tables
 
 `UITableView` is a `UIScrollView` with host-managed rows: `-setRows:` takes an `NSArray` of strings

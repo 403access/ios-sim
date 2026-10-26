@@ -276,7 +276,8 @@ type SlotName =
   | "tableRows"
   | "tableView"
   | "tableSelection"
-  | "rotatedView";
+  | "rotatedView"
+  | "literalLength";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -336,6 +337,7 @@ interface Plan {
   readonly tableRowHeight: number;
   readonly rotatedRect: number;
   readonly rotation: number;
+  readonly stringLiteral: number;
   readonly cornerRadius: number;
   readonly wrapRect: number;
   readonly animationDuration: number;
@@ -514,6 +516,7 @@ function planData(): Plan {
     "tableView",
     "tableSelection",
     "rotatedView",
+    "literalLength",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -702,6 +705,8 @@ function planData(): Plan {
   cursor += 32;
   const rotation = cursor;
   cursor += 48;
+  const stringLiteral = cursor;
+  cursor += 32;
   const cornerRadius = cursor;
   cursor += 8;
   const timerInterval = cursor;
@@ -825,6 +830,7 @@ function planData(): Plan {
     tableRowHeight,
     rotatedRect,
     rotation,
+    stringLiteral,
     cornerRadius,
     wrapRect,
     animationDuration,
@@ -1030,9 +1036,14 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitStore(19, slot("gestureMarker"));
   emitPointer(0, slot("label"));
   emitAddress(1, selector(SELECTORS.setText));
-  emitAddress(2, dataAddress(plan.stringOffsets.TAPPED!));
+  emitAddress(2, dataAddress(plan.stringLiteral));
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
+  emitAddress(0, dataAddress(plan.stringLiteral));
+  emitAddress(1, selector(SELECTORS.length));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitStore(0, slot("literalLength"));
   emitWord(ldpPost(19, 20, 31, 16));
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
@@ -1225,6 +1236,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_gestureMarker",
         value: dataAddress(plan.slotOffsets.gestureMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_literalLength",
+        value: dataAddress(plan.slotOffsets.literalLength),
         sectionIndex: 2,
       },
       {
@@ -3185,6 +3201,13 @@ function emitData(
   f64(plan.rotation + 24, cos45);
   f64(plan.rotation + 32, 0);
   f64(plan.rotation + 40, 0);
+  // A compiled @"..." literal: isa, flags, UTF-8 pointer, length.
+  bind(plan.stringLiteral, "___CFConstantStringClassReference");
+  u32(plan.stringLiteral + 8, 0);
+  u32(plan.stringLiteral + 12, 0);
+  rebase(plan.stringLiteral + 16, address(plan.stringOffsets.TAPPED!));
+  u32(plan.stringLiteral + 24, 6);
+  u32(plan.stringLiteral + 28, 0);
   f64(plan.cornerRadius, 12);
   f64(plan.imageRect, 250);
   f64(plan.imageRect + 8, 140);

@@ -84,6 +84,7 @@ started.
 - [x] `NSData` (file/bytes) and `+[UIImage imageWithData:]`
 - [x] `+[NSString stringWithFormat:]` and formatted `NSLog` (stack-passed varargs)
 - [x] `NSJSONSerialization` + `-[NSString dataUsingEncoding:]`
+- [x] Constant `@"..."` strings (`___CFConstantStringClassReference`)
 - [~] `CALayer` corner radius on view backgrounds (masks/opacity stored)
 - [~] `UIView` affine transforms on backgrounds (children/hit-testing untransformed)
 - [x] `UISegmentedControl` selection, rendering, and value-changed actions

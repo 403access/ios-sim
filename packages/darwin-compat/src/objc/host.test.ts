@@ -214,6 +214,8 @@ describe("ObjC UIKit demo", () => {
   it("fires a tap gesture recogniser on an unhandled touch", () => {
     const result = runDemo([{ x: 260, y: 150 }]);
     expect(result.program.memory.read(result.program.resolveExport("_gestureMarker")!, 8)).toBe(1n);
+    // The label text came from a compiled-style constant string literal.
+    expect(result.program.memory.read(result.program.resolveExport("_literalLength")!, 8)).toBe(6n);
 
     // A touch consumed by a guest handler (the nested TapView) does not reach
     // the responder chain, so recognisers on ancestors do not see it.
