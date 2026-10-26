@@ -10,20 +10,19 @@ This page owns **status** for the native track. Scope and acceptance live in the
 [technical roadmap](./technical.md). If the two disagree, the technical roadmap defines the
 task and this page is corrected.
 
-**Last updated:** 2026-10-26 · **Branch:** `option-a-roadmaps` (based on
-`option-a-native-darwin` @ `83b9af1`)
+**Last updated:** 2026-10-26 · **Branch:** `option-a-kernel`
 
 ## 1. Current state
 
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..007 done; THR-008 is next.                                         |
+| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009 done; LDR-001 is next.                                         |
 | A2 loader/runtime | **Partially startable.** Legacy bindings, fuzzing, diagnostics, and signing parse can proceed in parallel.  |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 41 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 43 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -32,44 +31,39 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                                                    |
 | ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------------------------------- |
-|     1 | `THR-009` | Threads       | S    | THR-003 | Clock/timebase; sleep/wake accuracy                                         |
-|     2 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                    |
-|     3 | `THR-012` | Threads       | M    | THR-004 | Concurrency stress; 64 threads/processes, no leak                           |
-|     4 | `LDR-002` | Loader        | M    | LDR-001 | Lazy/weak binding; lazy/weak tests                                          |
-|     5 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
-|     6 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                               |
-|     7 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                          |
-|     8 | `REL-001` | Release       | S    | A0      | Native CI job on Linux; skip reasons visible                                |
-|     9 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                |
-|    10 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                |
-|    11 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
+|     1 | `LDR-001` | Loader        | M    | A0      | Legacy dyld rebase/bind opcodes; opcode fixtures resolve                    |
+|     2 | `THR-012` | Threads       | M    | THR-004 | Concurrency stress; 64 threads/processes, no leak                           |
+|     3 | `LDR-002` | Loader        | M    | LDR-001 | Lazy/weak binding; lazy/weak tests                                          |
+|     4 | `QA-001`  | Quality       | M    | A0      | Deterministic/coverage-guided fuzz harness; 1M mutations without host crash |
+|     5 | `OBS-001` | Observability | S    | A0      | Versioned event schema with JSON output tests                               |
+|     6 | `LEG-001` | Legal         | S    | A0      | Provenance ledger for every runtime claim/artifact                          |
+|     7 | `REL-001` | Release       | S    | A0      | Native CI job on Linux; skip reasons visible                                |
+|     8 | `QA-003`  | Quality       | M    | A0      | Generated Mach-O corpus covering load commands/fixup formats                |
+|     9 | `QA-004`  | Quality       | M    | A0      | Performance baseline suite with machine metadata and budgets                |
+|    10 | `LDR-010` | Loader        | M    | A0      | Code-signature parser for ad-hoc/signed fixtures (no verification yet)      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `THR-009` is the next task;
-`LDR-001` remains in the loader lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LDR-001` is the next task;
+`THR-012` remains in the thread lane. Do not start two critical-path tasks at once.
 
-### First twelve sessions
+### Next sessions
 
-This is the intended cadence for one engineer/agent. A session ends at a green targeted test and
-a backlog update, not at an arbitrary clock time. The parallel task is optional but keeps
-non-critical progress moving.
+The first twelve sessions are complete (A0 substrate, kernel boundary, threads/clock). This is the
+next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+clock time. The parallel task is optional but keeps non-critical progress moving.
 
-| Session | Critical path | Parallel (independent) | Expected outcome                      |
-| ------- | ------------- | ---------------------- | ------------------------------------- |
-| 1       | `KRN-011`     | `THR-008`              | Quotas; timers                        |
-| 2       | `THR-009`     | `KRN-010`              | Clock/timebase; trap parity           |
-| 3       | `THR-012`     | `KRN-011`              | Concurrency stress; quotas            |
-| 4       | `THR-012`     | `KRN-010`              | Concurrency stress; trap parity table |
-| 5       | `LDR-001`     | `KRN-011`              | Legacy dyld opcodes; quotas           |
-| 6       | `LDR-002`     | `KRN-012`              | Lazy/weak binding; native stress      |
-| 7       | `LDR-003`     | `OBS-001`              | Initializers; event schema            |
-| 8       | `LDR-010`     | `QA-001`               | Signature parser; fuzz harness        |
-| 9       | `QA-004`      | `QA-003`               | Performance baseline; corpus          |
-| 10      | `LDR-014`     | `REL-001`              | Differential loader; native CI        |
-| 11      | `RT-001`      | `LDR-013`              | ObjC runtime core; diagnostics        |
-| 12      | `RT-002`      | `QA-002`               | Message send; reference cases         |
+| Session | Critical path | Parallel (independent) | Expected outcome                        |
+| ------- | ------------- | ---------------------- | --------------------------------------- |
+| 13      | `LDR-001`     | `THR-012`              | Legacy dyld opcodes; concurrency stress |
+| 14      | `LDR-002`     | `OBS-001`              | Lazy/weak binding; event schema         |
+| 15      | `LDR-003`     | `QA-001`               | Initializers; fuzz harness              |
+| 16      | `LDR-004`     | `QA-003`               | dlopen/dlsym; generated corpus          |
+| 17      | `LDR-010`     | `QA-004`               | Signature parser; benchmarks            |
+| 18      | `LDR-005`     | `OBS-002`              | Namespaces; runtime statistics          |
+| 19      | `LDR-013`     | `REL-001`              | Loader diagnostics; native CI           |
+| 20      | `RT-001`      | `LEG-001`              | ObjC runtime core; provenance ledger    |
 
-After session 12, re-read the gate tables. Do not start A2 runtime (`RT-*`) until `LDR-004`
+After session 20, re-read the gate tables. Do not start A2 runtime (`RT-*`) until `LDR-004`
 exists and `KRN-005` is stable. Do not start A3 until `CS-001`/`CS-007` have evidence.
 
 ## 3. Scheduled tasks
@@ -116,10 +110,17 @@ window/software renderer boundary while KRN/LDR/RT gates remain open.
 | `KRN-003` | Task/port/right objects        | C/FFI tests for names, rights, teardown                                 |
 | `KRN-004` | Bounded messages/copy          | C/FFI tests for body, queue full, too-large retention                   |
 | `KRN-005` | Blocking/timeouts/interruption | `dh_selftest_blocking`, `dh_selftest_interrupt`; Linux pass             |
+| `KRN-006` | Port sets/notifications        | `dh_receive_set_*`; dead-name notification C/FFI tests                  |
+| `KRN-007` | Descriptors in transit         | `COPY_SEND`/`MAKE_SEND`/`MAKE_SEND_ONCE` descriptor tests               |
+| `KRN-008` | MIG wire compatibility         | Blocked; needs reference vectors                                        |
+| `KRN-009` | Memory objects/shared memory   | Shared mappings, clone isolation, unmap C/FFI tests                     |
+| `KRN-010` | Mach trap parity               | Trap table/dispatch, unsupported vectors, fuzz dispatch                 |
+| `KRN-011` | Quotas                         | `dh_task_set_quotas/get_usage`; port/message/memory enforcement         |
+| `KRN-012` | Stress/soak                    | `tests/stress_host.c`: 16 threads, 1M messages, zero queue, teardown    |
 
 Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 
-### Threads — THR-001..008 (done)
+### Threads — THR-001..009 (done)
 
 | ID         | Task                                             | Evidence                                                                                    |
 | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
@@ -127,8 +128,13 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-002`  | Cooperative guest scheduler                      | `packages/darwin-compat/src/runtime/scheduler.ts`; round-robin, block/unblock, budget tests |
 | `THR-003`  | Blocking Mach bridge                             | `packages/darwin-compat/src/runtime/blocking.ts`; sender wake, timeout, interrupt tests     |
 | `THR-003a` | Runtime blocking wiring                          | `DarwinSyscallKernel` + `mach_msg_trap` integration test parks/resumes a guest thread       |
-
-`THR-005` (signals) is next.
+| `THR-004`  | pthread/libSystem shim                           | `runtime/pthread.ts`; create/join/mutex/cond tests; 8-worker fixture                        |
+| `THR-005`  | Signals                                          | `runtime/signals.ts`; handler/mask/raise/kill, SIGCHLD model tests                          |
+| `THR-006`  | fork/exec/waitpid/groups                         | `runtime/process-table.ts`; fork clone, exec, waitpid/reap, groups, kill tests              |
+| `THR-006a` | Process syscall wiring                           | `runtime/process-runtime.ts` + `DarwinSyscallKernel` fork/exec/waitpid traps                |
+| `THR-007`  | Spawn attributes                                 | `runtime/stack.ts` + `ProcessRuntime.spawn`; argv/env stack, stdio redirection              |
+| `THR-008`  | Timers/event loop                                | `runtime/event-loop.ts`; deadline/source wakeups, scheduler integration                     |
+| `THR-009`  | Clock/timebase                                   | `runtime/clock.ts`; realtime/monotonic, timebase conversion, event-loop sleep               |
 
 ### A1 — kernel, threads, observability, quality foundation
 
@@ -136,7 +142,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | ---------- | ------------------------------ | -------- | ---- | --------- | ---------------- | ---------------------------------------------------------- |
 | `KRN-001`  | Native boundary decision       | P0       | S    | **done**  | A0               | ADR 0007 + C11/Bun-FFI spike; `bun run test:kernel`        |
 | `KRN-002`  | Host ABI v1                    | P0       | M    | **done**  | KRN-001          | ABI v1 header + TS binding; version check; FFI vectors     |
-| `KRN-003`  | Native task/port/right objects | P0       | L    | blocked   | KRN-002          | TS oracle parity; 100k create/send/teardown                |
+| `KRN-003`  | Native task/port/right objects | P0       | L    | **done**  | KRN-002          | C/FFI names, rights, teardown; parity vectors              |
 | `KRN-004`  | Message queues/copy            | P0       | L    | **done**  | KRN-003          | Bounded queues, body copy, too-large retention             |
 | `KRN-005`  | Blocking send/receive/timeouts | P0       | M    | **done**  | KRN-004          | Native thread wake, timeout, interrupt; selftests          |
 | `KRN-006`  | Port sets/notifications        | P1       | M    | **done**  | KRN-005          | Port sets + dead-name notification; C/FFI tests            |
@@ -156,10 +162,10 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `THR-006a` | Process syscall wiring         | P1       | M    | **done**  | THR-006          | fork/exec/waitpid traps; ProcessRuntime integration test   |
 | `THR-007`  | posix_spawn attributes         | P2       | M    | **done**  | THR-006a         | argv/env stack, stdout/stderr redirection, spawn API       |
 | `THR-008`  | kqueue/timers                  | P2       | L    | **done**  | THR-003          | Timer/source event loop, park/wake, tick tests             |
-| `THR-009`  | Clock/timebase                 | P2       | S    | **next**  | THR-003          | Timebase/sleep accuracy                                    |
+| `THR-009`  | Clock/timebase                 | P2       | S    | **done**  | THR-003          | Realtime/monotonic, timebase conversion, timer sleep       |
 | `THR-010`  | Jetsam/memory pressure         | P2       | M    | blocked   | KRN-009          | Pressure/kill policy                                       |
 | `THR-011`  | Roles/sessions/contracts       | P2       | M    | blocked   | THR-006          | Job identity/ports/teardown                                |
-| `THR-012`  | Concurrency stress             | P1       | M    | blocked   | THR-004          | 64 threads/processes, no leak                              |
+| `THR-012`  | Concurrency stress             | P1       | M    | **ready** | THR-004          | 64 threads/processes, no leak                              |
 | `OBS-001`  | Event schema                   | P1       | S    | **ready** | A0               | Schema + JSON tests                                        |
 | `OBS-002`  | Runtime statistics             | P1       | S    | **ready** | A0               | Counters in doctor/stats                                   |
 | `OBS-003`  | Missing symbol/MIG report      | P1       | M    | blocked   | OBS-001          | Actionable boot failure                                    |
@@ -198,7 +204,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 
 | ID        | Task                            | Priority | Size | Status     | Depends          | Acceptance                               |
 | --------- | ------------------------------- | -------- | ---- | ---------- | ---------------- | ---------------------------------------- |
-| `LDR-001` | Legacy dyld opcodes             | P0       | M    | **ready**  | A0               | Fixtures resolve correctly               |
+| `LDR-001` | Legacy dyld opcodes             | P0       | M    | **next**   | A0               | Fixtures resolve correctly               |
 | `LDR-002` | Lazy/weak binding               | P0       | M    | blocked    | LDR-001          | Lazy/weak tests                          |
 | `LDR-003` | Initializers/terminators        | P0       | M    | blocked    | LDR-002          | Once/order/failure                       |
 | `LDR-004` | dlopen/dlsym/dlclose            | P1       | M    | blocked    | LDR-003          | Load/resolve/close                       |
