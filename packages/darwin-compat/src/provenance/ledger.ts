@@ -178,6 +178,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "LDR-009",
+    claim:
+      "Parses dyld environment variables, preloads inserted libraries, and reports closure order.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/dyld/environment.ts",
+      "packages/darwin-compat/src/dyld/environment.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/dyld/environment.test.ts",
+  },
+  {
     id: "RT-012",
     claim: "Adds runtime dispatch/container/CF/conformance cases to the budgeted benchmark suite.",
     status: "implemented",

@@ -523,7 +523,9 @@ libSystem is still blocked. RT-011 adds 200 deterministic conformance cases acro
 containers, ARC/blocks, and CF/run loop. RT-012 adds runtime benchmarks (ObjC dispatch,
 Foundation containers, CF loop, conformance) to the 12-case budgeted suite; all pass. The
 user-space roadmap is complete apart from the partial RT-009/RT-010 items, Mac-gated evidence, and
-LEG-002/human legal review.
+LEG-002/human legal review. LDR-009 adds dyld env parsing, `DYLD_LIBRARY_PATH` lookup,
+`DYLD_INSERT_LIBRARIES` preload, print callbacks, and an ordered dependency closure. LDR-011
+(entitlements/policy hooks) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

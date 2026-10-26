@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 91 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 92 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -31,17 +31,18 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream | Size | Depends | Deliverable / acceptance           |
 | ----: | --------- | ---------- | ---- | ------- | ---------------------------------- |
-|     1 | `LEG-002` | Legal      | M    | LEG-001 | Runtime legal review; written gate |
+|     1 | `LDR-011` | Loader     | M    | LDR-010 | Entitlements/policy hooks; entitlements visible    |
+|     2 | `LEG-002` | Legal      | M    | LEG-001 | Runtime legal review; written gate |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LEG-002` is a human/legal gate,
-not an implementation task; Mac-evidence tasks remain blocked until a licensed host is available. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `LDR-011` is the next
+implementation task; `LEG-002` remains a human/legal gate. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-62 are complete through RT-012. The user-space substrate, loader, threads, quality,
-observability, release, provenance, ObjC/Foundation/runtime layers, and performance gate are done.
-Remaining tasks are Mac-gated evidence, legal review, or A3-A7 platform work. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-63 are complete through LDR-009. The user-space substrate, loader, threads, quality,
+observability, release, provenance, ObjC/Foundation/runtime layers, performance, and dyld env are
+done. Remaining implementation work is LDR-011; the rest is Mac-gated, legal, or A3-A7. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -176,7 +177,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `QA-004`   | Performance benchmarks         | P1       | M    | **done** | A0               | 7 cases, metadata, budgets, all pass                       |
 | `QA-005`   | Concurrency/stress suite       | P1       | M    | **done** | THR-012          | Mach wake, 8x8 process, interrupt tests                    |
 | `QA-006`   | Leak/resource checks           | P1       | M    | **done** | QA-004           | Soak flat; Mach port leak found/fixed                      |
-| `QA-007`   | Coverage targets               | P2       | S    | **next** | REL-001          | ≥90% parsers                                               |
+| `QA-007`   | Coverage targets               | P2       | S    | **done** | REL-001          | ≥90% parsers                                               |
 | `QA-008`   | Compatibility matrix           | P2       | M    | blocked  | QA-002           | Per-cell pass/skip/fail                                    |
 | `REL-001`  | Native CI job                  | P0       | S    | **done** | A0               | Linux native job, visible skips, fuzz/corpus/bench         |
 | `REL-002`  | Reproducible fixtures          | P1       | S    | **done** | QA-003           | 23 SHA-256 fixtures identical                              |
@@ -209,9 +210,9 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `LDR-006` | Shared-cache parser             | P1       | L    | **ready*** | Mac              | Parse licensed cache; no bytes committed             |
 | `LDR-007` | Split/subcache/slide            | P1       | L    | blocked    | LDR-006          | Resolve from cache                                   |
 | `LDR-008` | Cache fixups/symbols            | P1       | L    | blocked    | LDR-007          | Differential symbols                                 |
-| `LDR-009` | dyld env/closure                | P2       | M    | blocked    | LDR-004          | Closure matches                                      |
+| `LDR-009` | dyld env/closure                | P2       | M    | **done** | LDR-004          | Closure matches                                      |
 | `LDR-010` | Code-signature parser           | P1       | M    | **done**   | A0               | Parse ad-hoc/signed                                  |
-| `LDR-011` | Entitlements/policy hooks       | P1       | M    | blocked    | LDR-010          | Entitlements visible                                 |
+| `LDR-011` | Entitlements/policy hooks       | P1       | M    | **next** | LDR-010          | Entitlements visible                                 |
 | `LDR-012` | Fileset/bundle/dSYM metadata    | P3       | S    | **done**   | A0               | Fixture parse                                        |
 | `LDR-013` | Loader diagnostics              | P1       | S    | **done**   | A0               | Actionable report                                    |
 | `LDR-014` | Differential loader suite       | P1       | M    | blocked    | LDR-005/008, Mac | ≥50 cases match                                      |

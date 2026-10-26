@@ -136,6 +136,10 @@ export interface LoaderOptions {
   readonly externalSymbols?: ReadonlyMap<string, bigint>;
   /** `zero` records unresolved binds and writes null instead of throwing. */
   readonly missingSymbols?: "throw" | "zero";
+  /** Dylibs loaded before the main executable, like DYLD_INSERT_LIBRARIES. */
+  readonly insertLibraries?: readonly string[];
+  /** Called after each image is mapped, for DYLD_PRINT_LIBRARIES. */
+  readonly onImageLoaded?: (image: LoadedImage) => void;
 }
 
 interface LazyState {
@@ -174,6 +178,8 @@ export class ImageLoader {
   private readonly maxImages: number;
   private readonly externalSymbols: ReadonlyMap<string, bigint>;
   private readonly missingSymbolMode: "throw" | "zero";
+  private readonly insertLibraries: readonly string[];
+  private readonly onImageLoaded: ((image: LoadedImage) => void) | undefined;
   private readonly missingSymbols: MissingSymbol[] = [];
   private readonly cache = new Map<string, LoadedImage>();
   private readonly order: LoadedImage[] = [];
@@ -193,6 +199,8 @@ export class ImageLoader {
     this.maxImages = Math.min(options.maxImages ?? MAX_IMAGES, MAX_IMAGES);
     this.externalSymbols = options.externalSymbols ?? new Map();
     this.missingSymbolMode = options.missingSymbols ?? "throw";
+    this.insertLibraries = options.insertLibraries ?? [];
+    this.onImageLoaded = options.onImageLoaded;
   }
 
   get memoryView(): VirtualMemory {
@@ -203,6 +211,9 @@ export class ImageLoader {
     const executablePath = normalize(path);
     this.mainPath = executablePath;
     const context = this.contextFor(executablePath);
+    for (const inserted of this.insertLibraries) {
+      this.pin(this.loadImage(normalize(inserted), context));
+    }
     const main = this.loadImage(executablePath, context);
     if (main.image.header.fileType !== MH_EXECUTE) {
       throw new LoaderError(
@@ -417,6 +428,7 @@ export class ImageLoader {
     };
     context.cache.set(path, loaded);
     context.order.push(loaded);
+    this.onImageLoaded?.(loaded);
 
     for (const dylib of image.dylibs) {
       if (dylib.kind === "id") continue;
