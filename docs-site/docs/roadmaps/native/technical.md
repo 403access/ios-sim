@@ -477,7 +477,9 @@ parked receivers interrupted. QA-006 adds a bounded soak harness and three resou
 objects, dynamic images, process table). A 10-second local run was flat; the harness found a real
 Mach leak where receive ports survived `destroyTask`, now fixed. A 24-hour run uses the same
 command (`bun run soak --hours 24`). REL-002 builds the corpus twice and compares SHA-256
-hashes; all 23 fixtures are byte-identical and CI runs the check. OBS-003 (missing-symbol report)
+hashes; all 23 fixtures are byte-identical and CI runs the check. OBS-003 adds `missingSymbols:
+"zero"` loading plus `bootReport`, which lists unresolved symbols by image/ordinal and missing
+bootstrap services with next actions; `ios-sim-native boot` prints it. THR-010 (memory pressure)
 is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |

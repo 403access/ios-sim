@@ -69,6 +69,21 @@ describe("ios-sim-native CLI", () => {
     expect(stats.instructions).toBeGreaterThan(5);
   });
 
+  it("reports missing bootstrap services", async () => {
+    const directory = temp();
+    const file = join(directory, "demo");
+    writeFileSync(file, buildDemoProgram().bytes);
+    const io = capture();
+    expect(await main(["boot", file, "--service", "com.example.absent", "--json"], io)).toBe(1);
+    const report = JSON.parse(io.out.join(""));
+    expect(report.ok).toBe(false);
+    expect(report.missingServices[0].service).toBe("com.example.absent");
+
+    const ok = capture();
+    expect(await main(["boot", file, "--json"], ok)).toBe(0);
+    expect(JSON.parse(ok.out.join("")).ok).toBe(true);
+  });
+
   it("returns a failure for a missing file", async () => {
     const io = capture();
     expect(await main(["inspect", "/definitely/not/here"], io)).toBe(1);

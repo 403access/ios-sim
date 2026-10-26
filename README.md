@@ -170,6 +170,7 @@ bun run corpus           # generate build/corpus + manifest.json
 bun run bench            # performance baseline with machine metadata + budgets
 bun run soak --seconds 30  # resource soak; use --hours 24 for the full run
 bun run repro            # rebuild fixtures twice and compare SHA-256
+bun run native boot <file> --service <name>  # actionable boot report
 bun run native          # build and run the native CLI
 bun run docs:build
 bun run verify          # local full check

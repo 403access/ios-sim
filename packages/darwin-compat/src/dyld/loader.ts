@@ -98,6 +98,12 @@ export interface LazyBindingView {
   readonly bound: boolean;
 }
 
+export interface MissingSymbol {
+  readonly image: string;
+  readonly symbol: string;
+  readonly ordinal: number;
+}
+
 export interface LoadedProgram {
   readonly main: LoadedImage;
   readonly images: readonly LoadedImage[];
@@ -112,6 +118,8 @@ export interface LoadedProgram {
   readonly terminators: readonly bigint[];
   /** `__interpose` pairs in registration order. */
   readonly interpositions: readonly Interposition[];
+  /** Unresolved binds recorded in `missingSymbols: "zero"` mode. */
+  readonly missingSymbols: readonly MissingSymbol[];
   /** Lazy-bind sites decoded from `LC_DYLD_INFO`, in stream order. */
   readonly lazyBindings: readonly LazyBindingView[];
   resolveExport(name: string): bigint | null;
@@ -126,6 +134,8 @@ export interface LoaderOptions {
   readonly extraRpaths?: readonly string[];
   readonly maxImages?: number;
   readonly externalSymbols?: ReadonlyMap<string, bigint>;
+  /** `zero` records unresolved binds and writes null instead of throwing. */
+  readonly missingSymbols?: "throw" | "zero";
 }
 
 interface LazyState {
@@ -143,6 +153,8 @@ interface LoadContext {
   readonly executablePath: string;
   readonly maxImages: number;
   readonly externalSymbols: ReadonlyMap<string, bigint>;
+  readonly missingSymbols: MissingSymbol[];
+  readonly missingSymbolMode: "throw" | "zero";
   readonly cache: Map<string, LoadedImage>;
   readonly order: LoadedImage[];
   readonly stats: LoadStats;
@@ -161,6 +173,8 @@ export class ImageLoader {
   private readonly extraRpaths: readonly string[];
   private readonly maxImages: number;
   private readonly externalSymbols: ReadonlyMap<string, bigint>;
+  private readonly missingSymbolMode: "throw" | "zero";
+  private readonly missingSymbols: MissingSymbol[] = [];
   private readonly cache = new Map<string, LoadedImage>();
   private readonly order: LoadedImage[] = [];
   private readonly stats: LoadStats = { images: 0, fixups: 0, binds: 0, rebases: 0, cacheHits: 0 };
@@ -178,6 +192,7 @@ export class ImageLoader {
     this.extraRpaths = options.extraRpaths ?? [];
     this.maxImages = Math.min(options.maxImages ?? MAX_IMAGES, MAX_IMAGES);
     this.externalSymbols = options.externalSymbols ?? new Map();
+    this.missingSymbolMode = options.missingSymbols ?? "throw";
   }
 
   get memoryView(): VirtualMemory {
@@ -211,6 +226,7 @@ export class ImageLoader {
       initializers,
       terminators,
       interpositions: this.interpositionList,
+      missingSymbols: this.missingSymbols,
       stats: { ...this.stats, images: this.order.length },
       provider: this.provider,
       get lazyBindings() {
@@ -302,6 +318,8 @@ export class ImageLoader {
       executablePath,
       maxImages: this.maxImages,
       externalSymbols: this.externalSymbols,
+      missingSymbols: this.missingSymbols,
+      missingSymbolMode: this.missingSymbolMode,
       cache: this.cache,
       order: this.order,
       stats: this.stats,
@@ -758,6 +776,17 @@ function resolveSymbol(
   }
   if (target === null) {
     if (weak || ordinal === -3) return 0n;
+    if (context.missingSymbolMode === "zero") {
+      if (
+        !context.missingSymbols.some(
+          (entry) =>
+            entry.image === loaded.path && entry.symbol === symbol && entry.ordinal === ordinal,
+        )
+      ) {
+        context.missingSymbols.push({ image: loaded.path, symbol, ordinal });
+      }
+      return 0n;
+    }
     throw new LoaderError(
       "symbol_not_found",
       `${loaded.path} needs ${symbol} from ordinal ${ordinal}, but it is not exported`,

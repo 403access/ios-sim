@@ -12,9 +12,11 @@ import { Command, CommanderError } from "commander";
 import {
   CaptureSink,
   DarwinRuntime,
+  ImageLoader,
   Launchd,
   LoaderError,
   MapFileProvider,
+  bootReport,
   buildDemoProgram,
   describeLoaderError,
   formatInspectReport,
@@ -115,6 +117,33 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
         io.stderr(new TextDecoder().decode(result.stderr));
       }
       requestedExit = result.exitStatus;
+    });
+
+  program
+    .command("boot")
+    .description("report unresolved symbols and missing bootstrap services")
+    .argument("<file>", "Mach-O executable")
+    .option("--service <name...>", "bootstrap service the program requires")
+    .option("--json", "print JSON")
+    .action((file: string, options: { service?: string[]; json?: boolean }) => {
+      const loader = new ImageLoader({ missingSymbols: "zero" });
+      const program = loader.load(resolve(file));
+      const report = bootReport(program, { services: options.service ?? [] });
+      if (options.json) io.stdout(`${JSON.stringify(report, null, 2)}\n`);
+      else {
+        io.stdout(`boot report: ${report.ok ? "ok" : "blocked"}\n`);
+        io.stdout(`images: ${report.images.join(", ")}\n`);
+        for (const missing of report.missingSymbols) {
+          io.stdout(`  symbol: ${missing.symbol} (${missing.image}, ordinal ${missing.ordinal})\n`);
+          io.stdout(`    next: ${missing.suggestion}\n`);
+        }
+        for (const missing of report.missingServices) {
+          io.stdout(`  service: ${missing.service}\n`);
+          io.stdout(`    next: ${missing.suggestion}\n`);
+        }
+        for (const warning of report.warnings) io.stdout(`  warning: ${warning}\n`);
+      }
+      if (!report.ok) requestedExit = 1;
     });
 
   program

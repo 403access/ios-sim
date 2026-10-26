@@ -261,3 +261,12 @@ and `parseEventStream()` round-trip; a version or level mismatch is an `Observab
 images, instructions, syscalls, unsupported syscalls, loader errors, fixup binds/rebases, and
 stdout/stderr bytes. `DarwinRuntime.stats.snapshot()` is printed by `ios-sim-native stats <file>`
 (text or `--json`).
+
+## Boot reports
+
+`ImageLoader` accepts `missingSymbols: "zero"` to record unresolved binds instead of throwing.
+`bootReport(program, { services })` then lists each missing symbol with its image/ordinal and a
+concrete suggestion, plus any required bootstrap service absent from `availableServices`.
+`ios-sim-native boot <file> [--service name]` prints the same report and exits non-zero when
+blocked. The normal loader mode still throws `symbol_not_found`, so this is an explicit
+diagnostic path, not silent success.
