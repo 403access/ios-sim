@@ -19,6 +19,7 @@ import {
   MapFileProvider,
   bootReport,
   buildDemoProgram,
+  capabilityReport,
   chromeTraceJSON,
   disassembleRange,
   describeLoaderError,
@@ -352,7 +353,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .description("report compatibility-layer capabilities and known gaps")
     .option("--json", "print JSON")
     .action((options: { json?: boolean }) => {
-      const report = doctorReport();
+      const report = capabilityReport();
       if (options.json) io.stdout(`${JSON.stringify(report, null, 2)}\n`);
       else {
         io.stdout(
@@ -361,10 +362,16 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
         io.stdout(
           `ships an iOS Simulator: ${report.simulator ? "yes" : "no (research layer only)"}\n`,
         );
-        io.stdout("implemented:\n");
-        for (const item of report.implemented) io.stdout(`  - ${item}\n`);
-        io.stdout("not implemented:\n");
-        for (const item of report.notImplemented) io.stdout(`  - ${item}\n`);
+        io.stdout("features:\n");
+        for (const item of report.features) {
+          io.stdout(`  ${item.id} [${item.state}]: ${item.detail}\n`);
+        }
+        io.stdout("blocked:\n");
+        for (const item of report.blocked) {
+          io.stdout(`  ${item.id}: ${item.detail}\n`);
+        }
+        io.stdout("notes:\n");
+        for (const note of report.notes) io.stdout(`  - ${note}\n`);
       }
     });
 
@@ -448,44 +455,6 @@ function runJson(result: ProcessResult) {
     })),
     fixups: result.program.stats,
     unsupportedSyscalls: Object.fromEntries(result.unsupportedSyscalls),
-  };
-}
-
-function doctorReport() {
-  return {
-    service: "ios-sim-native",
-    version: "0.1.0",
-    bun: (process.versions as { bun?: string }).bun ?? null,
-    platform: process.platform,
-    architecture: process.arch,
-    simulator: false,
-    implemented: [
-      "Mach-O 64-bit parsing, fat slices, exports trie, chained fixups (64/arm64e)",
-      "user-space dyld loading: legacy rebase/bind, lazy/weak streams, init/term, dlopen handles",
-      "embedded signature parsing (not verification), fileset/bundle/dSYM metadata",
-      "deterministic fuzzing, generated corpus, benchmarks, and runtime event/stat counters",
-      "AArch64 integer interpreter (no SIMD/FP) with syscall traps",
-      "Mach port rights, messages, reply ports, bootstrap service registry, MIG-lite",
-      "XPC-style typed codec and request/reply over Mach",
-      "Darwin syscall subset with a jailed file layer and anonymous mmap",
-      "launchd-style plist jobs, MachServices, RunAtLoad, bounded KeepAlive",
-      "generated arm64 fixture program executed end-to-end on Linux/macOS",
-      "clean-room UIKit-compatible blank window in a native X11 window (software renderer)",
-    ],
-    notImplemented: [
-      "dyld shared cache, executable lazy-stub trampolines, general weak coalescing",
-      "guest dlopen syscalls, signature verification, entitlements policy",
-      "TCC/privacy database, keychain, device identity",
-      "Metal, IOSurface, CoreAnimation, UIKit, AppKit, accessibility",
-      "CoreSimulator XPC services, launchd_sim, SpringBoard, jetsam, APFS disk images",
-      "Apple framework replacements (Foundation is not provided)",
-      "running any Apple binary or the iOS Simulator itself",
-      "Apple UIKit, Metal/IOSurface/CoreAnimation, or a guest app in the UIKit window spike",
-    ],
-    notes: [
-      "This is a research substrate, not a simulator.",
-      "The CLI never loads Apple binaries; use your own arm64 Mach-O or the demo.",
-    ],
   };
 }
 

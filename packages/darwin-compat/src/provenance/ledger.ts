@@ -227,6 +227,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "bunx vitest run packages/darwin-compat/src/observability/trace.test.ts",
   },
   {
+    id: "DX-003",
+    claim: "Publishes a versioned capability report with per-feature yes/partial/no states.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/capabilities.ts",
+      "packages/darwin-compat/schema/capability-report.schema.json",
+      "packages/darwin-compat/src/capabilities.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/capabilities.test.ts",
+  },
+  {
     id: "DX-001",
     claim: "Disassembles the integer/syscall AArch64 subset and prints unknown words.",
     status: "implemented",

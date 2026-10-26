@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ios-sim-native/capability-report.schema.json",
+  "title": "ios-sim-native capability report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "service",
+    "version",
+    "runtime",
+    "runtimeVersion",
+    "platform",
+    "architecture",
+    "simulator",
+    "features",
+    "blocked",
+    "notes"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "service": { "const": "ios-sim-native" },
+    "version": { "type": "string", "minLength": 1 },
+    "runtime": { "type": "string", "minLength": 1 },
+    "runtimeVersion": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "minLength": 1 },
+    "architecture": { "type": "string", "minLength": 1 },
+    "simulator": { "const": false },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "blocked": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "notes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "state", "detail"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "state": { "enum": ["yes", "partial", "no"] },
+        "detail": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

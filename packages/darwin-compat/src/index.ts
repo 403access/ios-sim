@@ -26,6 +26,7 @@ export * from "./plist/index.js";
 export * from "./launchd/index.js";
 export * from "./runtime/index.js";
 export * from "./observability/index.js";
+export * from "./capabilities.js";
 export * from "./provenance/ledger.js";
 export * from "./inspect.js";
 export * from "./demo.js";

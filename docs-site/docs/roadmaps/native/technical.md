@@ -488,8 +488,9 @@ as Chrome Trace Event JSON (process slices + instants, unmatched starts closed).
 AArch64 integer/syscall disassembler and `inspect --disasm`; unknown words print `.word`. LEG-001
 adds a machine-readable provenance ledger, a docs page, and a checker that verifies every evidence
 path and required claim. OBS-005 adds `trace` (NDJSON/Chrome, optional file) and `why` (loader
-diagnostic + boot summary) CLI commands; event redaction applies to both. DX-003 (capability
-doctor schema) is next.
+diagnostic + boot summary) CLI commands; event redaction applies to both. DX-003 makes the doctor
+report a versioned capability schema (`schemaVersion: 1`, per-feature `yes/partial/no`, explicit
+`simulator: false`) with a JSON Schema and validator. DX-005 (native quickstart) is next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

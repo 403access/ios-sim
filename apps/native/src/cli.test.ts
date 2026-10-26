@@ -30,9 +30,15 @@ describe("ios-sim-native CLI", () => {
     expect(code).toBe(0);
     const report = JSON.parse(io.out.join(""));
     expect(report.service).toBe("ios-sim-native");
+    expect(report.schemaVersion).toBe(1);
     expect(report.simulator).toBe(false);
-    expect(report.implemented.length).toBeGreaterThan(5);
-    expect(report.notImplemented.join(" ")).toMatch(/UIKit/);
+    expect(report.features.length).toBeGreaterThan(15);
+    expect(
+      report.features.find((entry: { id: string }) => entry.id === "apple.simulator").state,
+    ).toBe("no");
+    expect(report.blocked.map((entry: { detail: string }) => entry.detail).join(" ")).toMatch(
+      /Apple runtime|Metal|CoreSimulator/,
+    );
   });
 
   it("runs the built-in demo and propagates the exit status", async () => {
