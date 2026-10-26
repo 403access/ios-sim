@@ -87,7 +87,7 @@ single commit.
   provenance ledger (`LEG-001`), `trace`/`why` CLI commands (`OBS-005`), and a versioned
   capability doctor (`DX-003`), a one-command quickstart (`DX-005`), and fault snapshots with
   PC/encoding/maps (`OBS-006`), a claims audit for simulator over-claims (`LEG-004`), and a
-  backlog validator (`DX-006`).
+  backlog validator (`DX-006`), and a version/ABI consistency gate (`REL-004`).
 - A clean-room UIKit-compatible blank window now opens in a **native X11 window** on Linux
   (`UI-000`, software renderer, no web view). It is not Apple UIKit and does not pass UI-G1.
 - A0 is **not** a simulator. Threads/blocking receive, the shared cache, Apple runtimes, Metal,

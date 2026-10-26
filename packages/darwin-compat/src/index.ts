@@ -15,6 +15,7 @@
  */
 
 export * from "./errors.js";
+export * from "./version.js";
 export * from "./binary.js";
 export * from "./macho/index.js";
 export * from "./arm64/index.js";

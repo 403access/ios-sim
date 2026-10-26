@@ -497,7 +497,9 @@ encoding, disassembly, registers, SP/NZCV, nearby maps, images) to interpreter f
 limits, and deadlines; CLI catches print it. LEG-004 adds a claims audit that fails on false
 simulator/iOS/UIKit wording while allowing explicit negations; CI runs it with the provenance
 check. DX-006 adds a backlog validator for duplicate ready rows, done-in-queue, missing status,
-and unknown session IDs; CI runs it. REL-004 (versioning policy) is next.
+and unknown session IDs; CI runs it. REL-004 adds a version policy (patch drift allowed, major/minor
+and ABI/schema versions exact) plus a workspace consistency gate. REL-006 (supply-chain checks) is
+next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
 | ------ | ----------------------------- | ---- | ------------------ | -------------------------------------------- | ------------------------------------------------ |

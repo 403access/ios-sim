@@ -273,6 +273,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     limitation: "This is a clean-room API subset and software renderer, not Apple UIKit.",
   },
   {
+    id: "REL-004",
+    claim: "Enforces patch-only semver drift and exact host ABI/schema versions.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/version.ts",
+      "packages/darwin-compat/src/version.test.ts",
+      "scripts/check-versions.ts",
+    ],
+    command: "bun run versions",
+  },
+  {
     id: "DX-006",
     claim: "Validates the backlog for duplicate, stale, or unqueued task statuses.",
     status: "implemented",

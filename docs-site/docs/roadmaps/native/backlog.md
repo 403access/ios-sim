@@ -22,7 +22,7 @@ task and this page is corrected.
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 74 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 75 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -31,23 +31,22 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                            |
 | ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------- |
-|     1 | `REL-004` | Release       | S    | REL-003 | Versioning policy; mismatch fails                   |
-|     2 | `REL-006` | Release       | S    | REL-001 | Supply-chain checks; audit/lockfile                 |
-|     3 | `DX-004`  | Developer     | M    | OBS-004 | Repro bundle; reproduce on another host             |
-|     4 | `THR-011` | Threads       | M    | THR-006 | Roles/sessions/contracts; job identity and teardown |
-|     5 | `OBS-007` | Observability | S    | OBS-002 | Metrics endpoint (optional); loopback-only          |
-|     6 | `DX-002`  | Developer     | S    | OBS-005 | Trace UX; filtered trace                            |
-|     7 | `QA-007`  | Quality       | S    | REL-001 | Coverage targets; ≥90% parsers                      |
+|     1 | `REL-006` | Release       | S    | REL-001 | Supply-chain checks; audit/lockfile                 |
+|     2 | `DX-004`  | Developer     | M    | OBS-004 | Repro bundle; reproduce on another host             |
+|     3 | `THR-011` | Threads       | M    | THR-006 | Roles/sessions/contracts; job identity and teardown |
+|     4 | `OBS-007` | Observability | S    | OBS-002 | Metrics endpoint (optional); loopback-only          |
+|     5 | `DX-002`  | Developer     | S    | OBS-005 | Trace UX; filtered trace                            |
+|     6 | `QA-007`  | Quality       | S    | REL-001 | Coverage targets; ≥90% parsers                      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `REL-004` is the next task;
-`REL-006` remains in the release lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `REL-006` is the next task;
+`DX-004` remains in the developer-tooling lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-43 are complete through DX-006 (substrate, loader, threads, quality, observability,
-release, provenance, quickstart, diagnostics, claims, and roadmap validation). This is the next
-cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-44 are complete through REL-004 (substrate, loader, threads, quality, observability,
+release, provenance, quickstart, diagnostics, claims, roadmap validation, and version policy). This
+is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -187,9 +186,9 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `REL-001`  | Native CI job                  | P0       | S    | **done**  | A0               | Linux native job, visible skips, fuzz/corpus/bench         |
 | `REL-002`  | Reproducible fixtures          | P1       | S    | **done**  | QA-003           | 23 SHA-256 fixtures identical                              |
 | `REL-003`  | Packaging                      | P2       | M    | **done**  | REL-001          | CLI + runtime tarballs + SHA-256 manifest                  |
-| `REL-004`  | Versioning policy              | P2       | S    | **next**  | REL-003          | Mismatch fails                                             |
+| `REL-004`  | Versioning policy              | P2       | S    | **done**  | REL-003          | Patch drift only; ABI/schema exact                         |
 | `REL-005`  | Docs gates                     | P1       | S    | **done**  | A0               | Broken relative links fail                                 |
-| `REL-006`  | Supply-chain checks            | P2       | S    | **ready** | REL-001          | Audit/lockfile                                             |
+| `REL-006`  | Supply-chain checks            | P2       | S    | **next**  | REL-001          | Audit/lockfile                                             |
 | `REL-007`  | Maintenance calendar           | P2       | S    | blocked   | SB-008           | Quarterly runbook                                          |
 | `LEG-001`  | Provenance ledger              | P0       | S    | **done**  | A0               | 25 claims, evidence paths verified                         |
 | `LEG-002`  | Runtime legal review           | P0       | M    | blocked   | LEG-001          | Written gate                                               |
