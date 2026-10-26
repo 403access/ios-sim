@@ -628,7 +628,7 @@ body.ready .trackBar span { animation: grow 900ms 200ms cubic-bezier(0.22, 1, 0.
 .col li { position: relative; padding-left: 9px; font-size: 9.6px; line-height: 1.34; color: #c9d5ea; }
 .col li::before { content: ""; position: absolute; left: 0; top: 5px; width: 3px; height: 3px; border-radius: 50%; background: var(--green); }
 .col.open li::before { background: var(--amber); }
-.evidence { font-family: var(--mono); font-size: 8.8px; color: var(--dim); border-top: 1px solid var(--line); padding-top: 6px; margin-top: auto; word-break: break-word; }
+.evidence { font-family: var(--mono); font-size: 8.8px; color: var(--dim); border-top: 1px solid var(--line); padding-top: 6px; margin-top: 3px; word-break: break-word; }
 .recent { display: grid; gap: 3px; }
 .recentRow { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 8px; align-items: baseline; font-size: 9.8px; color: #c9d5ea; }
 .recentRow code { font-family: var(--mono); font-size: 8.8px; color: var(--cyan); opacity: 0.8; }
