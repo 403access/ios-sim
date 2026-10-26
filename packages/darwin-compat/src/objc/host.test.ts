@@ -255,9 +255,9 @@ describe("ObjC UIKit demo", () => {
     expect(idle.program.memory.read(idle.program.resolveExport("_delayedMarker")!, 8)).toBe(0n);
 
     const result = runDemo([{ kind: "tick" }]);
-    // The callback changes no pixels, so its identical frame is skipped; the
-    // tick still moves the view and presents.
-    expect(result.frames).toHaveLength(2);
+    // Launch, the delayed callback (which also advances the animation), and
+    // the tick that moves the view.
+    expect(result.frames).toHaveLength(3);
     expect(result.program.memory.read(result.program.resolveExport("_delayedMarker")!, 8)).toBe(1n);
   });
 
@@ -269,20 +269,21 @@ describe("ObjC UIKit demo", () => {
       { kind: "tick" },
     ]);
     // Launch, four ticks, and two one-second timer fires (one per two ticks).
-    expect(result.frames).toHaveLength(7);
+    // Launch, the delayed callback, four ticks, and two timer fires.
+    expect(result.frames).toHaveLength(8);
     const redAt = (frameIndex: number, x: number, y: number): boolean => {
       const frame = result.frames[frameIndex]!;
       const offset = (y * frame.width + x) * 4;
       return frame.pixels[offset] === 255 && frame.pixels[offset + 1] === 0;
     };
     expect(redAt(0, 30, 30)).toBe(true);
-    expect(redAt(1, 70, 30)).toBe(true);
-    // frames 2 and 5 are timer fires: the view stays put, the status strip changes.
+    expect(redAt(1, 30, 30)).toBe(true);
     expect(redAt(2, 70, 30)).toBe(true);
-    expect(redAt(3, 110, 30)).toBe(true);
-    expect(redAt(4, 150, 30)).toBe(true);
+    expect(redAt(3, 70, 30)).toBe(true);
+    expect(redAt(4, 110, 30)).toBe(true);
     expect(redAt(5, 150, 30)).toBe(true);
-    expect(redAt(6, 30, 30)).toBe(true);
+    expect(redAt(6, 150, 30)).toBe(true);
+    expect(redAt(7, 30, 30)).toBe(true);
 
     const status = (frameIndex: number): number[] => {
       const frame = result.frames[frameIndex]!;
@@ -290,9 +291,21 @@ describe("ObjC UIKit demo", () => {
       return [...frame.pixels.slice(offset, offset + 3)];
     };
     expect(status(1)).toEqual([255, 255, 255]);
-    expect(status(2)).toEqual([0, 255, 0]);
-    expect(status(4)).toEqual([0, 255, 0]);
-    expect(status(5)).toEqual([255, 128, 0]);
+    expect(status(3)).toEqual([0, 255, 0]);
+    expect(status(5)).toEqual([0, 255, 0]);
+    expect(status(6)).toEqual([255, 128, 0]);
+
+    // The 2 s alpha animation runs from opaque to a quarter over the ticks.
+    const picture = (frameIndex: number): number[] => {
+      const frame = result.frames[frameIndex]!;
+      const offset = (144 * frame.width + 254) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    expect(picture(0)).toEqual([255, 0, 0]);
+    expect(picture(1)).toEqual([255, 48, 48]);
+    expect(picture(3)).toEqual([255, 96, 96]);
+    expect(picture(5)).toEqual([255, 143, 143]);
+    expect(picture(6)).toEqual([255, 191, 191]);
     expect(result.program.memory.read(result.program.resolveExport("_timerFires")!, 8)).toBe(2n);
   });
 

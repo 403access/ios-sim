@@ -81,6 +81,9 @@ const SELECTORS = {
   imageNamed: "imageNamed:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
+  beginAnimations: "beginAnimations:context:",
+  setAnimationDuration: "setAnimationDuration:",
+  commitAnimations: "commitAnimations",
   initWithFrame: "initWithFrame:",
   setFrame: "setFrame:",
   setBackgroundColor: "setBackgroundColor:",
@@ -261,6 +264,8 @@ interface Plan {
   readonly sliderRect: number;
   readonly imageRect: number;
   readonly wrapRect: number;
+  readonly animationDuration: number;
+  readonly animationAlpha: number;
   readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
@@ -546,6 +551,10 @@ function planData(): Plan {
   cursor += 32;
   const wrapRect = cursor;
   cursor += 32;
+  const animationDuration = cursor;
+  cursor += 8;
+  const animationAlpha = cursor;
+  cursor += 8;
   const timerInterval = cursor;
   cursor += 8;
   const half = cursor;
@@ -660,6 +669,8 @@ function planData(): Plan {
     sliderRect,
     imageRect,
     wrapRect,
+    animationDuration,
+    animationAlpha,
     timerInterval,
     half,
     size: cursor,
@@ -1446,6 +1457,30 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.addSubview));
     emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // [UIView beginAnimations:nil context:0];
+    // [UIView setAnimationDuration:2]; [picture setAlpha:0.25];
+    // [UIView commitAnimations];
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.beginAnimations));
+    emitWord(movz(2, 0));
+    emitWord(movz(3, 0));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.setAnimationDuration));
+    emitDouble(0, dataAddress(plan.animationDuration));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("imageView"));
+    emitAddress(1, selector(SELECTORS.setAlpha));
+    emitDouble(0, dataAddress(plan.animationAlpha));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.commitAnimations));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
@@ -2323,6 +2358,8 @@ function emitData(
   f64(plan.wrapRect + 8, 240);
   f64(plan.wrapRect + 16, 300);
   f64(plan.wrapRect + 24, 60);
+  f64(plan.animationDuration, 2);
+  f64(plan.animationAlpha, 0.25);
   f64(plan.timerInterval, 1);
   f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {

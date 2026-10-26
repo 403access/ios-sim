@@ -100,6 +100,8 @@ const STRING_INSTANCE_SIZE = 16;
 const NUMBER_VALUE = 8;
 const NUMBER_INSTANCE_SIZE = 16;
 
+const DEFAULT_ANIMATION_SECONDS = 0.25;
+
 const IMAGE_WIDTH = 8;
 const IMAGE_HEIGHT = 16;
 const IMAGE_INSTANCE_SIZE = 24;
@@ -151,6 +153,19 @@ export interface TickEvent {
 }
 
 export type InputEvent = TapEvent | DragEvent | TickEvent;
+
+interface AnimationChange {
+  frame?: { from: Rect; to: Rect };
+  alpha?: { from: number; to: number };
+}
+
+interface Animation {
+  readonly view: bigint;
+  readonly frame?: { from: Rect; to: Rect };
+  readonly alpha?: { from: number; to: number };
+  readonly start: number;
+  readonly duration: number;
+}
 
 interface StubPool {
   page: bigint;
@@ -280,6 +295,9 @@ export class ObjcHost {
   }> = [];
   private clock = 0;
   private tickAdvanced = false;
+  private animationCapture: { duration: number; changes: Map<bigint, AnimationChange> } | null =
+    null;
+  private activeAnimations: Animation[] = [];
   private readonly dictionaries = new Map<bigint, Map<string, bigint>>();
   private readonly callbackPool: StubPool = { page: 0n, cursor: 0n };
   private readonly lifecyclePool: StubPool = { page: 0n, cursor: 0n };
@@ -840,7 +858,11 @@ export class ObjcHost {
         {
           selector: "setFrame:",
           types: "v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",
-          run: (_cpu, receiver) => this.writeRect(receiver, this.readRect(_cpu)),
+          run: (cpu, receiver) => {
+            const target = this.readRect(cpu);
+            this.captureFrameChange(receiver, target);
+            this.writeRect(receiver, target);
+          },
         },
         {
           selector: "frame",
@@ -850,8 +872,11 @@ export class ObjcHost {
         {
           selector: "setAlpha:",
           types: "v24@0:8d16",
-          run: (cpu, receiver) =>
-            this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, cpu.readVectorBits(0, 64)),
+          run: (cpu, receiver) => {
+            const target = cpu.readVectorDouble(0);
+            this.captureAlphaChange(receiver, target);
+            this.writeDouble(receiver, VIEW_ALPHA, target);
+          },
         },
         {
           selector: "alpha",
@@ -913,7 +938,32 @@ export class ObjcHost {
         { selector: "touchesEnded:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
         { selector: "touchesCancelled:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
       ],
-      classMethods: [],
+      classMethods: [
+        {
+          selector: "beginAnimations:context:",
+          types: "v32@0:8*16^v24",
+          run: () => {
+            this.animationCapture = {
+              duration: DEFAULT_ANIMATION_SECONDS,
+              changes: new Map(),
+            };
+          },
+        },
+        {
+          selector: "setAnimationDuration:",
+          types: "v24@0:8d16",
+          run: (cpu) => {
+            if (this.animationCapture) {
+              this.animationCapture.duration = Math.max(0, cpu.readVectorDouble(0));
+            }
+          },
+        },
+        {
+          selector: "commitAnimations",
+          types: "v16@0:8",
+          run: () => this.commitAnimations(),
+        },
+      ],
     });
     this.registerClass(view);
 
@@ -3286,7 +3336,84 @@ export class ObjcHost {
     return containsPoint(frame, { x: point.x - originX, y: point.y - originY }) ? view : null;
   }
 
+  /** Record the frame a view had before an animation changed it. */
+  private captureFrameChange(receiver: bigint, target: Rect): void {
+    const capture = this.animationCapture;
+    if (!capture) return;
+    const change = capture.changes.get(receiver) ?? {};
+    change.frame ??= { from: this.readStoredRect(receiver), to: target };
+    change.frame.to = target;
+    capture.changes.set(receiver, change);
+  }
+
+  private captureAlphaChange(receiver: bigint, target: number): void {
+    const capture = this.animationCapture;
+    if (!capture) return;
+    const change = capture.changes.get(receiver) ?? {};
+    change.alpha ??= { from: this.readDouble(receiver, VIEW_ALPHA), to: target };
+    change.alpha.to = target;
+    capture.changes.set(receiver, change);
+  }
+
+  /**
+   * Turn captured property changes into timed animations. The start value is
+   * written back so the next frame shows the beginning, and ticks interpolate
+   * towards the target.
+   */
+  private commitAnimations(): void {
+    const capture = this.animationCapture;
+    if (!capture) return;
+    this.animationCapture = null;
+    for (const [view, change] of capture.changes) {
+      if (change.frame) this.writeRect(view, change.frame.from);
+      if (change.alpha) this.writeDouble(view, VIEW_ALPHA, change.alpha.from);
+      const unchanged =
+        (!change.frame ||
+          (change.frame.from.x === change.frame.to.x &&
+            change.frame.from.y === change.frame.to.y &&
+            change.frame.from.width === change.frame.to.width &&
+            change.frame.from.height === change.frame.to.height)) &&
+        (!change.alpha || change.alpha.from === change.alpha.to);
+      if (unchanged) continue;
+      this.activeAnimations.push({
+        view,
+        frame: change.frame,
+        alpha: change.alpha,
+        start: this.clock,
+        duration: capture.duration,
+      });
+    }
+  }
+
+  /** Advance every active animation to the current virtual time. */
+  private advanceAnimations(): void {
+    if (this.activeAnimations.length === 0) return;
+    const remaining: Animation[] = [];
+    for (const animation of this.activeAnimations) {
+      const t =
+        animation.duration <= 0
+          ? 1
+          : Math.min(1, Math.max(0, (this.clock - animation.start) / animation.duration));
+      if (animation.frame) {
+        const { from, to } = animation.frame;
+        this.writeRect(animation.view, {
+          x: from.x + (to.x - from.x) * t,
+          y: from.y + (to.y - from.y) * t,
+          width: from.width + (to.width - from.width) * t,
+          height: from.height + (to.height - from.height) * t,
+        });
+      }
+      if (animation.alpha) {
+        const { from, to } = animation.alpha;
+        this.writeDouble(animation.view, VIEW_ALPHA, from + (to - from) * t);
+      }
+      if (t < 1) remaining.push(animation);
+    }
+    this.activeAnimations = remaining;
+  }
+
   private present(): void {
+    this.advanceAnimations();
     if (this.frames.length >= this.maxFrames) return;
     const window = this.keyWindow ?? this.windows.at(-1) ?? null;
     if (window === null) return;

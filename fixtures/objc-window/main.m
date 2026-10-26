@@ -228,6 +228,10 @@ static unsigned gTick;
   UIImageView *picture = [[UIImageView alloc] initWithImage:icon];
   [picture setFrame:CGRectMake(250, 140, 80, 80)];
   [window addSubview:picture];
+  [UIView beginAnimations:nil context:0];
+  [UIView setAnimationDuration:2];
+  [picture setAlpha:0.25];
+  [UIView commitAnimations];
   gSlider = [[UISlider alloc] initWithFrame:CGRectMake(20, 560, 300, 24)];
   [gSlider addTarget:self
               action:@selector(sliderChanged:)

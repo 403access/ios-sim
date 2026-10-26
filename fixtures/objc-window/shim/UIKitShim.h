@@ -82,6 +82,9 @@ __attribute__((objc_root_class))
 @end
 
 @interface UIView : NSObject
++ (void)beginAnimations:(const char *)identifier context:(void *)context;
++ (void)setAnimationDuration:(double)duration;
++ (void)commitAnimations;
 - (id)initWithFrame:(CGRect)frame;
 - (void)setFrame:(CGRect)frame;
 - (void)setBackgroundColor:(UIColor *)color;

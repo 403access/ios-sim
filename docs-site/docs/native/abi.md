@@ -190,6 +190,16 @@ as `objcStats` in the process result and CLI JSON: allocations, retains, release
 autoreleases, pool pushes/pops, deallocs, associations, weak stores/loads/zeroings, and
 message dispatch totals split into host and guest IMPs.
 
+### Animation
+
+`+beginAnimations:context:` starts capturing property changes; `-setFrame:` and `-setAlpha:` then
+record the value the view had before the change. `+commitAnimations` writes those start values back
+so the next frame begins where the view was, and stores a linear animation over the virtual clock
+with the duration set by `+setAnimationDuration:` (0.25 s by default). `present()` advances every
+active animation to the current clock before painting, so ticks produce intermediate frames for
+free. Only frame and alpha animate, there is no easing, no nesting, and no Core Animation: a
+`commitAnimations` with no captured change does nothing.
+
 ### Resources and images
 
 `UIImage` resolves its name through the host's resource loader: names are relative to the runtime
