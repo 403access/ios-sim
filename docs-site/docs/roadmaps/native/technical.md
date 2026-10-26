@@ -234,8 +234,8 @@ replacement pairs. LDR-010 parses embedded signatures (superblob, CodeDirectory,
 entitlements) without verifying hashes or certificates. LDR-013 adds structured loader
 diagnostics and a CLI failure report. LDR-012 adds read-only bundle/fileset/dSYM metadata
 (`Info.plist`, `LC_FILESET_ENTRY`, `N_OSO`). The loader lane is now gated on licensed-Mac work for
-the shared cache and on later security work for verification; the thread stress (`THR-012`) and
-quality harnesses are next. Executable lazy-stub trampolines, general weak-definition coalescing,
+the shared cache and on later security work for verification. THR-012 stresses 64 guest threads
+and 64 fork/exit/reap processes; the quality harnesses are next. Executable lazy-stub trampolines, general weak-definition coalescing,
 broader namespace policy, DWARF line tables, and signature verification are explicitly still
 absent.
 
