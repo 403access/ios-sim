@@ -16,6 +16,7 @@ import {
   openSync,
   readFileSync,
   readSync,
+  statSync,
   unlinkSync,
   writeSync,
 } from "node:fs";
@@ -58,6 +59,7 @@ import {
   SYS_DUP2,
   SYS_EXIT,
   SYS_FCNTL,
+  SYS_FSTAT,
   SYS_GETEGID,
   SYS_GETENTROPY,
   SYS_GETEUID,
@@ -278,6 +280,8 @@ export class DarwinSyscallKernel {
         return this.close(Number(args[0]!));
       case SYS_LSEEK:
         return this.seek(Number(args[0]!), BigInt.asIntN(64, args[1]!), Number(args[2]!));
+      case SYS_FSTAT:
+        return this.fstat(Number(args[0]!), args[1]!);
       case SYS_MMAP:
         return this.mmap(
           args[0]!,
@@ -603,6 +607,46 @@ export class DarwinSyscallKernel {
     } catch (error) {
       return this.errno(errnoFor(error));
     }
+  }
+
+  private fstat(fd: number, address: bigint): SyscallResult {
+    const entry = this.fds.get(fd);
+    if (!entry) return this.errno(ERRNO_MAP.EBADF!);
+    const bytes = new Uint8Array(144);
+    const view = new DataView(bytes.buffer);
+    const writeTimes = (offset: number, ms: number): void => {
+      const seconds = Math.floor(ms / 1000);
+      const nanos = Math.round((ms - seconds * 1000) * 1e6);
+      view.setBigInt64(offset, BigInt(seconds), true);
+      view.setBigInt64(offset + 8, BigInt(nanos), true);
+    };
+    if (entry.kind === "file" && entry.path) {
+      try {
+        const stats = statSync(entry.path);
+        view.setInt32(0, Number(stats.dev), true);
+        view.setUint16(4, stats.mode, true);
+        view.setUint16(6, stats.nlink, true);
+        view.setBigUint64(8, BigInt(stats.ino), true);
+        view.setUint32(16, stats.uid, true);
+        view.setUint32(20, stats.gid, true);
+        view.setInt32(24, Number(stats.rdev), true);
+        writeTimes(32, stats.atimeMs);
+        writeTimes(48, stats.mtimeMs);
+        writeTimes(64, stats.ctimeMs);
+        writeTimes(80, stats.birthtimeMs);
+        view.setBigInt64(96, BigInt(stats.size), true);
+        view.setBigInt64(104, BigInt(stats.blocks ?? Math.ceil(stats.size / 512)), true);
+        view.setInt32(112, stats.blksize ?? 4096, true);
+      } catch (error) {
+        return this.errno(errnoFor(error));
+      }
+    } else {
+      view.setUint16(4, 0x2000 | 0o666, true);
+      view.setUint16(6, 1, true);
+      view.setInt32(112, 4096, true);
+    }
+    this.memory.writeBytes(address, bytes);
+    return this.ok(0);
   }
 
   private createKqueue(): SyscallResult {
