@@ -67,7 +67,11 @@ The 13 classes: `NSConstantArray`, `NSDictionary`, `NSNumber`, `NSString`, `NSUs
 The 8 runtime entry points: `objc_alloc`, `objc_alloc_init`, `objc_msgSend`, `objc_opt_class`,
 `objc_release`, `objc_retain`, `objc_retainAutoreleasedReturnValue`, `objc_storeStrong`, plus the
 blocks class `__NSConcreteStackBlock`.
-The binary also loads UIKit, Foundation, libobjc, libSystem, and CoreFoundation.
+The binary also loads UIKit, Foundation, libobjc, libSystem, and CoreFoundation. Its eight "other"
+symbols are `NSLog`, `NSStringFromClass`, the `NSObject`/`UIResponder` metaclasses,
+`___CFConstantStringClassReference`, `___stack_chk_fail`, `___stack_chk_guard`, and
+`__objc_empty_cache`. The `@"..."` literals are the interesting one: any stock app needs constant
+`CFString` objects, which the shim does not provide (its fixture strings are C strings).
 
 **Reading the number honestly.** Thirty-one is the _link-time_ surface of that app, not the size of
 the job. Each missing class must behave like Apple's at the ABI level, and the frameworks the app

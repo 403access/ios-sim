@@ -182,6 +182,8 @@ interface TouchStep {
 export interface ObjcHostOptions {
   /** Resolve an app resource (e.g. `assets/icon.png`) to bytes, or null. */
   readonly resources?: (name: string) => Uint8Array | null;
+  /** Directory reported as the main bundle's path; defaults to an empty string. */
+  readonly bundlePath?: string;
   readonly memory: VirtualMemory;
   readonly width?: number;
   readonly height?: number;
@@ -315,6 +317,8 @@ export class ObjcHost {
   private readonly resendAddress: bigint;
   private readonly log: ((bytes: Uint8Array) => void) | undefined;
   private readonly resources: ((name: string) => Uint8Array | null) | undefined;
+  private readonly bundlePath: string;
+  private bundle: bigint | null = null;
   private readonly images = new Map<bigint, DecodedImage>();
   private readonly imageCache = new Map<string, DecodedImage | null>();
   private loadsPrepared = false;
@@ -341,6 +345,7 @@ export class ObjcHost {
     this.events = options.events ?? [];
     this.log = options.log;
     this.resources = options.resources;
+    this.bundlePath = options.bundlePath ?? "";
     this.touchScript = buildTouchScript(this.events);
     this.arena = this.memory.allocate(ARENA_SIZE, { tag: "objc-host", protection: 3 });
     this.arenaCursor = this.arena;
@@ -1598,6 +1603,53 @@ export class ObjcHost {
       ],
     });
     this.registerClass(timer);
+
+    const bundle = this.defineClass({
+      name: "NSBundle",
+      superclass: "NSObject",
+      instanceSize: 8,
+      methods: [
+        {
+          selector: "bundlePath",
+          types: "@16@0:8",
+          run: (cpu) => cpu.writeRegister(0, this.newString(this.internString(this.bundlePath))),
+        },
+        {
+          selector: "resourcePath",
+          types: "@16@0:8",
+          run: (cpu) => cpu.writeRegister(0, this.newString(this.internString(this.bundlePath))),
+        },
+        {
+          selector: "pathForResource:ofType:",
+          types: "@32@0:8@16@24",
+          run: (cpu) => {
+            const name = this.stringValue(cpu.readRegister(2));
+            const type = this.stringValue(cpu.readRegister(3));
+            const file = type.length === 0 ? name : `${name}.${type}`;
+            const bytes = this.resources?.(file) ?? null;
+            if (bytes === null) {
+              cpu.writeRegister(0, 0n);
+              return;
+            }
+            const full = this.bundlePath.length === 0 ? file : `${this.bundlePath}/${file}`;
+            cpu.writeRegister(0, this.newString(this.internString(full)));
+          },
+        },
+      ],
+      classMethods: [
+        {
+          selector: "mainBundle",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass) throw new ObjcError("bad_receiver", "mainBundle receiver is not a class");
+            this.bundle ??= this.allocateInstance(klass);
+            cpu.writeRegister(0, this.bundle);
+          },
+        },
+      ],
+    });
+    this.registerClass(bundle);
 
     const defaults = this.defineClass({
       name: "NSUserDefaults",

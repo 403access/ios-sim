@@ -206,6 +206,20 @@ describe("ObjC UIKit demo", () => {
     expect(inkInRows(254, 259)).toBe(0);
   });
 
+  it("exposes mainBundle resources through NSBundle", () => {
+    const result = runDemo();
+    const found = result.program.memory.read(result.program.resolveExport("_bundleFound")!, 8);
+    expect(found).not.toBe(0n);
+    const textPointer = result.program.memory.read(
+      result.program.resolveExport("_bundlePathText")!,
+      8,
+    );
+    expect(result.program.memory.readCString(textPointer, 512)).toBe(
+      join(process.cwd(), "fixtures/objc-window/assets/icon.png"),
+    );
+    expect(result.program.memory.read(result.program.resolveExport("_bundleMissing")!, 8)).toBe(0n);
+  });
+
   it("draws a PNG-backed UIImageView scaled to its frame", () => {
     const result = runDemo();
     const frame = result.frames[0]!;

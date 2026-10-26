@@ -148,6 +148,14 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 @end
 
 // Text accepts an NSString or a bare C string; the host reads either.
+// Resource names are C strings in this shim; Apple's API takes NSString.
+@interface NSBundle : NSObject
++ (NSBundle *)mainBundle;
+- (NSString *)bundlePath;
+- (NSString *)resourcePath;
+- (NSString *)pathForResource:(const char *)name ofType:(const char *)type;
+@end
+
 @interface NSNumber : NSObject
 + (id)numberWithInt:(int)value;
 + (id)numberWithInteger:(long)value;

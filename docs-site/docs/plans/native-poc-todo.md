@@ -80,6 +80,7 @@ started.
 - [x] Legacy `UIView` animations: frame/alpha captured at commit, linear on the virtual clock
 - [x] Responder forwarding: unhandled touches travel up to the superview
 - [x] `UIScrollView` drag-to-scroll with clamping to content size
+- [x] `NSBundle` resource lookup through the runtime root
 - [ ] Gesture recognisers and the view-controller responder step
 - [x] `UIViewController -viewDidLoad` once, via a category or subclass
 - [x] `UIViewController -viewWillAppear:`/`-viewDidAppear:` when the root view is shown

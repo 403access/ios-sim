@@ -260,6 +260,11 @@ host memory, so guest code sees only the object handle. Dictionary keys are comp
 value and accept an `NSString` or a C string. Out-of-range `objectAtIndex:` and `nil` `addObject:`
 raise typed host errors instead of returning garbage.
 
+`NSBundle` reports the runtime root as both `bundlePath` and `resourcePath` (there is no bundle
+hierarchy) and resolves `pathForResource:ofType:` through the same loader as `UIImage`, returning
+nil when the file is absent. Resource names are C strings, matching the shim's other name-taking
+APIs.
+
 The shim's `NSString` is a small object holding a pointer to guest bytes; `-length` counts UTF-8
 bytes and `-integerValue` parses base 10. Where the shim took a C string before (`UILabel -setText:`,
 notification names, defaults keys) a bare pointer is still accepted, so generated and clang code can

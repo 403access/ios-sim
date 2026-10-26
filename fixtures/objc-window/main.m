@@ -30,6 +30,7 @@ static int gSwitchChanges;
 static int gSliderChanges;
 static UISlider *gSlider;
 static int gDelayed;
+static int gBundle;
 
 @interface UIViewController (Lifecycle)
 - (void)viewDidLoad;
@@ -69,7 +70,7 @@ static int gDelayed;
   (void)touches;
   (void)event;
   if (!(gBaseInit && gTapInit && gInitOrder == 2 && gLifecycle == 1 && gString == 1 &&
-        gCollections == 1)) {
+        gCollections == 1 && gBundle == 1)) {
     self.backgroundColor = [UIColor purpleColor];
     return;
   }
@@ -227,6 +228,12 @@ static unsigned gTick;
   [wrapped setText:[NSString stringWithUTF8String:"WRAP THE LABEL\nSECOND LINE"]];
   [wrapped setNumberOfLines:0];
   [window addSubview:wrapped];
+  NSBundle *bundle = [NSBundle mainBundle];
+  NSString *iconPath = [bundle pathForResource:"assets/icon" ofType:"png"];
+  NSString *missingPath = [bundle pathForResource:"nope" ofType:"png"];
+  if (iconPath != nil && missingPath == nil) {
+    gBundle = 1;
+  }
   UIImage *icon = [UIImage imageNamed:"assets/icon.png"];
   UIImageView *picture = [[UIImageView alloc] initWithImage:icon];
   [picture setFrame:CGRectMake(250, 140, 80, 80)];

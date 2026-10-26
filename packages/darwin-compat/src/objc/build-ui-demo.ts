@@ -58,6 +58,9 @@ const SELECTORS = {
   view: "view",
   setRootViewController: "setRootViewController:",
   stringWithUTF8String: "stringWithUTF8String:",
+  utf8String: "UTF8String",
+  mainBundle: "mainBundle",
+  pathForResource: "pathForResource:ofType:",
   text: "text",
   length: "length",
   isEqualToString: "isEqualToString:",
@@ -211,7 +214,12 @@ type SlotName =
   | "classImage"
   | "classImageView"
   | "image"
-  | "imageView";
+  | "imageView"
+  | "classBundle"
+  | "bundle"
+  | "bundleFound"
+  | "bundlePathText"
+  | "bundleMissing";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -402,6 +410,11 @@ function planData(): Plan {
     "classImageView",
     "image",
     "imageView",
+    "classBundle",
+    "bundle",
+    "bundleFound",
+    "bundlePathText",
+    "bundleMissing",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -434,6 +447,9 @@ function planData(): Plan {
     "Count",
     "count",
     "assets/icon.png",
+    "assets/icon",
+    "png",
+    "nope",
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
@@ -1007,6 +1023,21 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       {
+        name: "_bundleFound",
+        value: dataAddress(plan.slotOffsets.bundleFound),
+        sectionIndex: 2,
+      },
+      {
+        name: "_bundlePathText",
+        value: dataAddress(plan.slotOffsets.bundlePathText),
+        sectionIndex: 2,
+      },
+      {
+        name: "_bundleMissing",
+        value: dataAddress(plan.slotOffsets.bundleMissing),
+        sectionIndex: 2,
+      },
+      {
         name: "_delayedMarker",
         value: dataAddress(plan.slotOffsets.delayedMarker),
         sectionIndex: 2,
@@ -1400,6 +1431,33 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(movReg(2, 21));
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
+
+    // NSBundle *bundle = [NSBundle mainBundle];
+    // NSString *found = [bundle pathForResource:"icon" ofType:"png"];
+    emitPointer(0, slot("classBundle"));
+    emitAddress(1, selector(SELECTORS.mainBundle));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("bundle"));
+    emitPointer(0, slot("bundle"));
+    emitAddress(1, selector(SELECTORS.pathForResource));
+    emitAddress(2, dataAddress(plan.stringOffsets["assets/icon"]!));
+    emitAddress(3, dataAddress(plan.stringOffsets.png!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("bundleFound"));
+    emitAddress(1, selector(SELECTORS.utf8String));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("bundlePathText"));
+    // NSString *missing = [bundle pathForResource:"nope" ofType:"png"];
+    emitPointer(0, slot("bundle"));
+    emitAddress(1, selector(SELECTORS.pathForResource));
+    emitAddress(2, dataAddress(plan.stringOffsets.nope!));
+    emitAddress(3, dataAddress(plan.stringOffsets.png!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("bundleMissing"));
 
     // UILabel *wrapped = [[UILabel alloc] initWithFrame:(20,240,300,60)];
     emitPointer(0, slot("classLabel"));
@@ -2064,6 +2122,9 @@ function emitData(
     "Count",
     "count",
     "assets/icon.png",
+    "assets/icon",
+    "png",
+    "nope",
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
@@ -2315,6 +2376,7 @@ function emitData(
   bind(plan.slotOffsets.classTimer, "_OBJC_CLASS_$_NSTimer");
   bind(plan.slotOffsets.classSwitch, "_OBJC_CLASS_$_UISwitch");
   bind(plan.slotOffsets.classSlider, "_OBJC_CLASS_$_UISlider");
+  bind(plan.slotOffsets.classBundle, "_OBJC_CLASS_$_NSBundle");
   bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
   bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));

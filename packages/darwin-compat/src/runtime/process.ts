@@ -165,6 +165,7 @@ export class DarwinRuntime {
               errorSink.write(bytes);
             },
             resources: (name) => this.readResource(name),
+            bundlePath: this.rootDir,
           });
     const loader = new ImageLoader({
       provider: this.provider,
