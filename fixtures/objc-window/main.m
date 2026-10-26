@@ -49,17 +49,22 @@ static int gInitOrder;
   BOOL tappable = [self conformsToProtocol:@protocol(Tappable)];
   UIColor *color = tappable ? [UIColor blueColor] : [UIColor purpleColor];
   objc_setAssociatedObject(self, &kColorKey, color, 1);
-  UIColor *stored = objc_getAssociatedObject(self, &kColorKey);
-  self.backgroundColor = stored ? stored : [UIColor purpleColor];
+  (void)objc_getAssociatedObject(self, &kColorKey);
+  UIColor *probed = [self performSelector:@selector(probeColor)];
+  self.backgroundColor = probed ? probed : [UIColor purpleColor];
 }
 @end
 
 @interface TapView : BaseView <Tappable> {
   BOOL _pressed;
 }
+- (UIColor *)probeColor;
 @end
 
 @implementation TapView
+- (UIColor *)probeColor {
+  return [UIColor blueColor];
+}
 + (void)initialize {
   if (self == [TapView class]) {
     gTapInit = 1;

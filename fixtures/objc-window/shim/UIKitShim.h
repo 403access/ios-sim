@@ -12,6 +12,7 @@
 #ifndef UIKIT_SHIM_H
 #define UIKIT_SHIM_H
 
+typedef struct objc_selector *SEL;
 typedef signed char BOOL;
 #define YES ((BOOL)1)
 #define NO ((BOOL)0)
@@ -51,6 +52,7 @@ __attribute__((objc_root_class))
 + (id)class;
 - (id)init;
 - (id)self;
+- (id)performSelector:(SEL)selector;
 @end
 
 @interface UIApplication : NSObject

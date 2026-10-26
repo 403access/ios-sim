@@ -77,6 +77,8 @@ const SELECTORS = {
   dealloc: "dealloc",
   new: "new",
   drain: "drain",
+  performSelector: "performSelector:",
+  probeColor: "probeColor",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -280,7 +282,7 @@ function planData(): Plan {
   const tapEmptyMethods = cursor;
   cursor += 8;
   const tapMethods = cursor;
-  cursor += 8 + 4 * 24;
+  cursor += 8 + 5 * 24;
   const tapIvars = cursor;
   cursor += 8 + 32;
   const tapProtocols = cursor;
@@ -526,6 +528,15 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitMarker(slot("deallocMarker"), 1);
   emitWord(ret());
 
+  label("tapProbeColor");
+  emitWord(stpPre(29, 30, 31, -16));
+  emitPointer(0, slot("classColor"));
+  emitAddress(1, selector(SELECTORS.blueColor));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitWord(ldpPost(29, 30, 31, 16));
+  emitWord(ret());
+
   const data = emitData(
     bases,
     plan,
@@ -541,6 +552,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("tapMoved") ?? 0),
     bases.textBase + (code.labels.get("tapEnded") ?? 0),
     bases.textBase + (code.labels.get("tapDealloc") ?? 0),
+    bases.textBase + (code.labels.get("tapProbeColor") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -790,6 +802,12 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitAddress(1, dataAddress(plan.tappableProtocol));
     emitPointer(16, slot("assocGet"));
     emitWord(blr(16));
+    // UIColor *probed = [self performSelector:@selector(probeColor)];
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.performSelector));
+    emitAddress(2, selector(SELECTORS.probeColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
     emitWord(movReg(2, 0));
     const jumpToApply = code.words.length;
     emitWord(0);
@@ -828,6 +846,7 @@ function emitData(
   tapMovedImp: number,
   tapEndedImp: number,
   tapDeallocImp: number,
+  tapProbeColorImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -921,7 +940,7 @@ function emitData(
   u32(plan.tapEmptyMethods, 24);
   u32(plan.tapEmptyMethods + 4, 0);
   u32(plan.tapMethods, 24);
-  u32(plan.tapMethods + 4, 4);
+  u32(plan.tapMethods + 4, 5);
 
   const beganEntry = plan.tapMethods + 8;
   rebase(beganEntry, selector(SELECTORS.touchesBegan));
@@ -939,6 +958,10 @@ function emitData(
   rebase(deallocEntry, selector(SELECTORS.dealloc));
   rebase(deallocEntry + 8, selector(TYPES));
   rebase(deallocEntry + 16, tapDeallocImp);
+  const probeEntry = plan.tapMethods + 104;
+  rebase(probeEntry, selector(SELECTORS.probeColor));
+  rebase(probeEntry + 8, selector(TYPES));
+  rebase(probeEntry + 16, tapProbeColorImp);
 
   rebase(plan.tapRo + 24, address(plan.stringOffsets[DEMO_VIEW_CLASS_NAME]!));
   rebase(plan.tapRo + 32, address(plan.tapMethods));

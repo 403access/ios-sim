@@ -556,6 +556,21 @@ export class ObjcHost {
           },
         },
         {
+          selector: "performSelector:",
+          types: "@24@0:8:16",
+          run: (cpu, receiver) => this.performSelector(cpu, receiver, 2, 0),
+        },
+        {
+          selector: "performSelector:withObject:",
+          types: "@32@0:8:16@24",
+          run: (cpu, receiver) => this.performSelector(cpu, receiver, 2, 1),
+        },
+        {
+          selector: "performSelector:withObject:withObject:",
+          types: "@40@0:8:16@24@32",
+          run: (cpu, receiver) => this.performSelector(cpu, receiver, 2, 2),
+        },
+        {
           selector: "retainCount",
           types: "Q16@0:8",
           run: (cpu, receiver) => cpu.writeRegister(0, BigInt(this.refcounts.get(receiver) ?? 1)),
@@ -1287,6 +1302,34 @@ export class ObjcHost {
       current = this.byAddress.get(current.superclass);
     }
     return false;
+  }
+
+  /**
+   * -performSelector: family. The target method's `_cmd` is the requested
+   * selector; extra object arguments move into x2/x3.
+   */
+  private performSelector(
+    cpu: Arm64Cpu,
+    receiver: bigint,
+    selectorRegister: number,
+    extraArgs: number,
+  ): SyscallResult {
+    const selectorAddress = cpu.readRegister(selectorRegister);
+    const args = [cpu.readRegister(selectorRegister + 1), cpu.readRegister(selectorRegister + 2)];
+    const selector = this.readCString(selectorAddress);
+    const method = this.resolve(receiver, selector);
+    if (!method) {
+      throw new ObjcError(
+        "unrecognized_selector",
+        `${this.describe(receiver)} does not respond to ${selector}`,
+      );
+    }
+    cpu.writeRegister(0, receiver);
+    cpu.writeRegister(1, selectorAddress);
+    for (let index = 0; index < extraArgs; index += 1) {
+      cpu.writeRegister(2 + index, args[index]!);
+    }
+    return this.invoke(method, cpu);
   }
 
   private drainPool(receiver: bigint): void {

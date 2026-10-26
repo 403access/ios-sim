@@ -32,6 +32,7 @@ started.
 - [x] Absolute and relative method lists
 - [x] Selector resolution through `__objc_selrefs`
 - [x] `objc_msgSend`, `objc_msgSendSuper2` (guest superclass, `objc_super` container semantics)
+- [x] `performSelector:`, `performSelector:withObject:`, `...withObject:withObject:`
 - [x] Superclass `+initialize` chain, root-first, in one resend stub
 - [x] `+alloc`, `-init`, `-class`, `-isKindOfClass:`, `-respondsToSelector:`
 - [x] `+initialize` once per class through a register-saving resend stub
