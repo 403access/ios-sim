@@ -128,6 +128,77 @@ export function buildLegacyDependentProgram() {
   });
 }
 
+/** Dylib with `_target` interposed by `_replacement` (LDR-005). */
+export function buildInterposingDylib() {
+  const text = words(movz(0, 1), 0xd65f03c0, movz(0, 9), 0xd65f03c0);
+  return buildMachO({
+    fileType: "dylib",
+    installName: "/lib/libinterpose.dylib",
+    text,
+    interpositions: [{ replacement: HELLO_TEXT_BASE + 8, replaced: HELLO_TEXT_BASE }],
+    symbols: [
+      { name: "_target", value: HELLO_TEXT_BASE },
+      { name: "_replacement", value: HELLO_TEXT_BASE + 8 },
+    ],
+    exports: [
+      { name: "_target", address: HELLO_TEXT_BASE },
+      { name: "_replacement", address: HELLO_TEXT_BASE + 8 },
+    ],
+  });
+}
+
+/** Main program that calls the interposed `_target` and exits with its result. */
+export function buildInterposedProgram() {
+  const text = words(
+    adrp(10, HELLO_DATA_BASE, HELLO_TEXT_BASE),
+    addImm(10, 10, HELLO_DATA_BASE & 0xfff),
+    ldrUnsigned(9, 10, 0, 3),
+    blr(9),
+    movz(16, 1),
+    svc(0x80),
+  );
+  return buildMachO({
+    text,
+    data: new Uint8Array(0x4000),
+    dependencies: [{ name: "/lib/libinterpose.dylib" }],
+    legacyFixups: [{ kind: "bind", offset: 0, symbol: "_target", ordinal: 1 }],
+    symbols: [{ name: "_start", value: HELLO_TEXT_BASE }],
+    exports: [{ name: "_start", address: HELLO_TEXT_BASE }],
+  });
+}
+
+/** Dylib exporting a colliding `_collide` with a chosen return value. */
+export function buildCollisionDylib(installName: string, value: number) {
+  const text = words(movz(0, value), 0xd65f03c0);
+  return buildMachO({
+    fileType: "dylib",
+    installName,
+    text,
+    symbols: [{ name: "_collide", value: HELLO_TEXT_BASE }],
+    exports: [{ name: "_collide", address: HELLO_TEXT_BASE }],
+  });
+}
+
+/** Flat-namespace main that calls whichever dependency `_collide` loads first. */
+export function buildCollisionProgram() {
+  const text = words(
+    adrp(10, HELLO_DATA_BASE, HELLO_TEXT_BASE),
+    addImm(10, 10, HELLO_DATA_BASE & 0xfff),
+    ldrUnsigned(9, 10, 0, 3),
+    blr(9),
+    movz(16, 1),
+    svc(0x80),
+  );
+  return buildMachO({
+    text,
+    data: new Uint8Array(0x4000),
+    dependencies: [{ name: "/lib/libcollide-a.dylib" }, { name: "/lib/libcollide-b.dylib" }],
+    legacyFixups: [{ kind: "bind", offset: 0, symbol: "_collide", ordinal: -2 }],
+    symbols: [{ name: "_start", value: HELLO_TEXT_BASE }],
+    exports: [{ name: "_start", address: HELLO_TEXT_BASE }],
+  });
+}
+
 /**
  * Executable with a legacy rebase pointer already pointing into `__TEXT`.
  * Loading it must slide the pointer by the image slide.

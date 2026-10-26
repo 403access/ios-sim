@@ -13,7 +13,7 @@
 
 import { normalize } from "node:path";
 import { LoaderError } from "../errors.js";
-import { ImageLoader, resolveImageExport, type LoadedImage } from "./loader.js";
+import { ImageLoader, type LoadedImage } from "./loader.js";
 
 export interface DylibHandle {
   readonly id: number;
@@ -54,7 +54,7 @@ export class DynamicLoader {
   symbol(handle: DylibHandle, name: string): bigint | null {
     const entry = this.handles.get(handle.id);
     if (!entry) throw new LoaderError("bad_handle", `dlopen handle ${handle.id} is not open`);
-    return resolveImageExport(entry.image, name);
+    return this.loader.resolveDynamicSymbol(entry.image, name);
   }
 
   /** Close one handle. Returns true when the image was unloaded. */

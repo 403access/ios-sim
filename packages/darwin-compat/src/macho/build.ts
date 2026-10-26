@@ -102,6 +102,8 @@ export interface BuildMachOOptions {
   readonly moduleInitFunctions?: readonly number[];
   /** Preferred addresses written to `__DATA,__mod_term_func`. */
   readonly moduleTermFunctions?: readonly number[];
+  /** Interposition pairs written to `__DATA,__interpose`. */
+  readonly interpositions?: ReadonlyArray<{ replacement: number; replaced: number }>;
   readonly dependencies?: readonly BuildDependency[];
   readonly installName?: string;
   readonly uuid?: Uint8Array;
@@ -159,7 +161,9 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   const moduleTermFunctions = options.moduleTermFunctions ?? [];
   const moduleInitOffset = align(rawData.length, 8);
   const moduleTermOffset = align(moduleInitOffset + moduleInitFunctions.length * 8, 8);
-  const data = new Uint8Array(moduleTermOffset + moduleTermFunctions.length * 8);
+  const interpositions = options.interpositions ?? [];
+  const interposeOffset = align(moduleTermOffset + moduleTermFunctions.length * 8, 8);
+  const data = new Uint8Array(interposeOffset + interpositions.length * 16);
   data.set(rawData);
   const dataView = new DataView(data.buffer);
   moduleInitFunctions.forEach((address, index) => {
@@ -167,6 +171,10 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
   });
   moduleTermFunctions.forEach((address, index) => {
     dataView.setBigUint64(moduleTermOffset + index * 8, BigInt(address), true);
+  });
+  interpositions.forEach((pair, index) => {
+    dataView.setBigUint64(interposeOffset + index * 16, BigInt(pair.replacement), true);
+    dataView.setBigUint64(interposeOffset + index * 16 + 8, BigInt(pair.replaced), true);
   });
   const moduleRebases: BuildFixup[] = [
     ...moduleInitFunctions.map((target, index) => ({
@@ -179,6 +187,18 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
       offset: moduleTermOffset + index * 8,
       target,
     })),
+    ...interpositions.flatMap((pair, index) => [
+      {
+        kind: "rebase" as const,
+        offset: interposeOffset + index * 16,
+        target: pair.replacement,
+      },
+      {
+        kind: "rebase" as const,
+        offset: interposeOffset + index * 16 + 8,
+        target: pair.replaced,
+      },
+    ]),
   ];
   const dataFileOffset = textEnd;
   const dataEnd = align(dataFileOffset + Math.max(data.length, 8), pageSize);
@@ -363,6 +383,8 @@ export function buildMachO(options: BuildMachOOptions): BuiltMachO {
         moduleInitCount: moduleInitFunctions.length,
         moduleTermOffset,
         moduleTermCount: moduleTermFunctions.length,
+        interposeOffset,
+        interposeCount: interpositions.length,
       }),
     }),
   );
@@ -531,6 +553,8 @@ function dataSections(input: {
   moduleInitCount: number;
   moduleTermOffset: number;
   moduleTermCount: number;
+  interposeOffset: number;
+  interposeCount: number;
 }): SectionSpec[] {
   const sections: SectionSpec[] = [
     {
@@ -561,6 +585,17 @@ function dataSections(input: {
       address: input.dataVm + input.moduleTermOffset,
       size: input.moduleTermCount * 8,
       fileOffset: input.dataFileOffset + input.moduleTermOffset,
+      alignment: 3,
+      flags: S_REGULAR,
+    });
+  }
+  if (input.interposeCount > 0) {
+    sections.push({
+      name: "__interpose",
+      segmentName: "__DATA",
+      address: input.dataVm + input.interposeOffset,
+      size: input.interposeCount * 16,
+      fileOffset: input.dataFileOffset + input.interposeOffset,
       alignment: 3,
       flags: S_REGULAR,
     });
@@ -662,7 +697,7 @@ function buildExportsTrie(exports: readonly BuildExport[], preferredBase: number
   // is encoded in three bytes. That makes layout a single pre-order pass.
   const sizes = new Map<Node, number>();
   const measure = (node: Node): number => {
-    let size = 1 + (node.terminal ? 1 + 1 + 5 : 0) + 1;
+    let size = 1 + (node.terminal ? 1 + 5 : 0) + 1;
     for (const [edge, child] of node.children) {
       size += new TextEncoder().encode(edge).length + 1 + 5;
       if (!sizes.has(child)) measure(child);

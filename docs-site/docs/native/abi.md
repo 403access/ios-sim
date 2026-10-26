@@ -148,6 +148,12 @@ with the parent. Main-program images are pinned and never unloaded. This is the 
 only: guest `dlopen`/`dlsym` syscalls, `RTLD_GLOBAL`, constructors on open, and interposition are
 not wired yet.
 
+Two-level binds use the dependency ordinal, so `_collide` from dependency A and B stays distinct;
+flat (`-2`/`-3`) lookup walks the image graph in load order and the first match wins.
+`__DATA,__interpose` pairs replace a resolved target with the replacement for all subsequent
+binds, and `dynamicLoader.symbol` applies the same table. Registration order is exposed as
+`LoadedProgram.interpositions`; later pairs for the same target do not override earlier ones.
+
 ## MIG-lite
 
 `MigWriter`/`MigReader` are 4-byte aligned and bounded:

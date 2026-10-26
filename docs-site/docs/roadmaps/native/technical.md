@@ -228,9 +228,10 @@ wired into `ImageLoader`. Rebase streams slide in-image pointers; bind streams r
 lazy sites are recorded and bound on first `bindLazy(address)`; weak binds resolve flat and
 missing symbols become null. LDR-003 runs `__mod_init_func`/`__mod_term_func` around `main` with
 deduplication and stage-attributed failures. LDR-004 adds reference-counted dynamic image handles
-(`open`/`symbol`/`close`) with unload/eviction; guest `dlopen` traps are not wired. LDR-005
-(namespaces/interposition) is next. Executable lazy-stub trampolines and general weak-definition
-coalescing are explicitly still absent.
+(`open`/`symbol`/`close`) with unload/eviction; guest `dlopen` traps are not wired. LDR-005 adds
+dependency-ordinal two-level binds, flat load-order collision handling, and `__interpose`
+replacement pairs. LDR-010 (code-signature parsing) is next. Executable lazy-stub trampolines,
+general weak-definition coalescing, and broader namespace policy are explicitly still absent.
 
 | ID      | Task                                     | Size | Depends          | Deliverable                                        | Acceptance                                                                    |
 | ------- | ---------------------------------------- | ---- | ---------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |

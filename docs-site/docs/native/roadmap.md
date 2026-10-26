@@ -104,7 +104,7 @@ code, or performance is worse than a VM alternative.
 
 **Gate:** LDR-G1 and RT-G1. **Tasks:** `LDR-001..014`, `RT-001..012`.
 
-- Real `dyld` semantics: lazy-stub trampolines, weak coalescing, guest `dlopen` traps,
+- Real `dyld` semantics: lazy-stub trampolines, weak coalescing, full namespace policy, guest `dlopen` traps,
   weak coalescing, two-level namespaces.
 - Shared-cache reader and mapping, including split caches and chained fixups in the cache.
 - Code-signature parsing and an ad-hoc validation policy; entitlement evaluation hooks.

@@ -84,6 +84,12 @@ export interface LoadStats {
   cacheHits: number;
 }
 
+export interface Interposition {
+  readonly replaced: bigint;
+  readonly replacement: bigint;
+  readonly imagePath: string;
+}
+
 export interface LazyBindingView {
   readonly address: bigint;
   readonly symbol: string;
@@ -103,6 +109,8 @@ export interface LoadedProgram {
   readonly initializers: readonly bigint[];
   /** Module terminators in main-first order. */
   readonly terminators: readonly bigint[];
+  /** `__interpose` pairs in registration order. */
+  readonly interpositions: readonly Interposition[];
   /** Lazy-bind sites decoded from `LC_DYLD_INFO`, in stream order. */
   readonly lazyBindings: readonly LazyBindingView[];
   resolveExport(name: string): bigint | null;
@@ -139,6 +147,8 @@ interface LoadContext {
   readonly stats: LoadStats;
   readonly lazyStates: LazyState[];
   readonly lazyByAddress: Map<string, LazyState>;
+  readonly interpositions: Map<string, Interposition>;
+  readonly interpositionList: Interposition[];
 }
 
 const MAX_IMAGES = 128;
@@ -156,6 +166,8 @@ export class ImageLoader {
   private readonly lazyStates: LazyState[] = [];
   private readonly lazyByAddress = new Map<string, LazyState>();
   private readonly pinned = new Set<string>();
+  private readonly interpositions = new Map<string, Interposition>();
+  private readonly interpositionList: Interposition[] = [];
   private mainPath: string | null = null;
 
   constructor(options: LoaderOptions = {}) {
@@ -197,6 +209,7 @@ export class ImageLoader {
       stackSize,
       initializers,
       terminators,
+      interpositions: this.interpositionList,
       stats: { ...this.stats, images: this.order.length },
       provider: this.provider,
       get lazyBindings() {
@@ -229,6 +242,13 @@ export class ImageLoader {
       );
     }
     return image;
+  }
+
+  /** Resolve a dynamic symbol and apply any registered interposition. */
+  resolveDynamicSymbol(image: LoadedImage, name: string): bigint | null {
+    const target = resolveImageExport(image, name);
+    if (target === null) return null;
+    return this.interpositions.get(target.toString())?.replacement ?? target;
   }
 
   /** True when an image was loaded as part of the main program graph. */
@@ -281,6 +301,8 @@ export class ImageLoader {
       stats: this.stats,
       lazyStates: this.lazyStates,
       lazyByAddress: this.lazyByAddress,
+      interpositions: this.interpositions,
+      interpositionList: this.interpositionList,
     };
   }
 
@@ -369,6 +391,7 @@ export class ImageLoader {
 
     applyFixups(loaded, context, slice);
     collectModuleFunctions(loaded, context);
+    collectInterpositions(loaded, context);
     context.stats.images += 1;
     return loaded;
   }
@@ -580,6 +603,28 @@ function collectModuleFunctions(loaded: LoadedImage, context: LoadContext): void
   }
 }
 
+function collectInterpositions(loaded: LoadedImage, context: LoadContext): void {
+  for (const section of loaded.image.sections) {
+    if (section.name !== "__interpose") continue;
+    if (section.size % 16 !== 0) {
+      throw new LoaderError(
+        "bad_interpose_section",
+        `${loaded.path} __interpose size ${section.size} is not pair-aligned`,
+      );
+    }
+    const start = loaded.base + BigInt(section.address - loaded.image.preferredBase);
+    for (let offset = 0; offset < section.size; offset += 16) {
+      const replacement = context.memory.read(start + BigInt(offset), 8);
+      const replaced = context.memory.read(start + BigInt(offset) + 8n, 8);
+      if (replacement === 0n || replaced === 0n) continue;
+      const entry: Interposition = { replaced, replacement, imagePath: loaded.path };
+      if (context.interpositions.has(replaced.toString())) continue;
+      context.interpositions.set(replaced.toString(), entry);
+      context.interpositionList.push(entry);
+    }
+  }
+}
+
 function legacyAddress(loaded: LoadedImage, segmentIndex: number, offset: number): bigint {
   const segment = loaded.image.segments.find((candidate) => candidate.index === segmentIndex);
   if (!segment) {
@@ -691,7 +736,7 @@ function resolveSymbol(
       { path: loaded.path, symbol, ordinal },
     );
   }
-  return target;
+  return context.interpositions.get(target.toString())?.replacement ?? target;
 }
 
 function lookupExport(image: LoadedImage, name: string, visited: Set<string>): bigint | null {

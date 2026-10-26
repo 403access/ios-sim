@@ -9,6 +9,10 @@ import {
   buildHelperDylib,
   buildInitializerLoopProgram,
   buildInitializerProgram,
+  buildInterposedProgram,
+  buildInterposingDylib,
+  buildCollisionDylib,
+  buildCollisionProgram,
   buildLegacyDependentProgram,
   buildLegacyLazyProgram,
   buildLegacyRebaseProgram,
@@ -219,6 +223,36 @@ describe("dyld loader and runtime", () => {
     dynamic.close(handle);
     expect(dynamic.isLoaded("/lib/libdependent.dylib")).toBe(false);
     expect(dynamic.isLoaded("/lib/libother.dylib")).toBe(false);
+  });
+
+  it("applies __interpose replacements to bound symbols", () => {
+    const provider = new MapFileProvider(
+      new Map([
+        ["/interposed", buildInterposedProgram().bytes],
+        ["/lib/libinterpose.dylib", buildInterposingDylib().bytes],
+      ]),
+    );
+    const loader = new ImageLoader({ provider });
+    const program = loader.load("/interposed");
+    expect(program.interpositions).toHaveLength(1);
+    expect(program.memory.read(BigInt(HELLO_DATA_BASE), 8)).toBe(program.images[1]!.base + 0x1008n);
+
+    const runtime = new DarwinRuntime({ provider, rootDir: root() });
+    expect(runtime.run("/interposed").exitStatus).toBe(9);
+  });
+
+  it("resolves flat collisions in dependency load order", () => {
+    const provider = new MapFileProvider(
+      new Map([
+        ["/collide", buildCollisionProgram().bytes],
+        ["/lib/libcollide-a.dylib", buildCollisionDylib("/lib/libcollide-a.dylib", 11).bytes],
+        ["/lib/libcollide-b.dylib", buildCollisionDylib("/lib/libcollide-b.dylib", 22).bytes],
+      ]),
+    );
+    const program = new ImageLoader({ provider }).load("/collide");
+    expect(program.memory.read(BigInt(HELLO_DATA_BASE), 8)).toBe(program.images[1]!.base + 0x1000n);
+    const runtime = new DarwinRuntime({ provider, rootDir: root() });
+    expect(runtime.run("/collide").exitStatus).toBe(11);
   });
 
   it("reports a missing dependency with a stable code", () => {
