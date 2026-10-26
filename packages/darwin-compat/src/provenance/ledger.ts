@@ -273,6 +273,17 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     limitation: "This is a clean-room API subset and software renderer, not Apple UIKit.",
   },
   {
+    id: "REL-006",
+    claim: "Audits manifests, lockfile, ignore rules, and frozen install for supply-chain policy.",
+    status: "implemented",
+    evidence: [
+      "packages/darwin-compat/src/provenance/supply-chain.ts",
+      "packages/darwin-compat/src/provenance/supply-chain.test.ts",
+      "scripts/check-supply-chain.ts",
+    ],
+    command: "bun run supply-chain",
+  },
+  {
     id: "REL-004",
     claim: "Enforces patch-only semver drift and exact host ABI/schema versions.",
     status: "implemented",

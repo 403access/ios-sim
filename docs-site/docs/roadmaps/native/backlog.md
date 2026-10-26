@@ -17,12 +17,12 @@ task and this page is corrected.
 | State             | Meaning                                                                                                     |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | A0 substrate      | **Done.** Generated and real-clang arm64 Mach-O programs execute; Mach/XPC/syscalls/launchd have tests.     |
-| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..009/012 done; OBS-001 is next.                                     |
+| A1 kernel/threads | **In progress.** KRN-001..012 + THR-001..010/012 done; DX-004 is next.                                      |
 | A2 loader/runtime | **Started.** LDR-001..004 done; namespaces, fuzzing, diagnostics, and signing remain.                       |
 | A3–A7             | **Blocked or proposed.** Do not start until their gates/dependencies clear.                                 |
 | Shipping bridge   | **Unchanged.** Native work is isolated; do not destabilise `apps/host`, `apps/cli`, or `packages/protocol`. |
 
-**Totals:** 75 done · 1 next · remaining ready/blocked as listed.
+**Totals:** 76 done · 1 next · remaining ready/blocked as listed.
 
 ## 2. Ready queue
 
@@ -31,22 +31,21 @@ started by a human with host access, not by a Linux-only agent.
 
 | Order | ID        | Workstream    | Size | Depends | Deliverable / acceptance                            |
 | ----: | --------- | ------------- | ---- | ------- | --------------------------------------------------- |
-|     1 | `REL-006` | Release       | S    | REL-001 | Supply-chain checks; audit/lockfile                 |
-|     2 | `DX-004`  | Developer     | M    | OBS-004 | Repro bundle; reproduce on another host             |
-|     3 | `THR-011` | Threads       | M    | THR-006 | Roles/sessions/contracts; job identity and teardown |
-|     4 | `OBS-007` | Observability | S    | OBS-002 | Metrics endpoint (optional); loopback-only          |
-|     5 | `DX-002`  | Developer     | S    | OBS-005 | Trace UX; filtered trace                            |
-|     6 | `QA-007`  | Quality       | S    | REL-001 | Coverage targets; ≥90% parsers                      |
+|     1 | `DX-004`  | Developer     | M    | OBS-004 | Repro bundle; reproduce on another host             |
+|     2 | `THR-011` | Threads       | M    | THR-006 | Roles/sessions/contracts; job identity and teardown |
+|     3 | `OBS-007` | Observability | S    | OBS-002 | Metrics endpoint (optional); loopback-only          |
+|     4 | `DX-002`  | Developer     | S    | OBS-005 | Trace UX; filtered trace                            |
+|     5 | `QA-007`  | Quality       | S    | REL-001 | Coverage targets; ≥90% parsers                      |
 
 The full ready set is in the scheduled tables below. Mac-evidence tasks (`LDR-006`, `GFX-001`,
-`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `REL-006` is the next task;
-`DX-004` remains in the developer-tooling lane. Do not start two critical-path tasks at once.
+`CS-001`, `INP-001`) are ready but require a licensed-Mac window. `DX-004` is the next task;
+`THR-011` remains in the thread lane. Do not start two critical-path tasks at once.
 
 ### Next sessions
 
-Sessions 1-44 are complete through REL-004 (substrate, loader, threads, quality, observability,
-release, provenance, quickstart, diagnostics, claims, roadmap validation, and version policy). This
-is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
+Sessions 1-45 are complete through REL-006 (substrate, loader, threads, quality, observability,
+release, provenance, quickstart, diagnostics, claims, roadmap validation, version policy, and
+supply-chain checks). This is the next cadence. A session ends at a green targeted test and a backlog update, not at an arbitrary
 clock time. The parallel task is optional but keeps non-critical progress moving.
 
 | Session | Critical path | Parallel (independent) | Expected outcome                       |
@@ -188,7 +187,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `REL-003`  | Packaging                      | P2       | M    | **done**  | REL-001          | CLI + runtime tarballs + SHA-256 manifest                  |
 | `REL-004`  | Versioning policy              | P2       | S    | **done**  | REL-003          | Patch drift only; ABI/schema exact                         |
 | `REL-005`  | Docs gates                     | P1       | S    | **done**  | A0               | Broken relative links fail                                 |
-| `REL-006`  | Supply-chain checks            | P2       | S    | **next**  | REL-001          | Audit/lockfile                                             |
+| `REL-006`  | Supply-chain checks            | P2       | S    | **done**  | REL-001          | Manifests, lockfile, ignore, frozen install                |
 | `REL-007`  | Maintenance calendar           | P2       | S    | blocked   | SB-008           | Quarterly runbook                                          |
 | `LEG-001`  | Provenance ledger              | P0       | S    | **done**  | A0               | 25 claims, evidence paths verified                         |
 | `LEG-002`  | Runtime legal review           | P0       | M    | blocked   | LEG-001          | Written gate                                               |
@@ -198,7 +197,7 @@ Commands: `bun run test:kernel` and `bun run test:kernel:linux`.
 | `DX-001`   | Disassembler                   | P1       | M    | **done**  | A0               | `inspect --disasm`                                         |
 | `DX-002`   | Trace UX                       | P2       | S    | **ready** | OBS-005          | Filtered trace                                             |
 | `DX-003`   | Capability doctor              | P2       | S    | **done**  | A0               | Versioned schema, JSON Schema, validator                   |
-| `DX-004`   | Repro bundle                   | P2       | M    | **ready** | OBS-004          | Reproduce on another host                                  |
+| `DX-004`   | Repro bundle                   | P2       | M    | **next**  | OBS-004          | Reproduce on another host                                  |
 | `DX-005`   | Native quickstart              | P1       | S    | **done**  | A0               | One command, visible clang skip                            |
 | `DX-006`   | Roadmap validator              | P2       | S    | **done**  | backlog          | CI catches stale IDs/status                                |
 

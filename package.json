@@ -41,6 +41,7 @@
     "claims": "bun scripts/check-claims.ts",
     "roadmap:check": "bun scripts/check-roadmap.ts",
     "versions": "bun scripts/check-versions.ts",
+    "supply-chain": "bun scripts/check-supply-chain.ts",
     "quickstart": "./scripts/quickstart.sh",
     "repro": "bun scripts/repro-fixtures.ts",
     "package:native": "bun scripts/package-native.ts",

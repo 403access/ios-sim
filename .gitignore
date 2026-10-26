@@ -13,6 +13,7 @@ docs-site/build/
 *.log
 
 # Test output
+build/
 test-results/
 fixtures/hello-sim/build/
 artifacts/

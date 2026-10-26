@@ -45,6 +45,7 @@ jobs:
       - run: bun run claims
       - run: bun run roadmap:check
       - run: bun run versions
+      - run: bun run supply-chain
       - name: Fuzz parsers (100k per target in CI)
         run: bun scripts/fuzz-darwin.ts --iterations 100000
       - name: Performance baseline (CI scale)

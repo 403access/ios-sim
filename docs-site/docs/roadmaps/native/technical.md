@@ -498,7 +498,9 @@ limits, and deadlines; CLI catches print it. LEG-004 adds a claims audit that fa
 simulator/iOS/UIKit wording while allowing explicit negations; CI runs it with the provenance
 check. DX-006 adds a backlog validator for duplicate ready rows, done-in-queue, missing status,
 and unknown session IDs; CI runs it. REL-004 adds a version policy (patch drift allowed, major/minor
-and ABI/schema versions exact) plus a workspace consistency gate. REL-006 (supply-chain checks) is
+and ABI/schema versions exact) plus a workspace consistency gate. REL-006 adds a supply-chain
+gate: no install hooks, no insecure sources, bounded dependency ranges, required overrides,
+lockfile presence, ignored build output, and a documented frozen install. DX-004 (repro bundle) is
 next.
 
 | ID     | Task                          | Size | Depends            | Deliverable                                  | Acceptance                                       |
