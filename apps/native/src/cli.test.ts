@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildDemoProgram } from "@ios-sim/darwin-compat";
+import { buildDemoProgram, buildSyntheticSharedCache } from "@ios-sim/darwin-compat";
 import { main, type CliIo } from "./cli.js";
 
 const roots: string[] = [];
@@ -78,6 +78,17 @@ describe("ios-sim-native CLI", () => {
     expect(stats.processesStarted).toBe(1);
     expect(stats.processesExited).toBe(1);
     expect(stats.instructions).toBeGreaterThan(5);
+  });
+
+  it("inspects a synthetic shared cache", async () => {
+    const directory = temp();
+    const file = join(directory, "cache");
+    writeFileSync(file, buildSyntheticSharedCache());
+    const io = capture();
+    expect(await main(["cache", file, "--json"], io)).toBe(0);
+    const cache = JSON.parse(io.out.join(""));
+    expect(cache.magic).toBe("dyld_v1  arm64e");
+    expect(cache.images[0].path).toBe("/usr/lib/libSystem0.dylib");
   });
 
   it("reports missing bootstrap services", async () => {

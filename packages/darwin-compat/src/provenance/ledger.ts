@@ -178,6 +178,18 @@ export const PROVENANCE: readonly ProvenanceEntry[] = [
     command: "make -C packages/darwin-host stress",
   },
   {
+    id: "LDR-006",
+    claim:
+      "Parses dyld cache headers, mappings, images, and sub-cache arrays with synthetic fixtures.",
+    status: "partial",
+    evidence: [
+      "packages/darwin-compat/src/dyld/shared-cache.ts",
+      "packages/darwin-compat/src/dyld/shared-cache.test.ts",
+    ],
+    command: "bunx vitest run packages/darwin-compat/src/dyld/shared-cache.test.ts",
+    limitation: "A real licensed Apple cache has not been parsed or verified.",
+  },
+  {
     id: "LDR-011",
     claim: "Applies require/deny/expected-value entitlement policies to the main image.",
     status: "implemented",

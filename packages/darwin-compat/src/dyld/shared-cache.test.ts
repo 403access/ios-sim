@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+import { buildSyntheticSharedCache, parseSharedCache, SharedCacheError } from "./shared-cache.js";
+
+describe("dyld shared cache parser", () => {
+  it("reads mappings, images, and sub-caches from a synthetic cache", () => {
+    const bytes = buildSyntheticSharedCache({
+      images: [
+        { address: 0x180001000n, modTime: 1n, inode: 2n },
+        { address: 0x180002000n, modTime: 3n, inode: 4n },
+      ],
+      imagePaths: ["/usr/lib/libSystem.B.dylib", "/usr/lib/libobjc.A.dylib"],
+      subCaches: [{ uuid: "00112233-4455-6677-8899-aabbccddeeff", cacheVMOffset: 0x1000n }],
+    });
+    const cache = parseSharedCache(bytes);
+    expect(cache.magic).toBe("dyld_v1  arm64e");
+    expect(cache.mappings).toHaveLength(1);
+    expect(cache.mappings[0]).toMatchObject({ address: 0x180000000n, size: 0x4000n });
+    expect(cache.images.map((image) => image.path)).toEqual([
+      "/usr/lib/libSystem.B.dylib",
+      "/usr/lib/libobjc.A.dylib",
+    ]);
+    expect(cache.subCaches).toEqual([
+      { uuid: "00112233-4455-6677-8899-aabbccddeeff", cacheVMOffset: 0x1000n },
+    ]);
+    expect(cache.sharedRegionStart).toBe(0x180000000n);
+    expect(cache.maxSlide).toBe(0x1_0000_0000n);
+  });
+
+  it("rejects wrong magic, truncation, and implausible counts", () => {
+    expect(() => parseSharedCache(new Uint8Array(8))).toThrow(SharedCacheError);
+    expect(() => parseSharedCache(new Uint8Array(72))).toThrow(/magic/);
+    const badMagic = buildSyntheticSharedCache({ magic: "not a cache" });
+    expect(() => parseSharedCache(badMagic)).toThrow(/expected dyld_v1/);
+    const truncated = buildSyntheticSharedCache().subarray(0, 32);
+    expect(() => parseSharedCache(truncated)).toThrow(/cache is|truncated/);
+    const many = buildSyntheticSharedCache();
+    new DataView(many.buffer).setUint32(20, 999_999, true);
+    expect(() => parseSharedCache(many)).toThrow(/implausible/);
+  });
+
+  it("rejects out-of-bounds and unterminated image paths", () => {
+    const bytes = buildSyntheticSharedCache();
+    const view = new DataView(bytes.buffer);
+    const imagesOffset = view.getUint32(24, true);
+    view.setUint32(imagesOffset + 24, bytes.length + 100, true);
+    expect(() => parseSharedCache(bytes)).toThrow(/outside/);
+    const noNul = buildSyntheticSharedCache({ imagePaths: ["/x"] });
+    const last = noNul.length - 1;
+    noNul[last] = 65;
+    expect(() => parseSharedCache(noNul)).toThrow(/unterminated/);
+    expect(() =>
+      buildSyntheticSharedCache({ subCaches: [{ uuid: "nope", cacheVMOffset: 0n }] }),
+    ).toThrow(/invalid UUID/);
+  });
+});

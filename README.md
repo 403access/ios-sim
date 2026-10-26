@@ -186,6 +186,7 @@ bun run repro:bundle     # tar.gz with doctor/corpus/bench + SHA-256
 bun run quickstart       # demo + optional real-clang fixture
 bun run native trace <file> --chrome  # runtime events as a Chrome trace
 bun run native why <file>             # explain loader outcome
+bun run native cache <file>           # inspect a synthetic/real cache header
 bun run verify          # local full check
 ```
 

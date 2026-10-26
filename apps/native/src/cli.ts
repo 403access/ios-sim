@@ -32,6 +32,7 @@ import {
   inspectMachO,
   parseLaunchdManifest,
   parseMachO,
+  parseSharedCache,
   type InspectReport,
   type ProcessResult,
 } from "@ios-sim/darwin-compat";
@@ -96,6 +97,43 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
       }
       if (options.json) io.stdout(`${JSON.stringify(report, null, 2)}\n`);
       else io.stdout(`${formatInspectReport(report)}\n`);
+    });
+
+  program
+    .command("cache")
+    .description("inspect a dyld shared cache header, mappings, and images")
+    .argument("<file>", "shared cache file")
+    .option("--json", "print JSON")
+    .action((file: string, options: { json?: boolean }) => {
+      const cache = parseSharedCache(readFileSync(file));
+      if (options.json) {
+        io.stdout(
+          `${JSON.stringify(
+            cache,
+            (_key, value) => (typeof value === "bigint" ? `0x${value.toString(16)}` : value),
+            2,
+          )}\n`,
+        );
+      } else {
+        io.stdout(`cache: ${cache.magic}\n`);
+        io.stdout(
+          `  region: 0x${cache.sharedRegionStart.toString(16)} + 0x${cache.sharedRegionSize.toString(16)}, max slide 0x${cache.maxSlide.toString(16)}\n`,
+        );
+        io.stdout(`  mappings: ${cache.mappings.length}\n`);
+        for (const mapping of cache.mappings) {
+          io.stdout(
+            `    0x${mapping.address.toString(16)} size 0x${mapping.size.toString(16)} prot ${mapping.initProtection}/${mapping.maxProtection}\n`,
+          );
+        }
+        io.stdout(`  images: ${cache.images.length}\n`);
+        for (const image of cache.images)
+          io.stdout(`    0x${image.address.toString(16)} ${image.path}\n`);
+        if (cache.subCaches.length > 0) {
+          io.stdout(`  sub-caches: ${cache.subCaches.length}\n`);
+          for (const sub of cache.subCaches)
+            io.stdout(`    ${sub.uuid} @ 0x${sub.cacheVMOffset.toString(16)}\n`);
+        }
+      }
     });
 
   program
