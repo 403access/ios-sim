@@ -261,6 +261,13 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)addTarget:(id)target action:(SEL)action forControlEvents:(NSUInteger)events;
 @end
 
+@interface UISegmentedControl : UIControl
+- (id)initWithItems:(id)items;
+- (unsigned long)numberOfSegments;
+- (long)selectedSegmentIndex;
+- (void)setSelectedSegmentIndex:(long)index;
+@end
+
 @interface UISwitch : UIControl
 - (void)setOn:(BOOL)on animated:(BOOL)animated;
 - (void)setOn:(BOOL)on;

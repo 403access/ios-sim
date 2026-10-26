@@ -91,6 +91,9 @@ const SELECTORS = {
   layer: "layer",
   setCornerRadius: "setCornerRadius:",
   stringWithFormat: "stringWithFormat:",
+  initWithItems: "initWithItems:",
+  selectedSegmentIndex: "selectedSegmentIndex",
+  segmentChanged: "segmentChanged:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
   beginAnimations: "beginAnimations:context:",
@@ -239,7 +242,11 @@ type SlotName =
   | "imageNamed"
   | "imageFromData"
   | "formatted"
-  | "formatMarker";
+  | "formatMarker"
+  | "classSegmented"
+  | "segmentItems"
+  | "segmented"
+  | "segmentIndex";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -292,6 +299,7 @@ interface Plan {
   readonly switchRect: number;
   readonly sliderRect: number;
   readonly imageRect: number;
+  readonly segmentRect: number;
   readonly cornerRadius: number;
   readonly wrapRect: number;
   readonly animationDuration: number;
@@ -447,6 +455,10 @@ function planData(): Plan {
     "imageFromData",
     "formatted",
     "formatMarker",
+    "classSegmented",
+    "segmentItems",
+    "segmented",
+    "segmentIndex",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -486,6 +498,8 @@ function planData(): Plan {
     "%s-%d",
     "OK",
     "OK-7",
+    "ONE",
+    "TWO",
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
@@ -508,7 +522,7 @@ function planData(): Plan {
   const appClassMethods = cursor;
   cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
-  cursor += 8 + 11 * 24;
+  cursor += 8 + 12 * 24;
   const appCategory = cursor;
   cursor += 48;
   const lifecycleCategory = cursor;
@@ -610,6 +624,8 @@ function planData(): Plan {
   cursor += 8;
   const animationAlpha = cursor;
   cursor += 8;
+  const segmentRect = cursor;
+  cursor += 32;
   const cornerRadius = cursor;
   cursor += 8;
   const timerInterval = cursor;
@@ -726,6 +742,7 @@ function planData(): Plan {
     switchRect,
     sliderRect,
     imageRect,
+    segmentRect,
     cornerRadius,
     wrapRect,
     animationDuration,
@@ -880,6 +897,19 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
 
+  label("segmentChanged");
+  emitWord(stpPre(29, 30, 31, -16));
+  emitWord(stpPre(19, 20, 31, -16));
+  emitWord(movReg(19, 2));
+  emitWord(movReg(0, 19));
+  emitAddress(1, selector(SELECTORS.selectedSegmentIndex));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
+  emitStore(0, slot("segmentIndex"));
+  emitWord(ldpPost(19, 20, 31, 16));
+  emitWord(ldpPost(29, 30, 31, 16));
+  emitWord(ret());
+
   label("gestureTapped");
   emitWord(stpPre(29, 30, 31, -16));
   emitWord(stpPre(19, 20, 31, -16));
@@ -1020,6 +1050,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("sliderChanged") ?? 0),
     bases.textBase + (code.labels.get("delayedTick") ?? 0),
     bases.textBase + (code.labels.get("gestureTapped") ?? 0),
+    bases.textBase + (code.labels.get("segmentChanged") ?? 0),
   );
 
   const text = new Uint8Array(code.words.length * 4);
@@ -1080,6 +1111,11 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_gestureMarker",
         value: dataAddress(plan.slotOffsets.gestureMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_segmentIndex",
+        value: dataAddress(plan.slotOffsets.segmentIndex),
         sectionIndex: 2,
       },
       {
@@ -2088,6 +2124,66 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // NSMutableArray *items = [NSMutableArray array];
+    // [items addObject:[NSString stringWithUTF8String:"ONE"]]; ... "TWO"
+    // UISegmentedControl *segments = [[UISegmentedControl alloc] initWithItems:items];
+    emitPointer(0, slot("classMutableArray"));
+    emitAddress(1, selector(SELECTORS.array));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("segmentItems"));
+    emitPointer(0, slot("classString"));
+    emitAddress(1, selector(SELECTORS.stringWithUTF8String));
+    emitAddress(2, dataAddress(plan.stringOffsets.ONE!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitPointer(0, slot("segmentItems"));
+    emitAddress(1, selector(SELECTORS.addObject));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classString"));
+    emitAddress(1, selector(SELECTORS.stringWithUTF8String));
+    emitAddress(2, dataAddress(plan.stringOffsets.TWO!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitPointer(0, slot("segmentItems"));
+    emitAddress(1, selector(SELECTORS.addObject));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classSegmented"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithItems));
+    emitPointer(2, slot("segmentItems"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setFrame));
+    emitDouble(0, dataAddress(plan.segmentRect));
+    emitDouble(1, dataAddress(plan.segmentRect + 8));
+    emitDouble(2, dataAddress(plan.segmentRect + 16));
+    emitDouble(3, dataAddress(plan.segmentRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(21, slot("segmented"));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.addTarget));
+    emitPointer(2, slot("delegateSelf"));
+    emitAddress(3, selector(SELECTORS.segmentChanged));
+    emitWord(movz(4, 4096));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -2254,6 +2350,7 @@ function emitData(
   sliderChangedImp: number,
   delayedTickImp: number,
   gestureTappedImp: number,
+  segmentChangedImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
   const view = new DataView(bytes.buffer);
@@ -2282,6 +2379,8 @@ function emitData(
     "%s-%d",
     "OK",
     "OK-7",
+    "ONE",
+    "TWO",
     "WRAP THE LABEL\nSECOND LINE",
     "theme",
     "Lifecycle",
@@ -2315,7 +2414,7 @@ function emitData(
   u32(plan.appClassMethods, 24);
   u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
-  u32(plan.appCategoryMethods + 4, 11);
+  u32(plan.appCategoryMethods + 4, 12);
 
   const initializeEntry = plan.appClassMethods + 8;
   rebase(initializeEntry, selector(SELECTORS.initialize));
@@ -2371,6 +2470,10 @@ function emitData(
   rebase(gestureEntry, selector(SELECTORS.gestureTapped));
   rebase(gestureEntry + 8, selector(TYPES));
   rebase(gestureEntry + 16, gestureTappedImp);
+  const segmentEntry = plan.appCategoryMethods + 272;
+  rebase(segmentEntry, selector(SELECTORS.segmentChanged));
+  rebase(segmentEntry + 8, selector(TYPES));
+  rebase(segmentEntry + 16, segmentChangedImp);
 
   // category_t { name, cls, instanceMethods, classMethods, protocols,
   //              properties, classProperties }
@@ -2539,6 +2642,7 @@ function emitData(
   bind(plan.slotOffsets.classSlider, "_OBJC_CLASS_$_UISlider");
   bind(plan.slotOffsets.classBundle, "_OBJC_CLASS_$_NSBundle");
   bind(plan.slotOffsets.classData, "_OBJC_CLASS_$_NSData");
+  bind(plan.slotOffsets.classSegmented, "_OBJC_CLASS_$_UISegmentedControl");
   bind(plan.slotOffsets.classTapGesture, "_OBJC_CLASS_$_UITapGestureRecognizer");
   bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
   bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");
@@ -2612,6 +2716,10 @@ function emitData(
   f64(plan.sliderRect + 8, 560);
   f64(plan.sliderRect + 16, 300);
   f64(plan.sliderRect + 24, 24);
+  f64(plan.segmentRect, 20);
+  f64(plan.segmentRect + 8, 364);
+  f64(plan.segmentRect + 16, 200);
+  f64(plan.segmentRect + 24, 30);
   f64(plan.cornerRadius, 12);
   f64(plan.imageRect, 250);
   f64(plan.imageRect + 8, 140);

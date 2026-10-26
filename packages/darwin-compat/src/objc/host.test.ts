@@ -257,6 +257,23 @@ describe("ObjC UIKit demo", () => {
     expect(at(325, 215)).toEqual([127, 127, 127]);
   });
 
+  it("selects a segment and sends value-changed", () => {
+    const right = runDemo([{ x: 170, y: 378 }]);
+    const rightFrame = right.frames.at(-1)!;
+    const at = (frame: (typeof right.frames)[number], x: number, y: number): number[] => {
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 3)];
+    };
+    expect(at(rightFrame, 30, 370)).toEqual([205, 205, 210]);
+    expect(at(rightFrame, 210, 370)).toEqual([255, 255, 255]);
+    expect(right.program.memory.read(right.program.resolveExport("_segmentIndex")!, 8)).toBe(1n);
+
+    const left = runDemo([{ x: 30, y: 378 }]);
+    expect(left.program.memory.read(left.program.resolveExport("_segmentIndex")!, 8)).toBe(0n);
+    expect(at(left.frames.at(-1)!, 30, 370)).toEqual([255, 255, 255]);
+    expect(at(left.frames.at(-1)!, 210, 370)).toEqual([205, 205, 210]);
+  });
+
   it("scrolls a UIScrollView when a child forwards dragged touches", () => {
     // The touch lands on the blue content view, which has no handler of its
     // own; UIView's default forwards it to the scroll view.

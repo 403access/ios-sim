@@ -32,6 +32,7 @@ static UISlider *gSlider;
 static int gDelayed;
 static int gBundle;
 static int gGesture;
+static int gSegment = -1;
 static UILabel *gLabel;
 
 @interface UIViewController (Lifecycle)
@@ -140,6 +141,7 @@ static unsigned gTick;
 - (void)sliderChanged:(id)sender;
 - (void)delayedTick:(id)object;
 - (void)gestureTapped:(id)recognizer;
+- (void)segmentChanged:(id)sender;
 @end
 
 @implementation AppDelegate
@@ -256,6 +258,15 @@ static unsigned gTick;
                    animations:^{
                      picture.alpha = 0.25;
                    }];
+  NSMutableArray *items = [NSMutableArray array];
+  [items addObject:[NSString stringWithUTF8String:"ONE"]];
+  [items addObject:[NSString stringWithUTF8String:"TWO"]];
+  UISegmentedControl *segments = [[UISegmentedControl alloc] initWithItems:items];
+  [segments setFrame:CGRectMake(20, 364, 200, 30)];
+  [segments addTarget:self
+                action:@selector(segmentChanged:)
+      forControlEvents:UIControlEventValueChanged];
+  [window addSubview:segments];
   gSlider = [[UISlider alloc] initWithFrame:CGRectMake(20, 560, 300, 24)];
   [gSlider addTarget:self
               action:@selector(sliderChanged:)
@@ -293,6 +304,10 @@ static unsigned gTick;
 - (void)switchChanged:(id)sender {
   (void)sender;
   gSwitchChanges++;
+}
+
+- (void)segmentChanged:(UISegmentedControl *)sender {
+  gSegment = (int)[sender selectedSegmentIndex];
 }
 
 - (void)gestureTapped:(id)recognizer {

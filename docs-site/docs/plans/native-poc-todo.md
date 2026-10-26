@@ -84,6 +84,7 @@ started.
 - [x] `NSData` (file/bytes) and `+[UIImage imageWithData:]`
 - [x] `+[NSString stringWithFormat:]` and formatted `NSLog` (stack-passed varargs)
 - [~] `CALayer` corner radius on view backgrounds (masks/opacity stored, no transforms)
+- [x] `UISegmentedControl` selection, rendering, and value-changed actions
 - [x] Tap and pan gesture recognisers (fire on touches that reach the default handler)
 - [x] Block literals bind (`__NSConcreteStackBlock`) and `+[UIView animateWithDuration:animations:]`
 - [ ] Simultaneous recognition, gesture dependencies, and the view-controller responder step

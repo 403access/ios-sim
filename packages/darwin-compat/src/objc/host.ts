@@ -126,6 +126,10 @@ const IMAGE_INSTANCE_SIZE = 24;
 const IMAGE_VIEW_IMAGE = 64;
 const IMAGE_VIEW_INSTANCE_SIZE = 72;
 
+const SEGMENT_SELECTED = 64;
+const SEGMENT_COUNT = 72;
+const SEGMENT_INSTANCE_SIZE = 80;
+
 const SWITCH_ON = 64;
 const SWITCH_INSTANCE_SIZE = 72;
 
@@ -342,6 +346,7 @@ export class ObjcHost {
   private readonly children = new Map<bigint, bigint[]>();
   private readonly superviews = new Map<bigint, bigint>();
   private readonly gestures = new Map<bigint, bigint[]>();
+  private readonly segments = new Map<bigint, string[]>();
   private readonly viewLayers = new Map<bigint, bigint>();
   private readonly gestureDefs = new Map<
     bigint,
@@ -1342,6 +1347,70 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(slider);
+
+    const segmented = this.defineClass({
+      name: "UISegmentedControl",
+      superclass: "UIControl",
+      instanceSize: SEGMENT_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "initWithItems:",
+          types: "@24@0:8@16",
+          run: (cpu, receiver) => {
+            const items = cpu.readRegister(2);
+            const titles =
+              items === 0n ? [] : this.arrayOf(items).map((item) => this.stringValue(item));
+            this.segments.set(receiver, titles);
+            this.memory.write(
+              receiver + BigInt(SEGMENT_SELECTED),
+              8,
+              BigInt(titles.length > 0 ? 0 : -1),
+            );
+            this.memory.write(receiver + BigInt(SEGMENT_COUNT), 8, BigInt(titles.length));
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "numberOfSegments",
+          types: "Q16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(SEGMENT_COUNT), 8)),
+        },
+        {
+          selector: "selectedSegmentIndex",
+          types: "q16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.memory.read(receiver + BigInt(SEGMENT_SELECTED), 8)),
+        },
+        {
+          selector: "setSelectedSegmentIndex:",
+          types: "v24@0:8q16",
+          run: (cpu, receiver) => {
+            const count = Number(this.memory.read(receiver + BigInt(SEGMENT_COUNT), 8));
+            const requested = Number(BigInt.asIntN(64, cpu.readRegister(2)));
+            const index = requested >= count ? -1 : Math.max(-1, requested);
+            this.memory.write(receiver + BigInt(SEGMENT_SELECTED), 8, BigInt(index));
+          },
+        },
+        {
+          selector: "touchesEnded:withEvent:",
+          types: "v32@0:8@16@24",
+          run: (cpu, receiver) => {
+            const point = this.touchPoint(cpu);
+            const titles = this.segments.get(receiver) ?? [];
+            if (point === null || titles.length === 0) return { value: 0n };
+            const rect = this.readStoredRect(receiver);
+            const ratio =
+              rect.width <= 0 ? 0 : Math.min(0.999, Math.max(0, (point.x - rect.x) / rect.width));
+            const index = Math.floor(ratio * titles.length);
+            this.memory.write(receiver + BigInt(SEGMENT_SELECTED), 8, BigInt(index));
+            return this.sendControlActions(cpu, receiver, CONTROL_EVENT_VALUE_CHANGED);
+          },
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(segmented);
 
     const string = this.defineClass({
       name: "NSString",
@@ -4262,6 +4331,8 @@ export class ObjcHost {
       this.paintSwitch(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UISlider") {
       this.paintSlider(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
+    } else if (klass?.name === "UISegmentedControl") {
+      this.paintSegmentedControl(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UIImageView") {
       const picture = this.memory.read(view + BigInt(IMAGE_VIEW_IMAGE), 8);
       const source = picture === 0n ? undefined : this.images.get(picture);
@@ -4398,6 +4469,78 @@ export class ObjcHost {
       const half = Math.sqrt(Math.max(0, radius * radius - dy * dy));
       if (half <= 0) continue;
       framebuffer.fillRect(centreX - half, centreY - radius + row, half * 2, 1, color, clip);
+    }
+  }
+
+  /** Draw the segmented track, dividers, selected fill, and segment titles. */
+  private paintSegmentedControl(
+    view: bigint,
+    framebuffer: Framebuffer,
+    x: number,
+    y: number,
+    rect: { width: number; height: number },
+    clip: { x: number; y: number; width: number; height: number },
+    alpha: number,
+  ): void {
+    const titles = this.segments.get(view) ?? [];
+    if (titles.length === 0) return;
+    const selected = Number(
+      BigInt.asIntN(64, this.memory.read(view + BigInt(SEGMENT_SELECTED), 8)),
+    );
+    const radius = Math.min(rect.height / 2, 8);
+    this.fillRoundedRect(
+      framebuffer,
+      x,
+      y,
+      rect.width,
+      rect.height,
+      radius,
+      {
+        r: 205,
+        g: 205,
+        b: 210,
+        a: 255 * alpha,
+      },
+      clip,
+    );
+    const width = rect.width / titles.length;
+    if (selected >= 0 && selected < titles.length) {
+      this.fillRoundedRect(
+        framebuffer,
+        x + width * selected + 2,
+        y + 2,
+        width - 4,
+        rect.height - 4,
+        Math.max(1, radius - 2),
+        { r: 255, g: 255, b: 255, a: 255 * alpha },
+        clip,
+      );
+    }
+    const scale = Math.max(1, Math.min(3, Math.round(rect.height / 10)));
+    titles.forEach((title, index) => {
+      const textWidthPixels = textWidth(title, scale);
+      drawText(
+        framebuffer,
+        x + width * index + Math.max(2, (width - textWidthPixels) / 2),
+        y + Math.max(2, (rect.height - 5 * scale) / 2),
+        title,
+        { scale, color: BLACK },
+      );
+    });
+    for (let index = 1; index < titles.length; index += 1) {
+      framebuffer.fillRect(
+        x + width * index,
+        y + 4,
+        1,
+        rect.height - 8,
+        {
+          r: 180,
+          g: 180,
+          b: 186,
+          a: 255 * alpha,
+        },
+        clip,
+      );
     }
   }
 
