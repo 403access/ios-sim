@@ -60,6 +60,7 @@ started.
 - [x] Scripted ticks (`tick:` to the delegate) with an animated view
 - [x] `UIButton` target/action dispatch on touch-up
 - [x] `UIView` alpha and parent-alpha compositing
+- [x] Parent-relative frames with nested painting and hit-testing
 - [~] Real event source, timers, display link, text, a live window
 - [~] Run loop, input, text, CoreAnimation, a live host window (headless one-shot frame only)
 

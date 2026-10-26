@@ -109,6 +109,20 @@ describe("ObjC UIKit demo", () => {
     ]);
   });
 
+  it("paints and hit-tests nested views in parent coordinates", () => {
+    const result = runDemo([{ x: 40, y: 160 }]);
+    expect(result.frames).toHaveLength(3);
+    const at = (frameIndex: number, x: number, y: number): number[] => {
+      const frame = result.frames[frameIndex]!;
+      const offset = (y * frame.width + x) * 4;
+      return [...frame.pixels.slice(offset, offset + 4)];
+    };
+    expect(at(0, 40, 160)).toEqual([255, 0, 0, 255]);
+    expect(at(1, 40, 160)).toEqual([0, 0, 255, 255]);
+    expect(at(2, 40, 160)).toEqual([0, 255, 0, 255]);
+    expect(at(0, 25, 145)).toEqual([128, 128, 128, 255]);
+  });
+
   it("dispatches a UIButton target/action", () => {
     const result = runDemo([{ x: 30, y: 320 }]);
     expect(result.frames).toHaveLength(2);

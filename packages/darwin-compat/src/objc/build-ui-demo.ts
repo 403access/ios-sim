@@ -83,6 +83,7 @@ const SELECTORS = {
   buttonTapped: "buttonTapped:",
   addTarget: "addTarget:action:forControlEvents:",
   setAlpha: "setAlpha:",
+  grayColor: "grayColor",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -113,7 +114,8 @@ type SlotName =
   | "classPool"
   | "classButton"
   | "delegateSelf"
-  | "classView";
+  | "classView"
+  | "mainView";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -150,6 +152,8 @@ interface Plan {
   readonly rectTable: number;
   readonly buttonRect: number;
   readonly overlayRect: number;
+  readonly containerRect: number;
+  readonly nestedRect: number;
   readonly half: number;
   readonly size: number;
   readonly sections: readonly BuildDataSection[];
@@ -240,6 +244,7 @@ function planData(): Plan {
     "classButton",
     "delegateSelf",
     "classView",
+    "mainView",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -350,6 +355,10 @@ function planData(): Plan {
   cursor += 32;
   const overlayRect = cursor;
   cursor += 32;
+  const containerRect = cursor;
+  cursor += 32;
+  const nestedRect = cursor;
+  cursor += 32;
   const half = cursor;
   cursor += 8;
 
@@ -406,7 +415,7 @@ function planData(): Plan {
     {
       name: "__const",
       offset: windowRect,
-      size: 64 + 4 * 32 + 32 + 32 + 8,
+      size: 64 + 4 * 32 + 32 + 32 + 64 + 8,
       alignment: 3,
       flags: S_REGULAR,
     },
@@ -447,6 +456,8 @@ function planData(): Plan {
     rectTable,
     buttonRect,
     overlayRect,
+    containerRect,
+    nestedRect,
     half,
     size: cursor,
     sections,
@@ -553,7 +564,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   label("tapButton");
   emitWord(stpPre(29, 30, 31, -16));
   emitWord(stpPre(19, 20, 31, -16));
-  emitPointer(0, slot("currentView"));
+  emitPointer(0, slot("mainView"));
   emitWord(movReg(19, 0));
   emitPointer(0, slot("classColor"));
   emitAddress(1, selector(SELECTORS.orangeColor));
@@ -665,8 +676,8 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(lslImm(11, 11, 5));
     emitAddress(12, dataAddress(plan.rectTable));
     emitWord(addReg(11, 12, 11));
-    // [currentView setFrame:...]
-    emitPointer(0, slot("currentView"));
+    // [mainView setFrame:...]
+    emitPointer(0, slot("mainView"));
     emitAddress(1, selector(SELECTORS.setFrame));
     emitWord(ldrDouble(0, 11, 0));
     emitWord(ldrDouble(1, 11, 8));
@@ -683,6 +694,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     // -[AppDelegate(Window) application:didFinishLaunchingWithOptions:] -> BOOL
     emitWord(stpPre(29, 30, 31, -16));
     emitWord(stpPre(19, 20, 31, -16));
+    emitWord(stpPre(21, 22, 31, -16));
     emitStore(0, slot("delegateSelf"));
 
     // UIWindow *window = [[UIWindow alloc] initWithFrame:...];
@@ -707,6 +719,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(blr(16));
     emitWord(movReg(20, 0));
     emitStore(20, slot("currentView"));
+    emitStore(20, slot("mainView"));
 
     // [view setFrame:...];
     emitWord(movReg(0, 20));
@@ -770,6 +783,65 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UIView *container = [[UIView alloc] initWithFrame:(20,140,200,100)];
+    emitPointer(0, slot("classView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.containerRect));
+    emitDouble(1, dataAddress(plan.containerRect + 8));
+    emitDouble(2, dataAddress(plan.containerRect + 16));
+    emitDouble(3, dataAddress(plan.containerRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.grayColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 19));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
+    // TapView *nested = [[TapView alloc] initWithFrame:(10,10,80,40)];
+    emitWord(movReg(22, 21));
+    emitPointer(0, slot("classTapView"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithFrame));
+    emitDouble(0, dataAddress(plan.nestedRect));
+    emitDouble(1, dataAddress(plan.nestedRect + 8));
+    emitDouble(2, dataAddress(plan.nestedRect + 16));
+    emitDouble(3, dataAddress(plan.nestedRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitPointer(0, slot("classColor"));
+    emitAddress(1, selector(SELECTORS.redColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(2, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBackgroundColor));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 22));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitWord(movReg(2, 21));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // UIButton *button = [UIButton alloc];
     emitPointer(0, slot("classButton"));
     emitAddress(1, selector(SELECTORS.alloc));
@@ -826,6 +898,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitWord(blr(16));
 
     emitWord(movz(0, 1));
+    emitWord(ldpPost(21, 22, 31, 16));
     emitWord(ldpPost(19, 20, 31, 16));
     emitWord(ldpPost(29, 30, 31, 16));
     emitWord(ret());
@@ -1176,6 +1249,14 @@ function emitData(
   f64(plan.overlayRect + 8, 20);
   f64(plan.overlayRect + 16, 100);
   f64(plan.overlayRect + 24, 100);
+  f64(plan.containerRect, 20);
+  f64(plan.containerRect + 8, 140);
+  f64(plan.containerRect + 16, 200);
+  f64(plan.containerRect + 24, 100);
+  f64(plan.nestedRect, 10);
+  f64(plan.nestedRect + 8, 10);
+  f64(plan.nestedRect + 16, 80);
+  f64(plan.nestedRect + 24, 40);
   f64(plan.half, 0.5);
   for (let index = 0; index < 4; index += 1) {
     const rect = plan.rectTable + index * 32;

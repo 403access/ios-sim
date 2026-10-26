@@ -918,6 +918,7 @@ export class ObjcHost {
         this.constantColor("purpleColor", { r: 0.5, g: 0, b: 0.5, a: 1 }),
         this.constantColor("yellowColor", { r: 1, g: 1, b: 0, a: 1 }),
         this.constantColor("orangeColor", { r: 1, g: 0.5, b: 0, a: 1 }),
+        this.constantColor("grayColor", { r: 0.5, g: 0.5, b: 0.5, a: 1 }),
         this.constantColor("greenColor", { r: 0, g: 1, b: 0, a: 1 }),
         this.constantColor("whiteColor", { r: 1, g: 1, b: 1, a: 1 }),
         this.constantColor("blackColor", { r: 0, g: 0, b: 0, a: 1 }),
@@ -1807,7 +1808,7 @@ export class ObjcHost {
       receiver = this.applicationDelegate;
     } else {
       const window = this.keyWindow ?? this.windows.at(-1) ?? null;
-      receiver = window === null ? null : this.hitTest(window, step);
+      receiver = window === null ? null : this.hitTest(window, step, 0, 0);
     }
     if (receiver === null) return { value: 0n };
 
@@ -1833,16 +1834,31 @@ export class ObjcHost {
     return { value: record };
   }
 
-  private hitTest(view: bigint, point: { x: number; y: number }): bigint | null {
+  private hitTest(
+    view: bigint,
+    point: { x: number; y: number },
+    originX: number,
+    originY: number,
+  ): bigint | null {
     if (this.memory.read(view + BigInt(VIEW_HIDDEN), 1) !== 0n) return null;
+    const frame = this.readStoredRect(view);
+    const absoluteX = originX + frame.x;
+    const absoluteY = originY + frame.y;
     const children = this.children.get(view) ?? [];
     for (let index = children.length - 1; index >= 0; index -= 1) {
       const child = children[index]!;
-      if (!containsPoint(this.readStoredRect(child), point)) continue;
-      const hit = this.hitTest(child, point);
+      if (
+        !containsPoint(this.readStoredRect(child), {
+          x: point.x - absoluteX,
+          y: point.y - absoluteY,
+        })
+      ) {
+        continue;
+      }
+      const hit = this.hitTest(child, point, absoluteX, absoluteY);
       if (hit !== null) return hit;
     }
-    return containsPoint(this.readStoredRect(view), point) ? view : null;
+    return containsPoint(frame, { x: point.x - originX, y: point.y - originY }) ? view : null;
   }
 
   private present(): void {
@@ -1852,7 +1868,7 @@ export class ObjcHost {
     const clip = { x: 0, y: 0, width: this.width, height: this.height };
     const framebuffer = new Framebuffer(this.width, this.height);
     framebuffer.clear(WHITE);
-    this.paint(window, framebuffer, clip, 1);
+    this.paint(window, framebuffer, 0, 0, clip, 1);
     const digest = framebuffer.digest();
     if (this.frames.at(-1)?.digest === digest) return;
     this.frames.push({
@@ -1866,18 +1882,22 @@ export class ObjcHost {
   private paint(
     view: bigint,
     framebuffer: Framebuffer,
+    originX: number,
+    originY: number,
     clip: { x: number; y: number; width: number; height: number },
     parentAlpha: number,
   ): void {
     if (this.memory.read(view + BigInt(VIEW_HIDDEN), 1) !== 0n) return;
     const rect = this.readStoredRect(view);
+    const absoluteX = originX + rect.x;
+    const absoluteY = originY + rect.y;
     const alpha = Math.max(0, Math.min(1, this.readDouble(view, VIEW_ALPHA))) * parentAlpha;
     if (alpha <= 0 || rect.width <= 0 || rect.height <= 0) return;
     const color = this.colorOf(view);
     if (color && color.a > 0) {
       framebuffer.fillRect(
-        rect.x,
-        rect.y,
+        absoluteX,
+        absoluteY,
         rect.width,
         rect.height,
         { ...color, a: color.a * alpha },
@@ -1885,7 +1905,7 @@ export class ObjcHost {
       );
     }
     for (const child of this.children.get(view) ?? []) {
-      this.paint(child, framebuffer, clip, alpha);
+      this.paint(child, framebuffer, absoluteX, absoluteY, clip, alpha);
     }
   }
 

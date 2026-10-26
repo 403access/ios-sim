@@ -70,6 +70,7 @@ __attribute__((objc_root_class))
 + (UIColor *)purpleColor;
 + (UIColor *)yellowColor;
 + (UIColor *)orangeColor;
++ (UIColor *)grayColor;
 + (UIColor *)whiteColor;
 + (UIColor *)colorWithRed:(CGFloat)red
                     green:(CGFloat)green
