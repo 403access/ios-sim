@@ -27,6 +27,11 @@
     self.backgroundColor = [UIColor purpleColor];
   }
 }
+- (void)touchesMoved:(id)touches withEvent:(id)event {
+  (void)touches;
+  (void)event;
+  self.backgroundColor = [UIColor yellowColor];
+}
 - (void)touchesEnded:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;

@@ -80,6 +80,7 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .option("--out <file>", "write the last captured frame (.png or .ppm)")
     .option("--out-dir <dir>", "write every captured frame as frame-<n>.png")
     .option("--tap <x,y>", "scripted tap event (repeatable)", collectTap, [])
+    .option("--drag <x1,y1,x2,y2[,steps]>", "scripted drag (repeatable)", collectDrag, [])
     .option("--json", "print JSON result")
     .action((file: string, options: RunOptions) => {
       const absolute = resolve(file);
@@ -149,31 +150,40 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
     .option("--out <file>", "write the last frame (.png or .ppm)")
     .option("--out-dir <dir>", "write every frame as frame-<n>.png")
     .option("--tap <x,y>", "scripted tap event (repeatable)", collectTap, [])
+    .option("--drag <x1,y1,x2,y2[,steps]>", "scripted drag (repeatable)", collectDrag, [])
     .option("--json", "print JSON")
-    .action((options: { out?: string; outDir?: string; tap: TapPoint[]; json?: boolean }) => {
-      const demo = buildUIKitDemo();
-      const runtime = new DarwinRuntime({
-        provider: new MapFileProvider(new Map([["/UIKitDemo", demo.built.bytes]])),
-        rootDir: process.cwd(),
-      });
-      const result = runtime.run("/UIKitDemo", { events: options.tap });
-      const frame = result.frames.at(-1);
-      if (!frame) {
-        throw new Error("the demo app did not present a frame");
-      }
-      writeFrames(result.frames, options);
-      if (options.json) {
-        io.stdout(
-          `${JSON.stringify({ ...runJson(result), image: describeUIKitDemo(demo) }, null, 2)}\n`,
-        );
-      } else {
-        for (const [index, captured] of result.frames.entries()) {
-          io.stdout(`${frameSummary(captured, index)}\n`);
+    .action(
+      (options: {
+        out?: string;
+        outDir?: string;
+        tap: TapPoint[];
+        drag: DragInput[];
+        json?: boolean;
+      }) => {
+        const demo = buildUIKitDemo();
+        const runtime = new DarwinRuntime({
+          provider: new MapFileProvider(new Map([["/UIKitDemo", demo.built.bytes]])),
+          rootDir: process.cwd(),
+        });
+        const result = runtime.run("/UIKitDemo", { events: [...options.tap, ...options.drag] });
+        const frame = result.frames.at(-1);
+        if (!frame) {
+          throw new Error("the demo app did not present a frame");
         }
-        io.stdout(`classes: ${result.objcClasses.join(", ")}\n`);
-      }
-      requestedExit = result.exitStatus;
-    });
+        writeFrames(result.frames, options);
+        if (options.json) {
+          io.stdout(
+            `${JSON.stringify({ ...runJson(result), image: describeUIKitDemo(demo) }, null, 2)}\n`,
+          );
+        } else {
+          for (const [index, captured] of result.frames.entries()) {
+            io.stdout(`${frameSummary(captured, index)}\n`);
+          }
+          io.stdout(`classes: ${result.objcClasses.join(", ")}\n`);
+        }
+        requestedExit = result.exitStatus;
+      },
+    );
 
   program
     .command("launchd")
@@ -285,6 +295,31 @@ interface RunOptions {
 interface TapPoint {
   x: number;
   y: number;
+}
+
+interface DragInput {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  steps?: number;
+}
+
+function collectDrag(value: string, previous: DragInput[]): DragInput[] {
+  const parts = value.split(",").map(Number);
+  if (parts.length < 4 || parts.length > 5 || parts.some((part) => !Number.isFinite(part))) {
+    throw new Error(`expected --drag x1,y1,x2,y2[,steps], got ${value}`);
+  }
+  return [
+    ...previous,
+    {
+      fromX: parts[0]!,
+      fromY: parts[1]!,
+      toX: parts[2]!,
+      toY: parts[3]!,
+      steps: parts[4],
+    },
+  ];
 }
 
 function collectTap(value: string, previous: TapPoint[]): TapPoint[] {

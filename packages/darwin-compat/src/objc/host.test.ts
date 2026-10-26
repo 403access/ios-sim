@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { DarwinRuntime } from "../runtime/process.js";
 import { CaptureSink } from "../syscall/kernel.js";
 import { MapFileProvider } from "../dyld/loader.js";
+import type { InputEvent } from "./host.js";
 import { buildUIKitDemo, DEMO_SCREEN, DEMO_VIEW_RECT } from "./build-ui-demo.js";
 
-function runDemo(events?: readonly { x: number; y: number }[]) {
+function runDemo(events?: readonly InputEvent[]) {
   const demo = buildUIKitDemo();
   const runtime = new DarwinRuntime({
     provider: new MapFileProvider(new Map([["/UIKitDemo", demo.built.bytes]])),
@@ -68,6 +69,21 @@ describe("ObjC UIKit demo", () => {
       [0, 255, 0],
     ]);
     expect(new Set(result.frames.map((frame) => frame.digest)).size).toBe(3);
+  });
+
+  it("delivers moved samples for a drag", () => {
+    const result = runDemo([{ fromX: 30, fromY: 30, toX: 60, toY: 60, steps: 3 }]);
+    expect(result.frames).toHaveLength(4);
+    const colors = result.frames.map((frame) => {
+      const offset = (30 * frame.width + 30) * 4;
+      return [frame.pixels[offset]!, frame.pixels[offset + 1]!, frame.pixels[offset + 2]!];
+    });
+    expect(colors).toEqual([
+      [255, 0, 0],
+      [0, 0, 255],
+      [255, 255, 0],
+      [0, 255, 0],
+    ]);
   });
 
   it("produces a deterministic frame digest", () => {

@@ -98,7 +98,8 @@ producers (this repository's writer and Apple clang) are compared on the same pi
 change in either path breaks the equality, which is the point.
 
 With `--tap 30,30` the same app renders three frames: red, blue after `touchesBegan:`, green after
-`touchesEnded:`. Both producers are compared on the full digest sequence.
+`touchesEnded:`. A drag adds yellow `touchesMoved:` samples. Both producers are compared on the
+full digest sequence.
 
 ## Try it
 
@@ -109,6 +110,7 @@ bun run --cwd packages/darwin-compat build
 # generated ObjC app: class metadata, message sends, shim, frame
 bun apps/native/src/bin.ts uikit-demo --out /tmp/uikit-demo.png
 bun apps/native/src/bin.ts uikit-demo --tap 30,30 --out-dir /tmp/frames
+bun apps/native/src/bin.ts uikit-demo --drag 30,30,60,60,3 --out-dir /tmp/drag
 
 # optional: the same pipeline with clang output (macOS + Xcode)
 ./scripts/build-objc-fixture.sh

@@ -63,7 +63,7 @@ The real fixture is built at test time and is not committed. Its source is
 | Message send           | `objc_msgSend`/`Super2`, guest IMP tail calls, framework IMP traps          |
 | UIKit shim             | `UIApplicationMain`, `UIWindow`, `UIView`, `UIViewController`, `UIColor`    |
 | Frame capture          | deterministic 375×667 RGBA frames, PNG/PPM encoding, stable SHA-256         |
-| Input                  | scripted taps, hit-testing, `touchesBegan:`/`touchesEnded:` callbacks       |
+| Input                  | scripted taps/drags, hit-testing, began/moved/ended callbacks               |
 | Deterministic fixtures | generated Mach-O, hand-encoded A64, and a generated ObjC app                |
 
 ## What is deliberately absent

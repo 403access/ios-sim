@@ -57,8 +57,10 @@ const SELECTORS = {
   blueColor: "blueColor",
   greenColor: "greenColor",
   purpleColor: "purpleColor",
+  yellowColor: "yellowColor",
   conformsToProtocol: "conformsToProtocol:",
   touchesBegan: "touchesBegan:withEvent:",
+  touchesMoved: "touchesMoved:withEvent:",
   touchesEnded: "touchesEnded:withEvent:",
   didFinishLaunching: "application:didFinishLaunchingWithOptions:",
   initialize: "initialize",
@@ -227,7 +229,7 @@ function planData(): Plan {
   const tapEmptyMethods = cursor;
   cursor += 8;
   const tapMethods = cursor;
-  cursor += 8 + 2 * 24;
+  cursor += 8 + 3 * 24;
   const tapIvars = cursor;
   cursor += 8 + 32;
   const tapProtocols = cursor;
@@ -415,6 +417,8 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
 
   label("tapBegan");
   emitBeganHandler();
+  label("tapMoved");
+  emitTouchHandler(SELECTORS.yellowColor);
   label("tapEnded");
   emitTouchHandler(SELECTORS.greenColor);
 
@@ -426,6 +430,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     bases.textBase + (code.labels.get("initialize") ?? 0),
     bases.textBase + (code.labels.get("load") ?? 0),
     bases.textBase + (code.labels.get("tapBegan") ?? 0),
+    bases.textBase + (code.labels.get("tapMoved") ?? 0),
     bases.textBase + (code.labels.get("tapEnded") ?? 0),
   );
 
@@ -586,6 +591,7 @@ function emitData(
   initializeImp: number,
   loadImp: number,
   tapBeganImp: number,
+  tapMovedImp: number,
   tapEndedImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
   const bytes = new Uint8Array(plan.size);
@@ -675,13 +681,17 @@ function emitData(
   u32(plan.tapEmptyMethods, 24);
   u32(plan.tapEmptyMethods + 4, 0);
   u32(plan.tapMethods, 24);
-  u32(plan.tapMethods + 4, 2);
+  u32(plan.tapMethods + 4, 3);
 
   const beganEntry = plan.tapMethods + 8;
   rebase(beganEntry, selector(SELECTORS.touchesBegan));
   rebase(beganEntry + 8, selector(TYPES));
   rebase(beganEntry + 16, tapBeganImp);
-  const endedEntry = plan.tapMethods + 32;
+  const movedEntry = plan.tapMethods + 32;
+  rebase(movedEntry, selector(SELECTORS.touchesMoved));
+  rebase(movedEntry + 8, selector(TYPES));
+  rebase(movedEntry + 16, tapMovedImp);
+  const endedEntry = plan.tapMethods + 56;
   rebase(endedEntry, selector(SELECTORS.touchesEnded));
   rebase(endedEntry + 8, selector(TYPES));
   rebase(endedEntry + 16, tapEndedImp);

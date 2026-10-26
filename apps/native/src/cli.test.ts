@@ -73,6 +73,11 @@ describe("ios-sim-native CLI", () => {
     expect(result.frames[0].digest).toMatch(/^[0-9a-f]{64}$/);
     expect(result.objcClasses).toContain("AppDelegate");
 
+    const dragIo = capture();
+    expect(await main(["uikit-demo", "--drag", "30,30,60,60,3", "--json"], dragIo)).toBe(0);
+    const drag = JSON.parse(dragIo.out.join(""));
+    expect(drag.frames).toHaveLength(4);
+
     const file = join(temp(), "frame.png");
     expect(await main(["uikit-demo", "--out", file], capture())).toBe(0);
     const bytes = readFileSync(file);

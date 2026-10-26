@@ -92,13 +92,30 @@ export interface TapEvent {
   readonly y: number;
 }
 
+export interface DragEvent {
+  readonly fromX: number;
+  readonly fromY: number;
+  readonly toX: number;
+  readonly toY: number;
+  /** Number of touch samples, including start and end. Default 4. */
+  readonly steps?: number;
+}
+
+export type InputEvent = TapEvent | DragEvent;
+
+interface TouchStep {
+  readonly x: number;
+  readonly y: number;
+  readonly selector: string;
+}
+
 export interface ObjcHostOptions {
   readonly memory: VirtualMemory;
   readonly width?: number;
   readonly height?: number;
   readonly maxFrames?: number;
   /** Scripted taps delivered after `didFinishLaunching`. */
-  readonly events?: readonly TapEvent[];
+  readonly events?: readonly InputEvent[];
 }
 
 type HostMethodHandler = (cpu: Arm64Cpu, receiver: bigint) => void;
@@ -133,7 +150,7 @@ export class ObjcHost {
   readonly frames: CapturedFrame[] = [];
   readonly width: number;
   readonly height: number;
-  readonly events: readonly TapEvent[];
+  readonly events: readonly InputEvent[];
 
   private readonly memory: VirtualMemory;
   private readonly maxFrames: number;
@@ -167,6 +184,7 @@ export class ObjcHost {
   private readonly presentAddress: bigint;
   private readonly nextEventAddress: bigint;
   private eventIndex = 0;
+  private readonly touchScript: readonly TouchStep[];
 
   constructor(options: ObjcHostOptions) {
     this.memory = options.memory;
@@ -174,6 +192,7 @@ export class ObjcHost {
     this.height = options.height ?? DEFAULT_SCREEN.height;
     this.maxFrames = options.maxFrames ?? MAX_FRAMES;
     this.events = options.events ?? [];
+    this.touchScript = buildTouchScript(this.events);
     this.arena = this.memory.allocate(ARENA_SIZE, { tag: "objc-host", protection: 3 });
     this.arenaCursor = this.arena;
     this.arenaEnd = this.arena + BigInt(ARENA_SIZE);
@@ -562,6 +581,7 @@ export class ObjcHost {
         },
         { selector: "layoutSubviews", types: "v16@0:8", run: () => undefined },
         { selector: "touchesBegan:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
+        { selector: "touchesMoved:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
         { selector: "touchesEnded:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
         { selector: "touchesCancelled:withEvent:", types: "v32@0:8@16@24", run: () => undefined },
       ],
@@ -661,6 +681,7 @@ export class ObjcHost {
         this.constantColor("redColor", { r: 1, g: 0, b: 0, a: 1 }),
         this.constantColor("blueColor", { r: 0, g: 0, b: 1, a: 1 }),
         this.constantColor("purpleColor", { r: 0.5, g: 0, b: 0.5, a: 1 }),
+        this.constantColor("yellowColor", { r: 1, g: 1, b: 0, a: 1 }),
         this.constantColor("greenColor", { r: 0, g: 1, b: 0, a: 1 }),
         this.constantColor("whiteColor", { r: 1, g: 1, b: 1, a: 1 }),
         this.constantColor("blackColor", { r: 0, g: 0, b: 0, a: 1 }),
@@ -1247,25 +1268,14 @@ export class ObjcHost {
     code.push(ldrUnsigned(20, 19, 0));
     code.push(ldrUnsigned(21, 19, 8));
     code.push(ldrUnsigned(22, 19, 16));
-
+    code.push(ldrUnsigned(1, 19, 24));
     code.push(movReg(0, 20));
-    loadLiteral(1, this.internString("touchesBegan:withEvent:"));
     code.push(movReg(2, 21));
     code.push(movReg(3, 22));
     loadLiteral(16, messageSend);
     code.push(blr(16));
     loadLiteral(16, this.presentAddress);
     code.push(blr(16));
-
-    code.push(movReg(0, 20));
-    loadLiteral(1, this.internString("touchesEnded:withEvent:"));
-    code.push(movReg(2, 21));
-    code.push(movReg(3, 22));
-    loadLiteral(16, messageSend);
-    code.push(blr(16));
-    loadLiteral(16, this.presentAddress);
-    code.push(blr(16));
-
     const back = code.length;
     code.push(b(0));
     const done = code.length;
@@ -1290,14 +1300,14 @@ export class ObjcHost {
     return address;
   }
 
-  /** Prepare one scripted tap and return `{view, touches, event}` or null. */
+  /** Prepare the next touch callback and return `{view, touches, event, selector}`. */
   private nextEvent(_cpu: Arm64Cpu): SyscallResult {
-    const event = this.events[this.eventIndex];
-    if (!event) return { value: 0n };
+    const step = this.touchScript[this.eventIndex];
+    if (!step) return { value: 0n };
     this.eventIndex += 1;
     const window = this.keyWindow ?? this.windows.at(-1) ?? null;
     if (window === null) return { value: 0n };
-    const hit = this.hitTest(window, event);
+    const hit = this.hitTest(window, step);
     if (hit === null) return { value: 0n };
 
     const touchClass = this.classes.get("UITouch");
@@ -1307,15 +1317,16 @@ export class ObjcHost {
       throw new ObjcError("internal_error", "event objects are not registered");
     }
     const touch = this.allocateInstance(touchClass);
-    this.memory.write(touch + 8n, 8, doubleBits(event.x));
-    this.memory.write(touch + 16n, 8, doubleBits(event.y));
+    this.memory.write(touch + 8n, 8, doubleBits(step.x));
+    this.memory.write(touch + 16n, 8, doubleBits(step.y));
     const touches = this.allocateInstance(setClass);
     this.memory.write(touches + 8n, 8, touch);
     const uiEvent = this.allocateInstance(uiEventClass);
-    const record = this.memory.allocate(24, { tag: "objc-event" });
+    const record = this.memory.allocate(32, { tag: "objc-event" });
     this.memory.write(record, 8, hit);
     this.memory.write(record + 8n, 8, touches);
     this.memory.write(record + 16n, 8, uiEvent);
+    this.memory.write(record + 24n, 8, this.internString(step.selector));
     return { value: record };
   }
 
@@ -1405,6 +1416,32 @@ export class ObjcHost {
   private writeU64(address: bigint, value: bigint | number): void {
     this.memory.write(address, 8, BigInt(value));
   }
+}
+
+function buildTouchScript(events: readonly InputEvent[]): TouchStep[] {
+  const steps: TouchStep[] = [];
+  const began = "touchesBegan:withEvent:";
+  const moved = "touchesMoved:withEvent:";
+  const ended = "touchesEnded:withEvent:";
+  for (const event of events) {
+    if ("x" in event) {
+      steps.push({ x: event.x, y: event.y, selector: began });
+      steps.push({ x: event.x, y: event.y, selector: ended });
+      continue;
+    }
+    const samples = Math.max(2, Math.min(event.steps ?? 4, 64));
+    steps.push({ x: event.fromX, y: event.fromY, selector: began });
+    for (let index = 1; index < samples - 1; index += 1) {
+      const ratio = index / (samples - 1);
+      steps.push({
+        x: event.fromX + (event.toX - event.fromX) * ratio,
+        y: event.fromY + (event.toY - event.fromY) * ratio,
+        selector: moved,
+      });
+    }
+    steps.push({ x: event.toX, y: event.toY, selector: ended });
+  }
+  return steps;
 }
 
 function depth(classes: ReadonlyMap<bigint, ObjcClass>, klass: ObjcClass): number {
