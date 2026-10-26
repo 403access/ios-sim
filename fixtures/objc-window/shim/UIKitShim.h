@@ -111,6 +111,14 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)setContentSize:(CGSize)size;
 @end
 
+@interface NSUserDefaults : NSObject
++ (id)standardUserDefaults;
+- (void)setBool:(BOOL)value forKey:(const char *)key;
+- (BOOL)boolForKey:(const char *)key;
+- (void)setInteger:(long)value forKey:(const char *)key;
+- (long)integerForKey:(const char *)key;
+@end
+
 @interface NSNotificationCenter : NSObject
 + (id)defaultCenter;
 - (void)addObserver:(id)observer

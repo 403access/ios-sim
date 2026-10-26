@@ -97,6 +97,11 @@ const SELECTORS = {
   addObserver: "addObserver:selector:name:object:",
   postNotification: "postNotificationName:object:",
   themeChanged: "themeChanged:",
+  standardUserDefaults: "standardUserDefaults",
+  setBool: "setBool:forKey:",
+  boolForKey: "boolForKey:",
+  setInteger: "setInteger:forKey:",
+  integerForKey: "integerForKey:",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -135,7 +140,10 @@ type SlotName =
   | "nslog"
   | "classScroll"
   | "classCenter"
-  | "notificationMarker";
+  | "notificationMarker"
+  | "classDefaults"
+  | "defaultsMarker"
+  | "defaultsInt";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -278,6 +286,9 @@ function planData(): Plan {
     "classScroll",
     "classCenter",
     "notificationMarker",
+    "classDefaults",
+    "defaultsMarker",
+    "defaultsInt",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -306,6 +317,8 @@ function planData(): Plan {
     "HELLO 42",
     "hello from objc",
     "ThemeChanged",
+    "Seen",
+    "Count",
     "Tappable",
     "_pressed",
     "B",
@@ -737,6 +750,16 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       {
+        name: "_defaultsMarker",
+        value: dataAddress(plan.slotOffsets.defaultsMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_defaultsInt",
+        value: dataAddress(plan.slotOffsets.defaultsInt),
+        sectionIndex: 2,
+      },
+      {
         name: "_notificationMarker",
         value: dataAddress(plan.slotOffsets.notificationMarker),
         sectionIndex: 2,
@@ -1150,6 +1173,37 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    emitPointer(0, slot("classDefaults"));
+    emitAddress(1, selector(SELECTORS.standardUserDefaults));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setBool));
+    emitWord(movz(2, 1));
+    emitAddress(3, dataAddress(plan.stringOffsets.Seen!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.boolForKey));
+    emitAddress(2, dataAddress(plan.stringOffsets.Seen!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("defaultsMarker"));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setInteger));
+    emitWord(movz(2, 7));
+    emitAddress(3, dataAddress(plan.stringOffsets.Count!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.integerForKey));
+    emitAddress(2, dataAddress(plan.stringOffsets.Count!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("defaultsInt"));
+
     // [window makeKeyAndVisible];
     emitWord(movReg(0, 19));
     emitAddress(1, selector(SELECTORS.makeKeyAndVisible));
@@ -1325,6 +1379,8 @@ function emitData(
     "HELLO 42",
     "hello from objc",
     "ThemeChanged",
+    "Seen",
+    "Count",
     "Tappable",
     "_pressed",
     "B",
@@ -1530,6 +1586,7 @@ function emitData(
   bind(plan.slotOffsets.nslog, "_NSLog");
   bind(plan.slotOffsets.classScroll, "_OBJC_CLASS_$_UIScrollView");
   bind(plan.slotOffsets.classCenter, "_OBJC_CLASS_$_NSNotificationCenter");
+  bind(plan.slotOffsets.classDefaults, "_OBJC_CLASS_$_NSUserDefaults");
   rebase(plan.slotOffsets.superStruct + 8, address(plan.tapClass));
   bind(plan.slotOffsets.uiApplicationMain, "_UIApplicationMain");
   rebase(plan.slotOffsets.delegateName, address(plan.stringOffsets[DEMO_CLASS_NAME]!));

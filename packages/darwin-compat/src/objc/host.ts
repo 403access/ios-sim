@@ -184,6 +184,8 @@ export class ObjcHost {
     hostDispatches: 0,
     guestDispatches: 0,
     deallocs: 0,
+    defaultsStores: 0,
+    defaultsReads: 0,
   };
   readonly frames: CapturedFrame[] = [];
   readonly width: number;
@@ -217,6 +219,8 @@ export class ObjcHost {
   private readonly buttonActions = new Map<bigint, { target: bigint; action: bigint }>();
   private readonly observers = new Map<string, Array<{ observer: bigint; selector: bigint }>>();
   private notificationCenter: bigint | null = null;
+  private userDefaults: bigint | null = null;
+  private readonly defaults = new Map<string, bigint>();
   private readonly notificationPage: bigint;
   private notificationCursor: bigint;
   private readonly deallocPage: bigint;
@@ -881,6 +885,69 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(button);
+
+    const defaults = this.defineClass({
+      name: "NSUserDefaults",
+      superclass: "NSObject",
+      instanceSize: 8,
+      methods: [
+        {
+          selector: "setBool:forKey:",
+          types: "v28@0:8B16*20",
+          run: (cpu) => {
+            const key = this.readCString(cpu.readRegister(3));
+            this.defaults.set(key, cpu.readRegister(2) === 0n ? 0n : 1n);
+            this.stats.defaultsStores += 1;
+          },
+        },
+        {
+          selector: "boolForKey:",
+          types: "B24@0:8*16",
+          run: (cpu) => {
+            const key = this.readCString(cpu.readRegister(2));
+            this.stats.defaultsReads += 1;
+            cpu.writeRegister(0, (this.defaults.get(key) ?? 0n) === 0n ? 0n : 1n);
+          },
+        },
+        {
+          selector: "setInteger:forKey:",
+          types: "v28@0:8q16*20",
+          run: (cpu) => {
+            const key = this.readCString(cpu.readRegister(3));
+            this.defaults.set(key, cpu.readRegister(2));
+            this.stats.defaultsStores += 1;
+          },
+        },
+        {
+          selector: "integerForKey:",
+          types: "q24@0:8*16",
+          run: (cpu) => {
+            const key = this.readCString(cpu.readRegister(2));
+            this.stats.defaultsReads += 1;
+            cpu.writeRegister(0, this.defaults.get(key) ?? 0n);
+          },
+        },
+        {
+          selector: "removeObjectForKey:",
+          types: "v24@0:8*16",
+          run: (cpu) => this.defaults.delete(this.readCString(cpu.readRegister(2))),
+        },
+      ],
+      classMethods: [
+        {
+          selector: "standardUserDefaults",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass)
+              throw new ObjcError("bad_receiver", "standardUserDefaults receiver is not a class");
+            this.userDefaults ??= this.allocateInstance(klass);
+            cpu.writeRegister(0, this.userDefaults);
+          },
+        },
+      ],
+    });
+    this.registerClass(defaults);
 
     const notification = this.defineClass({
       name: "NSNotification",

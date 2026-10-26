@@ -81,6 +81,8 @@ export interface ProcessResult {
     hostDispatches: number;
     guestDispatches: number;
     deallocs: number;
+    defaultsStores: number;
+    defaultsReads: number;
   }>;
 }
 
@@ -292,6 +294,8 @@ export class DarwinProcess {
         hostDispatches: 0,
         guestDispatches: 0,
         deallocs: 0,
+        defaultsStores: 0,
+        defaultsReads: 0,
       },
     };
   }
