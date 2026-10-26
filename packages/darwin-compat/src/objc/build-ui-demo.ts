@@ -58,6 +58,7 @@ const SELECTORS = {
   touchesEnded: "touchesEnded:withEvent:",
   didFinishLaunching: "application:didFinishLaunchingWithOptions:",
   initialize: "initialize",
+  load: "load",
 } as const;
 
 const TYPES = "v16@0:8";
@@ -69,7 +70,8 @@ type SlotName =
   | "msgSend"
   | "uiApplicationMain"
   | "delegateName"
-  | "initializeMarker";
+  | "initializeMarker"
+  | "loadMarker";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -164,6 +166,7 @@ function planData(): Plan {
     "uiApplicationMain",
     "delegateName",
     "initializeMarker",
+    "loadMarker",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -201,7 +204,7 @@ function planData(): Plan {
   const appEmptyMethods = cursor;
   cursor += 8;
   const appClassMethods = cursor;
-  cursor += 8 + 24;
+  cursor += 8 + 2 * 24;
   const appCategoryMethods = cursor;
   cursor += 8 + 24;
   const appCategory = cursor;
@@ -373,6 +376,14 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitWord(strUnsigned(2, 1, 0));
   emitWord(ret());
 
+  // +[AppDelegate load] { ++loadMarker; }
+  label("load");
+  emitAddress(1, slot("loadMarker"));
+  emitWord(ldrUnsigned(2, 1, 0));
+  emitWord(addImm(2, 2, 1));
+  emitWord(strUnsigned(2, 1, 0));
+  emitWord(ret());
+
   label("delegate");
   emitDelegate();
 
@@ -387,6 +398,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     selector,
     bases.textBase + (code.labels.get("delegate") ?? 0),
     bases.textBase + (code.labels.get("initialize") ?? 0),
+    bases.textBase + (code.labels.get("load") ?? 0),
     bases.textBase + (code.labels.get("tapBegan") ?? 0),
     bases.textBase + (code.labels.get("tapEnded") ?? 0),
   );
@@ -413,6 +425,7 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         value: dataAddress(plan.slotOffsets.initializeMarker),
         sectionIndex: 2,
       },
+      { name: "_loadMarker", value: dataAddress(plan.slotOffsets.loadMarker), sectionIndex: 2 },
     ],
   };
 
@@ -508,6 +521,7 @@ function emitData(
   selector: (name: string) => number,
   delegateImp: number,
   initializeImp: number,
+  loadImp: number,
   tapBeganImp: number,
   tapEndedImp: number,
 ): { bytes: Uint8Array; fixups: BuildFixup[] } {
@@ -550,7 +564,7 @@ function emitData(
   u32(plan.appEmptyMethods, 24);
   u32(plan.appEmptyMethods + 4, 0);
   u32(plan.appClassMethods, 24);
-  u32(plan.appClassMethods + 4, 1);
+  u32(plan.appClassMethods + 4, 2);
   u32(plan.appCategoryMethods, 24);
   u32(plan.appCategoryMethods + 4, 1);
 
@@ -558,6 +572,11 @@ function emitData(
   rebase(initializeEntry, selector(SELECTORS.initialize));
   rebase(initializeEntry + 8, selector(TYPES));
   rebase(initializeEntry + 16, initializeImp);
+
+  const loadEntry = plan.appClassMethods + 32;
+  rebase(loadEntry, selector(SELECTORS.load));
+  rebase(loadEntry + 8, selector(TYPES));
+  rebase(loadEntry + 16, loadImp);
 
   const categoryEntry = plan.appCategoryMethods + 8;
   rebase(categoryEntry, selector(SELECTORS.didFinishLaunching));

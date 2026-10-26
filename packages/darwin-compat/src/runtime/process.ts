@@ -132,6 +132,8 @@ export class DarwinRuntime {
     cpu.writeRegister(1, layout.argvPointer);
     cpu.writeRegister(2, layout.envpPointer);
     cpu.writeRegister(3, 0n);
+    const loadStub = objc?.prepareLoads(program.entry) ?? null;
+    if (loadStub !== null) cpu.pc = loadStub;
 
     const outputSink = options.stdout ?? this.defaultStdout;
     const errorSink = options.stderr ?? this.defaultStderr;

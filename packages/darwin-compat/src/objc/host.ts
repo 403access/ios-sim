@@ -155,8 +155,10 @@ export class ObjcHost {
   private readonly initialized = new Set<bigint>();
   private readonly initializeStubs = new Map<bigint, bigint>();
   private readonly initializePage: bigint;
+  private readonly loadStubPage: bigint;
   private initializeStubCursor: bigint;
   private readonly resendAddress: bigint;
+  private loadsPrepared = false;
   private readonly children = new Map<bigint, bigint[]>();
   private readonly windows: bigint[] = [];
   private keyWindow: bigint | null = null;
@@ -187,6 +189,7 @@ export class ObjcHost {
       protection: 7,
     });
     this.initializeStubCursor = this.initializePage;
+    this.loadStubPage = this.memory.allocate(0x1000, { tag: "objc-load-stub", protection: 7 });
 
     // Data symbols some metadata references directly.
     const emptyCache = this.allocBytes(16);
@@ -222,6 +225,56 @@ export class ObjcHost {
         this.applyCategory(category);
       }
     }
+  }
+
+  /**
+   * Generate a prologue that runs every `+load` (root class first) and then
+   * branches to the real entry point. Returns null when no class has `+load`.
+   */
+  prepareLoads(entry: bigint): bigint | null {
+    if (this.loadsPrepared) return null;
+    this.loadsPrepared = true;
+    const loads: Array<{ klass: ObjcClass; imp: bigint }> = [];
+    for (const klass of this.classes.values()) {
+      const method = klass.classMethods.get("load");
+      if (method) loads.push({ klass, imp: method.imp });
+    }
+    if (loads.length === 0) return null;
+    loads.sort((a, b) => depth(this.byAddress, a.klass) - depth(this.byAddress, b.klass));
+
+    const address = this.loadStubPage;
+    const code: number[] = [];
+    const literals: bigint[] = [];
+    const refs: Array<{ index: number; register: number; slot: number }> = [];
+    const loadLiteral = (register: number, value: bigint): void => {
+      refs.push({ index: code.length, register, slot: literals.length });
+      literals.push(value);
+      code.push(0);
+    };
+    code.push(stpPre(29, 30, 31, -16));
+    code.push(stpPre(0, 1, 31, -16));
+    code.push(stpPre(2, 3, 31, -16));
+    const selector = this.internString("load");
+    for (const { klass, imp } of loads) {
+      code.push(...loadImmediate(0, Number(klass.address)));
+      code.push(...loadImmediate(1, Number(selector)));
+      loadLiteral(16, imp);
+      code.push(blr(16));
+    }
+    code.push(ldpPost(2, 3, 31, 16));
+    code.push(ldpPost(0, 1, 31, 16));
+    code.push(ldpPost(29, 30, 31, 16));
+    loadLiteral(16, entry);
+    code.push(br(16));
+    const literalStart = code.length * 4;
+    for (const ref of refs) {
+      code[ref.index] = ldrLiteral(ref.register, literalStart + ref.slot * 8 - ref.index * 4);
+    }
+    code.forEach((word, index) => this.memory.write(address + BigInt(index * 4), 4, BigInt(word)));
+    literals.forEach((value, index) =>
+      this.memory.write(address + BigInt(literalStart + index * 8), 8, value),
+    );
+    return address;
   }
 
   /** Trap dispatcher. Returns null when the trap is not ours. */
@@ -1312,6 +1365,16 @@ export class ObjcHost {
   private writeU64(address: bigint, value: bigint | number): void {
     this.memory.write(address, 8, BigInt(value));
   }
+}
+
+function depth(classes: ReadonlyMap<bigint, ObjcClass>, klass: ObjcClass): number {
+  let current: ObjcClass | undefined = klass;
+  let levels = 0;
+  while (current && levels < 64) {
+    levels += 1;
+    current = classes.get(current.superclass);
+  }
+  return levels;
 }
 
 function containsPoint(rect: Rect, point: { x: number; y: number }): boolean {

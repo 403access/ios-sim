@@ -31,6 +31,11 @@ describe("ObjC UIKit demo", () => {
     expect(marker).not.toBeNull();
     expect(result.program.memory.read(marker!, 8)).toBe(1n);
 
+    // +load ran once before main.
+    const loadMarker = result.program.resolveExport("_loadMarker");
+    expect(loadMarker).not.toBeNull();
+    expect(result.program.memory.read(loadMarker!, 8)).toBe(1n);
+
     const frame = result.frames[0]!;
     expect(frame.width).toBe(DEMO_SCREEN.width);
     expect(frame.height).toBe(DEMO_SCREEN.height);

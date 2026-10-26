@@ -28,11 +28,12 @@ started.
 - [x] `objc_msgSend`, `objc_msgSendSuper2`
 - [x] `+alloc`, `-init`, `-class`, `-isKindOfClass:`, `-respondsToSelector:`
 - [x] `+initialize` once per class through a register-saving resend stub
+- [x] `+load` before the entry point through a generated prologue
 - [x] Categories (`__objc_catlist`) merged into classes
 - [x] Absolute and relative ivar lists parsed and exposed
 - [x] Runtime entry points: retain/release/autorelease, storeStrong, opt_self, sel_registerName
 - [x] Guest IMP tail call preserves arguments and return address
-- [~] `+load`, protocols, associated objects, weak references (absent, documented)
+- [~] Protocols, associated objects, weak references (absent, documented)
 
 ## P2 — framework shim and frame
 

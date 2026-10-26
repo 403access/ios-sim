@@ -83,8 +83,8 @@ code, or performance is worse than a VM alternative.
 - Code-signature parsing and an ad-hoc validation policy; entitlement evaluation hooks.
 - A minimal Objective-C runtime compatible with Apple's ABI (classes, selectors, message send,
   associated objects, exceptions), then Foundation/CoreFoundation replacements with a conformance
-  suite. **Partially delivered in A0.5:** the metadata and message-send subset exists; ARC,
-  `+initialize`, categories, protocols, exceptions, and Foundation do not.
+  suite. **Partially delivered in A0.5/A0.6:** metadata, message send, categories, `+load`,
+  `+initialize`, and ivar metadata exist; ARC, protocols, exceptions, and Foundation do not.
 - Swift runtime linkage and metadata discovery.
 
 **Acceptance:** a nontrivial Objective-C and Swift CLI program (no UI) runs with a documented

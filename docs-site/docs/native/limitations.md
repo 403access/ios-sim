@@ -73,7 +73,7 @@ macOS-gated test runs compiler output end to end.
   autorelease pools are markers. Objects live until the process exits; the PoC is short-lived.
 - **Selectors are C strings.** The shim follows the modern direct-selector convention; a selector
   registered as an opaque `objc_selector` struct is not supported.
-- **Classes are realised eagerly.** Categories and `+initialize` are implemented; `+load`,
+- **Classes are realised eagerly.** `+load`, categories, and `+initialize` are implemented;
   protocols, associated objects, and weak references are not. A missing method fails with
   `unrecognized_selector`, not a message-send crash.
 - **Ivar metadata is parsed, not synthesised.** Instances get an `isa` and the class's
