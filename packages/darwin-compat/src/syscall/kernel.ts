@@ -61,6 +61,8 @@ import {
   SYS_EXIT,
   SYS_FCNTL,
   SYS_FSTAT,
+  SYS_LSTAT,
+  SYS_STAT,
   SYS_GETEGID,
   SYS_GETENTROPY,
   SYS_GETEUID,
@@ -284,6 +286,9 @@ export class DarwinSyscallKernel {
         return this.seek(Number(args[0]!), BigInt.asIntN(64, args[1]!), Number(args[2]!));
       case SYS_FSTAT:
         return this.fstat(Number(args[0]!), args[1]!);
+      case SYS_STAT:
+      case SYS_LSTAT:
+        return this.statPath(args[0]!, args[1]!);
       case SYS_SYSCTL:
         return this.sysctl(args[0]!, Number(args[1]!), args[2]!, args[3]!);
       case SYS_MMAP:
@@ -643,6 +648,32 @@ export class DarwinSyscallKernel {
   private fstat(fd: number, address: bigint): SyscallResult {
     const entry = this.fds.get(fd);
     if (!entry) return this.errno(ERRNO_MAP.EBADF!);
+    if (entry.kind === "file" && entry.path) {
+      try {
+        return this.writeStat(address, statSync(entry.path));
+      } catch (error) {
+        return this.errno(errnoFor(error));
+      }
+    }
+    const bytes = new Uint8Array(144);
+    const view = new DataView(bytes.buffer);
+    view.setUint16(4, 0x2000 | 0o666, true);
+    view.setUint16(6, 1, true);
+    view.setInt32(112, 4096, true);
+    this.memory.writeBytes(address, bytes);
+    return this.ok(0);
+  }
+
+  private statPath(pathPointer: bigint, address: bigint): SyscallResult {
+    try {
+      const path = this.memory.readCString(pathPointer);
+      return this.writeStat(address, statSync(this.resolveGuestPath(path)));
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private writeStat(address: bigint, stats: import("node:fs").Stats): SyscallResult {
     const bytes = new Uint8Array(144);
     const view = new DataView(bytes.buffer);
     const writeTimes = (offset: number, ms: number): void => {
@@ -651,31 +682,20 @@ export class DarwinSyscallKernel {
       view.setBigInt64(offset, BigInt(seconds), true);
       view.setBigInt64(offset + 8, BigInt(nanos), true);
     };
-    if (entry.kind === "file" && entry.path) {
-      try {
-        const stats = statSync(entry.path);
-        view.setInt32(0, Number(stats.dev), true);
-        view.setUint16(4, stats.mode, true);
-        view.setUint16(6, stats.nlink, true);
-        view.setBigUint64(8, BigInt(stats.ino), true);
-        view.setUint32(16, stats.uid, true);
-        view.setUint32(20, stats.gid, true);
-        view.setInt32(24, Number(stats.rdev), true);
-        writeTimes(32, stats.atimeMs);
-        writeTimes(48, stats.mtimeMs);
-        writeTimes(64, stats.ctimeMs);
-        writeTimes(80, stats.birthtimeMs);
-        view.setBigInt64(96, BigInt(stats.size), true);
-        view.setBigInt64(104, BigInt(stats.blocks ?? Math.ceil(stats.size / 512)), true);
-        view.setInt32(112, stats.blksize ?? 4096, true);
-      } catch (error) {
-        return this.errno(errnoFor(error));
-      }
-    } else {
-      view.setUint16(4, 0x2000 | 0o666, true);
-      view.setUint16(6, 1, true);
-      view.setInt32(112, 4096, true);
-    }
+    view.setInt32(0, Number(stats.dev), true);
+    view.setUint16(4, stats.mode, true);
+    view.setUint16(6, stats.nlink, true);
+    view.setBigUint64(8, BigInt(stats.ino), true);
+    view.setUint32(16, stats.uid, true);
+    view.setUint32(20, stats.gid, true);
+    view.setInt32(24, Number(stats.rdev), true);
+    writeTimes(32, stats.atimeMs);
+    writeTimes(48, stats.mtimeMs);
+    writeTimes(64, stats.ctimeMs);
+    writeTimes(80, stats.birthtimeMs);
+    view.setBigInt64(96, BigInt(stats.size), true);
+    view.setBigInt64(104, BigInt(stats.blocks ?? Math.ceil(stats.size / 512)), true);
+    view.setInt32(112, stats.blksize ?? 4096, true);
     this.memory.writeBytes(address, bytes);
     return this.ok(0);
   }
@@ -817,7 +837,10 @@ export class DarwinSyscallKernel {
   }
 
   private guestPath(address: bigint): string {
-    const guest = this.memory.readCString(address);
+    return this.resolveGuestPath(this.memory.readCString(address));
+  }
+
+  private resolveGuestPath(guest: string): string {
     if (guest.includes("\u0000")) throw new SyscallError("bad_path", "path contains a null byte");
     const relativePath = guest.startsWith("/") ? guest.slice(1) : guest;
     const candidate = resolve(this.rootDir, relativePath);

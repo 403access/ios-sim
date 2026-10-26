@@ -6,7 +6,7 @@ import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { MachKernel } from "../mach/kernel.js";
 import { DarwinSyscallKernel } from "./kernel.js";
-import { SYS_FSTAT, SYS_OPEN } from "./numbers.js";
+import { SYS_FSTAT, SYS_LSTAT, SYS_OPEN, SYS_STAT } from "./numbers.js";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -47,6 +47,17 @@ describe("fstat", () => {
     expect(Number(view.getBigInt64(104, true))).toBeGreaterThan(0);
     expect(view.getInt32(112, true)).toBeGreaterThan(0);
     expect(Number(view.getBigUint64(8, true))).toBeGreaterThan(0);
+  });
+
+  it("stats a path and reports missing paths", () => {
+    const { memory, syscalls, cpu, size } = setup("path stat");
+    expect(call(syscalls, cpu, SYS_STAT, [0x1000n, 0x3000n]).value).toBe(0);
+    const stat = new DataView(memory.readBytes(0x3000n, 144).buffer);
+    expect(stat.getUint16(4, true) & 0xf000).toBe(0x8000);
+    expect(Number(stat.getBigInt64(96, true))).toBe(size);
+    expect(call(syscalls, cpu, SYS_LSTAT, [0x1000n, 0x3000n]).value).toBe(0);
+    memory.writeBytes(0x1000n, new TextEncoder().encode("/missing\0"));
+    expect(call(syscalls, cpu, SYS_STAT, [0x1000n, 0x3000n]).error).toBe(true);
   });
 
   it("marks stdio as character devices and rejects unknown fds", () => {

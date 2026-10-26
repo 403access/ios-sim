@@ -68,7 +68,9 @@ Darwin's ABI. Mach traps return a `kern_return_t` in `x0` without touching carry
 |    120 | `readv`        | ✓      | up to 1024 iovecs; short reads stop              |
 |    121 | `writev`       | ✓      | up to 1024 iovecs; short writes report count     |
 |    136 | `mkdir`        | ✓      |                                                  |
+|    188 | `stat`         | ✓      | jailed path; Darwin stat64 layout                |
 |    189 | `fstat`        | ✓      | Darwin stat64 layout; stdio = character device   |
+|    190 | `lstat`        | ✓      | same as stat (symlinks followed)                 |
 |    197 | `mmap`         | ✓      | anonymous and file-backed; `MAP_FIXED` with hint |
 |    199 | `lseek`        | ✓      | per-descriptor position                          |
 |    202 | `sysctl`       | ✓      | kern.osrelease, hw.ncpu, hw.memsize, hw.machine  |
