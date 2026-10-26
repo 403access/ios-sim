@@ -89,6 +89,27 @@ describe("ios-sim-native CLI", () => {
     expect(JSON.parse(ok.out.join("")).ok).toBe(true);
   });
 
+  it("emits traces and explains loader outcomes", async () => {
+    const directory = temp();
+    const file = join(directory, "demo");
+    writeFileSync(file, buildDemoProgram().bytes);
+
+    const traceIo = capture();
+    expect(await main(["trace", file, "--chrome"], traceIo)).toBe(42);
+    const trace = JSON.parse(traceIo.out.join(""));
+    expect(trace.traceEvents.length).toBeGreaterThan(0);
+
+    const whyIo = capture();
+    expect(await main(["why", file, "--json"], whyIo)).toBe(0);
+    const why = JSON.parse(whyIo.out.join(""));
+    expect(why.diagnostic).toBeNull();
+    expect(why.boot.ok).toBe(true);
+
+    const missingIo = capture();
+    expect(await main(["why", "/definitely/not/here"], missingIo)).toBe(1);
+    expect(missingIo.err.join("")).toContain("file_not_found");
+  });
+
   it("returns a failure for a missing file", async () => {
     const io = capture();
     expect(await main(["inspect", "/definitely/not/here"], io)).toBe(1);

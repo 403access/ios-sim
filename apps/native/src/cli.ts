@@ -6,18 +6,20 @@
  * tooling and never claims to boot the iOS Simulator.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { Command, CommanderError } from "commander";
 import {
   CaptureSink,
   DarwinRuntime,
+  EventRecorder,
   ImageLoader,
   Launchd,
   LoaderError,
   MapFileProvider,
   bootReport,
   buildDemoProgram,
+  chromeTraceJSON,
   disassembleRange,
   describeLoaderError,
   formatDisassembly,
@@ -144,6 +146,54 @@ export async function main(argv: string[], io: CliIo = defaultIo): Promise<numbe
         io.stderr(new TextDecoder().decode(result.stderr));
       }
       requestedExit = result.exitStatus;
+    });
+
+  program
+    .command("trace")
+    .description("run a Mach-O and emit runtime events (NDJSON by default)")
+    .argument("<file>", "Mach-O executable")
+    .option("--chrome", "emit Chrome Trace Event JSON")
+    .option("--out <path>", "write the trace to a file instead of stdout")
+    .action((file: string, options: { chrome?: boolean; out?: string }) => {
+      const absolute = resolve(file);
+      const recorder = new EventRecorder();
+      const runtime = new DarwinRuntime({ rootDir: dirname(absolute) });
+      const result = runtime.run(absolute, {
+        argv: [absolute],
+        events: recorder,
+        stdout: new CaptureSink(),
+        stderr: new CaptureSink(),
+      });
+      const text = options.chrome
+        ? `${chromeTraceJSON(recorder.list())}\n`
+        : `${recorder.toNDJSON()}\n`;
+      if (options.out) writeFileSync(resolve(options.out), text);
+      else io.stdout(text);
+      if (result.exitStatus !== 0) requestedExit = result.exitStatus;
+    });
+
+  program
+    .command("why")
+    .description("explain why a Mach-O does or does not load")
+    .argument("<file>", "Mach-O executable")
+    .option("--json", "print JSON")
+    .action((file: string, options: { json?: boolean }) => {
+      const loader = new ImageLoader({ missingSymbols: "zero" });
+      const report = loader.diagnose(file);
+      const boot = report.program ? bootReport(report.program) : null;
+      if (options.json) {
+        io.stdout(`${JSON.stringify({ diagnostic: report.diagnostic, boot }, null, 2)}\n`);
+      } else if (!report.ok) {
+        io.stderr(`${formatLoaderDiagnostic(report.diagnostic!)}\n`);
+      } else {
+        io.stdout(`loads: ${report.program?.images.length ?? 0} image(s)\n`);
+        if (boot?.missingSymbols.length) {
+          io.stdout(`unresolved symbols: ${boot.missingSymbols.length}\n`);
+        } else {
+          io.stdout("no unresolved symbols or missing services recorded\n");
+        }
+      }
+      if (!report.ok) requestedExit = 1;
     });
 
   program
