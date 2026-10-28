@@ -10,12 +10,17 @@
 import { randomBytes } from "node:crypto";
 import {
   accessSync,
+  chmodSync,
   closeSync,
   constants as fsConstants,
+  fchmodSync,
+  fsyncSync,
+  ftruncateSync,
   mkdirSync,
   openSync,
   renameSync,
   rmdirSync,
+  truncateSync,
   lstatSync,
   readFileSync,
   readdirSync,
@@ -62,6 +67,7 @@ import {
   ERRNO_MAP,
   SYS_ACCESS,
   SYS_CHDIR,
+  SYS_CHMOD,
   SYS_CLOSE,
   SYS_FCHDIR,
   SYS_DUP,
@@ -69,6 +75,9 @@ import {
   SYS_EXIT,
   SYS_FCNTL,
   SYS_FSTAT,
+  SYS_FSYNC,
+  SYS_FCHMOD,
+  SYS_FTRUNCATE,
   SYS_LSTAT,
   SYS_STAT,
   SYS_GETEGID,
@@ -109,6 +118,7 @@ import {
   SYS_READV,
   SYS_SYSCTL,
   SYS_TASK_SELF_TRAP,
+  SYS_TRUNCATE,
   SYS_THREAD_SELF_TRAP,
   SYS_UNLINK,
   SYS_WRITE,
@@ -298,6 +308,16 @@ export class DarwinSyscallKernel {
         return this.close(Number(args[0]!));
       case SYS_CHDIR:
         return this.chdir(args[0]!);
+      case SYS_CHMOD:
+        return this.chmod(args[0]!, Number(args[1]!));
+      case SYS_FCHMOD:
+        return this.fchmod(Number(args[0]!), Number(args[1]!));
+      case SYS_FSYNC:
+        return this.fsync(Number(args[0]!));
+      case SYS_TRUNCATE:
+        return this.truncate(args[0]!, BigInt.asIntN(64, args[1]!));
+      case SYS_FTRUNCATE:
+        return this.ftruncate(Number(args[0]!), BigInt.asIntN(64, args[1]!));
       case SYS_FCHDIR:
         return this.fchdir(Number(args[0]!));
       case SYS_LSEEK:
@@ -654,6 +674,69 @@ export class DarwinSyscallKernel {
     const path = this.guestPath(pathAddress);
     try {
       mkdirSync(path, { mode: mode & 0o777 });
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private chmod(pathAddress: bigint, mode: number): SyscallResult {
+    try {
+      chmodSync(this.guestPath(pathAddress), mode & 0o7777);
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private fchmod(fd: number, mode: number): SyscallResult {
+    const entry = this.fds.get(fd);
+    if (!entry) return this.errno(ERRNO_MAP.EBADF!);
+    if (
+      entry.kind === "kqueue" ||
+      entry.kind === "stdin" ||
+      entry.kind === "stdout" ||
+      entry.kind === "stderr"
+    ) {
+      return this.ok(0);
+    }
+    try {
+      if (entry.handle !== undefined) fchmodSync(entry.handle, mode & 0o7777);
+      else if (entry.path) chmodSync(entry.path, mode & 0o7777);
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private fsync(fd: number): SyscallResult {
+    const entry = this.fds.get(fd);
+    if (!entry) return this.errno(ERRNO_MAP.EBADF!);
+    if (entry.kind !== "file" || entry.handle === undefined) return this.ok(0);
+    try {
+      fsyncSync(entry.handle);
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private truncate(pathAddress: bigint, length: bigint): SyscallResult {
+    try {
+      truncateSync(this.guestPath(pathAddress), Number(length));
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private ftruncate(fd: number, length: bigint): SyscallResult {
+    const entry = this.fds.get(fd);
+    if (!entry || entry.kind !== "file" || entry.handle === undefined) {
+      return this.errno(ERRNO_MAP.EBADF!);
+    }
+    try {
+      ftruncateSync(entry.handle, Number(length));
       return this.ok(0);
     } catch (error) {
       return this.errno(errnoFor(error));

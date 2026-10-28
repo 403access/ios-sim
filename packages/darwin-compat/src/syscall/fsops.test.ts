@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -6,7 +6,19 @@ import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { MachKernel } from "../mach/kernel.js";
 import { DarwinSyscallKernel } from "./kernel.js";
-import { SYS_ACCESS, SYS_FCNTL, SYS_MKDIR, SYS_OPEN, SYS_RENAME, SYS_RMDIR } from "./numbers.js";
+import {
+  SYS_ACCESS,
+  SYS_CHMOD,
+  SYS_FCNTL,
+  SYS_FCHMOD,
+  SYS_FSYNC,
+  SYS_FTRUNCATE,
+  SYS_MKDIR,
+  SYS_OPEN,
+  SYS_RENAME,
+  SYS_RMDIR,
+  SYS_TRUNCATE,
+} from "./numbers.js";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -63,5 +75,21 @@ describe("file operations", () => {
     expect(call(SYS_ACCESS, [0x1000n, 4n]).value).toBe(0);
     path(0x1000, "/missing");
     expect(call(SYS_ACCESS, [0x1000n, 0n]).error).toBe(true);
+  });
+
+  it("truncates, chmods, and fsyncs files", () => {
+    const { root, call, path } = setup();
+    path(0x1000, "/a");
+    expect(call(SYS_TRUNCATE, [0x1000n, 3n]).value).toBe(0);
+    expect(readFileSync(join(root, "a"), "utf8")).toBe("pay");
+    expect(call(SYS_CHMOD, [0x1000n, 0o600n]).value).toBe(0);
+    expect(statSync(join(root, "a")).mode & 0o777).toBe(0o600);
+
+    const fd = call(SYS_OPEN, [0x1000n, 2n, 0n]);
+    expect(call(SYS_FTRUNCATE, [BigInt(fd.value), 1n]).value).toBe(0);
+    expect(readFileSync(join(root, "a"), "utf8")).toBe("p");
+    expect(call(SYS_FCHMOD, [BigInt(fd.value), 0o640n]).value).toBe(0);
+    expect(statSync(join(root, "a")).mode & 0o777).toBe(0o640);
+    expect(call(SYS_FSYNC, [BigInt(fd.value)]).value).toBe(0);
   });
 });
