@@ -9,6 +9,14 @@ description: Now, next, later — with explicit non-goals and revisit triggers.
 The roadmap is intentionally short. The goal is a dependable Linux workflow, not a simulator
 platform.
 
+:::info Two tracks, one repository
+This page is the **product** roadmap: the Linux client for a Mac-hosted simulator, shipping on
+`main`. The native Darwin compatibility track on this branch is separate research with its own
+phases, estimates, and kill criteria — see the [native roadmap](../native/roadmap.md) and the
+[architecture dashboard](../native/dashboard.md). "Running iOS apps without a Mac" is an explicit
+non-goal of the _product_ roadmap, not of the research track.
+:::
+
 ## Now — v0.1 (delivered)
 
 - macOS host over `simctl` + optional `idb`.

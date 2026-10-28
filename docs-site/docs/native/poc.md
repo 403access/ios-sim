@@ -73,19 +73,32 @@ keeps the boundary explicit:
 This is the same "semantic model first, native boundary later" decision as the substrate, and it
 is recorded in ADR 0007.
 
+:::info Where we are (2026-10-28)
+The PoC now covers far more than the original gates: controls, gestures, navigation, tables,
+transforms, literal collections, and PNG images. The [architecture dashboard](./dashboard.md)
+tracks per-layer status; the table below keeps the original gate contract. Since this page was
+written, the shim grew from six classes to 43 host classes and the clang differential from one
+scenario to 13.
+:::
+
 ## Gates
 
-| Gate         | Acceptance                                                           | Status      | Evidence                                               |
-| ------------ | -------------------------------------------------------------------- | ----------- | ------------------------------------------------------ |
-| P0 FP/SIMD   | clang-shaped code using doubles for `CGRect` executes                | implemented | `arm64/cpu.test.ts` vector/FP cases                    |
-| P1 metadata  | class list, absolute + relative method lists, selectors, ivars size  | implemented | `objc/host.test.ts`, `tests/native/objc-clang.test.ts` |
-| P1 dispatch  | `objc_msgSend`/`objc_msgSendSuper2`, `+alloc`, host + guest IMPs     | implemented | guest `+alloc` override test, clang app                |
-| P1 lifecycle | refcounts, autorelease pools, weak zeroing, guest `-dealloc`         | implemented | `abi.md`, `limitations.md`                             |
-| P2 shim      | `UIApplicationMain` → delegate callback → window/view/colour         | implemented | `objc/host.test.ts`                                    |
-| P2 frame     | deterministic PNG frame, bounded frames, no host graphics dependency | implemented | `ui/framebuffer.test.ts`, `uikit-demo`                 |
-| P2 input     | taps, drags, ticks, control actions, timers, legacy animations       | implemented | `objc/host.test.ts`                                    |
-| P2 text      | 3x5 bitmap labels, wrapping, line limits; PNG images from resources  | implemented | `objc/host.test.ts`, `ui/png.test.ts`                  |
-| P3 compiler  | clang-built ObjC app renders the same frame (macOS-gated)            | implemented | `tests/native/objc-clang.test.ts`                      |
+| Gate          | Acceptance                                                           | Status      | Evidence                                                         |
+| ------------- | -------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------- |
+| P0 FP/SIMD    | clang-shaped code using doubles for `CGRect` executes                | implemented | `arm64/cpu.test.ts` vector/FP cases                              |
+| P1 metadata   | class list, absolute + relative method lists, selectors, ivars size  | implemented | `objc/host.test.ts`, `tests/native/objc-clang.test.ts`           |
+| P1 dispatch   | `objc_msgSend`/`objc_msgSendSuper2`, `+alloc`, host + guest IMPs     | implemented | guest `+alloc` override test, clang app                          |
+| P1 lifecycle  | refcounts, autorelease pools, weak zeroing, guest `-dealloc`         | implemented | `abi.md`, `limitations.md`                                       |
+| P2 shim       | `UIApplicationMain` → delegate callback → window/view/colour         | implemented | `objc/host.test.ts`                                              |
+| P2 frame      | deterministic PNG frame, bounded frames, no host graphics dependency | implemented | `ui/framebuffer.test.ts`, `uikit-demo`                           |
+| P2 input      | taps, drags, ticks, control actions, timers, legacy animations       | implemented | `objc/host.test.ts`                                              |
+| P2 text       | 3x5 bitmap labels, wrapping, line limits; PNG images from resources  | implemented | `objc/host.test.ts`, `ui/png.test.ts`                            |
+| P2 controls   | button/switch/slider/segments/progress with target-action dispatch   | implemented | `objc/host.test.ts`, clang `button`/`switch`/`slider`/`segments` |
+| P2 navigation | controller stack, host-built bar/title/back button                   | implemented | `objc/host.test.ts`, clang `nav`/`nav-pop`                       |
+| P2 tables     | host-managed rows, selection band, scroll offset, value-changed      | implemented | `objc/host.test.ts`, clang `table`                               |
+| P2 layers     | `CALayer` corner radius, affine transforms on backgrounds            | implemented | `objc/host.test.ts`, clang `nav`                                 |
+| P1 literals   | constant `@"..."` strings, `@[]`, `@{}` with measured layouts        | implemented | `objc/host.test.ts`, `tests/native/objc-clang.test.ts`           |
+| P3 compiler   | clang-built ObjC app renders the same frame (macOS-gated)            | implemented | `tests/native/objc-clang.test.ts`                                |
 
 "implemented" means tested in this repository and reproducible with the commands below. It does
 not mean the gate after it is reachable.

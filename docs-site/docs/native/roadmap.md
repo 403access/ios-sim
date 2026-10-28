@@ -14,6 +14,13 @@ stopped without leaving a half-integrated mess.
 Estimates are engineer-months for one experienced systems engineer, with low confidence. They
 are planning aids, not commitments.
 
+:::info Where we are (2026-10-28)
+A0 and A0.5 are complete: a user-space substrate plus a clean-room shim with **43 host classes**,
+**162 hermetic tests**, **13 clang differential scenarios**, and **25 of 31** symbols for the
+minimal stock-SDK app. The [architecture dashboard](./dashboard.md) is the single-screen status;
+[limitations](./limitations.md) is the per-area boundary.
+:::
+
 ## A0 — Substrate (implemented on this branch)
 
 **Deliverables**
@@ -44,10 +51,15 @@ are planning aids, not commitments.
 - Apple-ABI ObjC 2 metadata parser (absolute and relative method lists).
 - `objc_msgSend`/`objc_msgSendSuper2` with guest-IMP tail calls and host-IMP traps.
 - Instance allocation, `+alloc`, `-init`, `respondsToSelector:`, `isKindOfClass:`.
-- Clean-room shim classes: `NSObject`, `UIView`, `UIWindow`, `UIViewController`, `UIColor`,
-  `UIApplication`, and `UIApplicationMain`.
-- Deterministic RGBA/PNG/PPM frame capture from the view tree.
-- A generated ObjC app and a gated real-clang app that render the same digest.
+- Clean-room shim classes: 43 host classes, including `NSObject`, `NSString`/`NSNumber`/collections
+  (and literal strings/arrays/dictionaries), `NSData`, `NSJSONSerialization`, `NSBundle`,
+  `NSUserDefaults`, notifications, timers, images, and `UIApplicationMain`.
+- UIKit shim: window/view tree, labels (bitmap text, wrapping), button/switch/slider/segmented
+  control/progress view, scroll view with drag, tap/pan gestures, navigation controller, row-based
+  table, `CALayer` corner radius, affine transforms, and legacy + block animations on a virtual
+  clock.
+- Deterministic RGBA/PNG/PPM frame capture from the view tree, with per-frame digests.
+- A generated ObjC app and a gated real-clang app that render the same digest across 13 scenarios.
 
 **Acceptance**
 
@@ -55,8 +67,9 @@ are planning aids, not commitments.
 - The clang fixture links with chained fixups and relative method lists, runs through the same
   runtime, and produces the same digest (macOS-gated).
 
-**Status:** complete on this branch. It is a proof of the ABI and the pipeline, not of UIKit
-fidelity.
+**Status:** complete on this branch. It is a proof of the ABI and the pipeline, with a deliberately
+small but broad shim — not a claim of UIKit fidelity. Class layouts and selector semantics remain
+this repository's own, so none of it is binary-compatible with Apple's frameworks.
 
 ## A1 — Kernel boundary and threads (2–4 months)
 
@@ -118,9 +131,10 @@ and enumerate a device, with a complete missing-symbol report.
 **Acceptance:** a trivial UIKit app renders a stable frame offscreen for 10,000 frames, with
 correct colour and no leaks. Then a window shows it at interactive latency.
 
-**Progress in A0.5:** one offscreen frame from solid-colour views is captured deterministically
-(no CoreAnimation, Metal, IOSurface, text, or 10,000-frame soak). The window, GPU path, and frame
-loop remain open.
+**Progress in A0.5:** deterministic frames with rectangles, alpha, clipping, rounded corners,
+images, bitmap text, and affine transforms are captured from the view tree. There is no
+CoreAnimation layer tree, no Metal/IOSurface, no display link, and no 10,000-frame soak; the GPU
+path, the window, and the frame loop remain open.
 
 **Kill:** no stable frame after the bounded spike, or GPU fidelity is too low for UIKit.
 
