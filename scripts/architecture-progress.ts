@@ -56,41 +56,42 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-28 · realize-and-patch, M1 31/31",
+  updated: "2026-10-28 · stock SDK app runs, M1 met",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
-  tests: 164,
+  tests: 165,
   gated: 6,
-  g2: 8,
+  g2: 24,
   m1Budget: 31,
   m1Covered: 31,
   stats: [
-    { value: "164", label: "hermetic tests" },
+    { value: "165", label: "hermetic tests" },
     { value: "6", label: "macOS-gated" },
-    { value: "33", label: "host classes" },
-    { value: "36", label: "runtime symbols" },
+    { value: "45", label: "host classes" },
+    { value: "40", label: "runtime symbols" },
   ],
   layers: [
     {
       id: "ipa",
       name: "Unmodified .ipa",
       kicker: "G2 · a stock SDK binary, no shim",
-      percent: 8,
+      percent: 24,
       chips: [
         { label: "symbol budget", state: "done" },
         { label: "no Apple runtime", state: "partial" },
-        { label: "replacement images", state: "planned" },
+        { label: "replacement images", state: "done" },
+        { label: "runs fixture app", state: "done" },
       ],
       shipped: [
         "ADR 0008 and the readiness plan record the goal and the gate",
-        "31/31 symbols; realize-and-patch implemented for guest ivars",
+        "31/31 symbols; realize-and-patch; the SDK fixture runs and renders",
         "App-bundle directories launch through Info.plist",
       ],
       open: [
         "Constant CFString and literal collection classes",
-        "Binary-compatible Foundation/UIKit subset (13 classes)",
-        "Apple dylib replacement images and a Swift path",
+        "Arbitrary apps: real UIKit breadth, threads, exceptions, shared cache",
+        "Swift/SwiftUI and a licensed runtime path",
       ],
       evidence: "scripts/spike-ios-symbols.ts · docs/plans/ipa-readiness.md",
     },
@@ -299,10 +300,10 @@ export const architecture: Architecture = {
     {
       id: "m1",
       name: "M1 · one stock-SDK app",
-      detail: "31/31 symbols; realize-and-patch done; images next.",
-      done: 2,
+      detail: "Runs, renders, taps — six images, gated test.",
+      done: 7,
       total: 7,
-      state: "partial",
+      state: "done",
     },
     {
       id: "m2",
@@ -322,6 +323,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "e9bcf91", text: "Stock SDK app runs: replacement images, render, tap" },
     { hash: "696de03", text: "Guest class realization + ivar slot patching" },
     { hash: "f9e4459", text: "Corrected ABI model: offsets are patched slots" },
     { hash: "ac9f5ab", text: "Stock-app ABI measured: ivar offsets are patched slots" },
@@ -347,11 +349,11 @@ export const architecture: Architecture = {
     { hash: "cc3f742", text: "UIImage/UIImageView with a PNG decoder" },
   ],
   next: [
-    "UINavigationController + UITableView-lite",
+    "M2: a second stock-SDK app and its missing-API list",
     "Exceptions and unwinding",
     "Threads + a libdispatch subset",
-    "Compositor v2: layers, transforms, host window",
-    "M1 replacement images (13 classes, 8 entry points)",
+    "Compositor v2: masks, gradients, host window",
+    "Cells/delegates and collection views",
   ],
   decisions: [
     "Host-side ObjC semantics, not libobjc2",
@@ -751,8 +753,8 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
           <div class="ringText"><b>${g1}%</b><span>G1 track</span></div>
         </div>
         <div class="missionText">
-          <b>Shim-linked apps run.</b>
-          <p>Eight substrate layers under the goal. The remaining gap is the stock-SDK binary path.</p>
+          <b>Shim apps and the stock fixture run.</b>
+          <p>Eight substrate layers under the goal. The stock SDK app loads, renders and taps; arbitrary <code>.ipa</code> files remain the gap.</p>
           <div class="track">
             <div class="trackRow"><span>G1 shim</span><div class="trackBar"><span style="--p:${g1 / 100};background:linear-gradient(90deg,#34d399,#22d3ee)"></span></div><b>${g1}%</b></div>
             <div class="trackRow"><span>G2 .ipa</span><div class="trackBar"><span style="--p:${data.g2 / 100};background:linear-gradient(90deg,#fbbf24,#fb7185)"></span></div><b>${data.g2}%</b></div>
