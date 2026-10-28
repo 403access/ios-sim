@@ -84,7 +84,7 @@ export const architecture: Architecture = {
       ],
       shipped: [
         "ADR 0008 and the readiness plan record the goal and the gate",
-        "All 31 symbols covered; app ABI measured (24 B, ivars 8/16)",
+        "All 31 symbols covered; ivar-slot ABI contract measured",
         "App-bundle directories launch through Info.plist",
       ],
       open: [
@@ -299,7 +299,7 @@ export const architecture: Architecture = {
     {
       id: "m1",
       name: "M1 · one stock-SDK app",
-      detail: "Symbols 31/31; ABI measured; images next.",
+      detail: "Symbols 31/31; realize-and-patch next.",
       done: 2,
       total: 7,
       state: "partial",
@@ -322,7 +322,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
-    { hash: "ac9f5ab", text: "Stock-app ABI measured: AppDelegate 24 B, UIResponder 8 B" },
+    { hash: "ac9f5ab", text: "Stock-app ABI measured: ivar offsets are patched slots" },
     { hash: "82992a0", text: "Ivar offsets read through ivar_t pointers" },
     { hash: "a65b0c3", text: "M1 symbol surface closed: 31/31 with UIScreen + responder" },
     { hash: "b6bc8af", text: "Literal @[] / @{} collections with measured layouts" },

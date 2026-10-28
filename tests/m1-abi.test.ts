@@ -9,7 +9,9 @@ interface AbiReport {
     readonly instanceSize: number;
     readonly ivars: ReadonlyArray<{ readonly name: string; readonly offset: number }>;
   }>;
-  readonly derivedSuperclassSize: Readonly<Record<string, number>>;
+  readonly emittedIvarPlaceholders: Readonly<Record<string, number>>;
+  readonly ivarAccess: { readonly mechanism: string; readonly consequence: string };
+  readonly needsReferenceRun: readonly string[];
   readonly unverified: readonly string[];
 }
 
@@ -25,11 +27,14 @@ describe("M1 ABI measurements", () => {
     expect(app!.instanceSize).toBe(24);
     expect(app!.ivars.map((ivar) => ivar.name)).toEqual(["_window", "_label"]);
     expect(app!.ivars.map((ivar) => ivar.offset)).toEqual([8, 16]);
+    expect(report.classes.some((klass) => klass.name === "SampleView")).toBe(true);
   });
 
-  it("derives UIResponder's size and keeps unverified areas explicit", () => {
-    expect(report.derivedSuperclassSize.UIResponder).toBe(8);
+  it("records ivar offsets as patched slots, not Apple sizes", () => {
+    expect(report.emittedIvarPlaceholders.UIResponder).toBe(8);
+    expect(report.ivarAccess.mechanism).toMatch(/runtime/);
+    expect(report.ivarAccess.consequence).toMatch(/not baked/);
+    expect(report.needsReferenceRun.length).toBeGreaterThan(0);
     expect(report.unverified.length).toBeGreaterThan(0);
-    expect(report.unverified.join(" ")).toMatch(/UIView/);
   });
 });

@@ -20,16 +20,89 @@
           "type": "@\"UILabel\""
         }
       ]
+    },
+    {
+      "name": "SampleButton",
+      "superclass": "UIButton",
+      "instanceSize": 16,
+      "ivars": [
+        {
+          "name": "_sampleButton",
+          "offset": 8,
+          "type": "@"
+        }
+      ]
+    },
+    {
+      "name": "SampleController",
+      "superclass": "UIViewController",
+      "instanceSize": 16,
+      "ivars": [
+        {
+          "name": "_sampleController",
+          "offset": 8,
+          "type": "@"
+        }
+      ]
+    },
+    {
+      "name": "SampleLabel",
+      "superclass": "UILabel",
+      "instanceSize": 16,
+      "ivars": [
+        {
+          "name": "_sampleLabel",
+          "offset": 8,
+          "type": "@"
+        }
+      ]
+    },
+    {
+      "name": "SampleView",
+      "superclass": "UIView",
+      "instanceSize": 16,
+      "ivars": [
+        {
+          "name": "_sampleView",
+          "offset": 8,
+          "type": "@"
+        }
+      ]
+    },
+    {
+      "name": "SampleWindow",
+      "superclass": "UIWindow",
+      "instanceSize": 16,
+      "ivars": [
+        {
+          "name": "_sampleWindow",
+          "offset": 8,
+          "type": "@"
+        }
+      ]
     }
   ],
-  "derivedSuperclassSize": {
-    "UIResponder": 8
+  "ivarAccess": {
+    "mechanism": "compiled code loads ivar offsets from _OBJC_IVAR_$<Class>._<ivar> slots at runtime; the runtime patches the slots when it realizes the class",
+    "evidence": "adrp/ldrsw of the slot symbol followed by add, observed in Xcode 27.1 clang output for SDK-superclass ivars",
+    "consequence": "the runtime must realize guest classes and patch the slots; Apple's absolute instance sizes are not baked into the app's code"
   },
-  "unverified": [
-    "UIView / UIWindow / UILabel / UIButton / UIViewController instance sizes (no subclasses in this app)",
+  "emittedIvarPlaceholders": {
+    "UIResponder": 8,
+    "UIButton": 8,
+    "UIViewController": 8,
+    "UILabel": 8,
+    "UIView": 8,
+    "UIWindow": 8
+  },
+  "needsReferenceRun": [
+    "actual Apple instance sizes, only if a code path calls class_getInstanceSize or reads a superclass ivar directly",
     "NSString / NSArray / NSDictionary instance sizes (CF-backed; literal layouts are measured separately)",
-    "NSObject/CF retain-count layout and weak-table semantics",
-    "UIKit's own ivars and method implementations"
+    "NSObject/CF retain-count layout and weak-table semantics"
+  ],
+  "unverified": [
+    "UIKit's own ivars and method implementations",
+    "CF object layouts beyond the literal structs already measured"
   ],
   "notes": [
     "Only the app's own classes carry metadata in this image.",

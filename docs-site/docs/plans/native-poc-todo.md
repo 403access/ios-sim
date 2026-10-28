@@ -89,7 +89,7 @@ started.
 - [x] M1 symbol surface: `UIResponder`, `UIScreen`, `NSStringFromClass`, stack guard (31/31)
 - [x] `ivar_t.offset` pointer parsing (real clang images report correct ivar offsets)
 - [x] Stock-app ABI measured (`bun run abi:measure` → 24 B, ivars 8/16, `UIResponder` 8 B)
-- [ ] Framework sizes: fixture subclasses for `UIView`/`UIWindow`/`UILabel`/`UIButton`/`UIViewController`
+- [ ] Class realization: compute guest sizes/offsets and patch `_OBJC_IVAR_$` slots (corpus: the five `Sample*` classes)
 - [ ] M1 replacement images (five dylibs) and the gated stock-app E2E
 - [~] `CALayer` corner radius on view backgrounds (masks/opacity stored)
 - [~] `UIView` affine transforms on backgrounds (children/hit-testing untransformed)

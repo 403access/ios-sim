@@ -11,6 +11,44 @@
 
 #import <UIKit/UIKit.h>
 
+// One-ivar subclasses whose only purpose is measurement: each subclass's first
+// ivar offset is the aligned instance size of its framework superclass. They
+// add no behaviour and are never instantiated.
+@interface SampleView : UIView {
+  id _sampleView;
+}
+@end
+@implementation SampleView
+@end
+
+@interface SampleLabel : UILabel {
+  id _sampleLabel;
+}
+@end
+@implementation SampleLabel
+@end
+
+@interface SampleButton : UIButton {
+  id _sampleButton;
+}
+@end
+@implementation SampleButton
+@end
+
+@interface SampleWindow : UIWindow {
+  id _sampleWindow;
+}
+@end
+@implementation SampleWindow
+@end
+
+@interface SampleController : UIViewController {
+  id _sampleController;
+}
+@end
+@implementation SampleController
+@end
+
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 @property (nonatomic, strong) UIWindow *window;
 @property (nonatomic, strong) UILabel *label;
@@ -22,6 +60,10 @@
     didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
   (void)application;
   (void)launchOptions;
+  // Keep the measurement subclasses reachable for the linker.
+  volatile Class samples[] = {[SampleView class], [SampleLabel class], [SampleButton class],
+                              [SampleWindow class], [SampleController class]};
+  (void)samples;
   NSLog(@"stock app launching");
 
   self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];

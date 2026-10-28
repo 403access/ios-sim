@@ -107,8 +107,9 @@ capture. The generated ObjC app and a clang-built ObjC app render the same diges
 scenarios.
 
 Status, measured: **164 hermetic tests** (6 macOS-gated), **31/31** symbols for the minimal
-stock-SDK app, and the app's own ABI measured (`AppDelegate` 24 B, ivars at 8/16, derived
-`UIResponder` 8 B). The [architecture dashboard](docs-site/docs/native/dashboard.md) is the
+stock-SDK app, and the app's own ABI measured. The measurement proved the ivar-slot contract: the
+compiler emits placeholder offsets and code loads them at runtime, so realization must patch the
+slots instead of matching Apple's absolute sizes. The [architecture dashboard](docs-site/docs/native/dashboard.md) is the
 single-screen view; the [M1 charter](docs-site/docs/plans/m1-replacement-images.md) is the next
 block.
 

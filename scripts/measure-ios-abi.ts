@@ -48,16 +48,20 @@ const classes: ClassReport[] = inspection.classes
   .sort((left, right) => left.name.localeCompare(right.name));
 
 /**
- * A subclass's first ivar offset is the aligned instance size of its
- * superclass. For AppDelegate the first ivar sits at 8, so UIResponder is 8
- * bytes; that is a measurement, not a guess.
+ * The emitted ivar offsets are the compiler's *placeholders*: with the
+ * non-fragile ABI it cannot know an external superclass's size, so it emits
+ * an offset relative to an assumed size and the runtime patches the
+ * `_OBJC_IVAR_$<Class>._<ivar>` slot during class realization. Compiled code
+ * loads the offset from that slot (`adrp`/`ldrsw`), so absolute Apple sizes are
+ * not baked into the app. Record the placeholders, but never present them as
+ * Apple's runtime sizes.
  */
-const derived: Record<string, number> = {};
+const emittedPlaceholders: Record<string, number> = {};
 for (const klass of classes) {
   if (klass.superclass === null || klass.ivars.length === 0) continue;
   const first = Math.min(...klass.ivars.map((ivar) => ivar.offset));
-  const current = derived[klass.superclass];
-  derived[klass.superclass] = current === undefined ? first : Math.min(current, first);
+  const current = emittedPlaceholders[klass.superclass];
+  emittedPlaceholders[klass.superclass] = current === undefined ? first : Math.min(current, first);
 }
 
 const report = {
@@ -66,12 +70,23 @@ const report = {
   sdk: "iPhoneSimulator27.1.sdk",
   source: "class_ro_t.instanceSize and ivar_t offsets in the app image",
   classes,
-  derivedSuperclassSize: derived,
-  unverified: [
-    "UIView / UIWindow / UILabel / UIButton / UIViewController instance sizes (no subclasses in this app)",
+  ivarAccess: {
+    mechanism:
+      "compiled code loads ivar offsets from _OBJC_IVAR_$<Class>._<ivar> slots at runtime; the runtime patches the slots when it realizes the class",
+    evidence:
+      "adrp/ldrsw of the slot symbol followed by add, observed in Xcode 27.1 clang output for SDK-superclass ivars",
+    consequence:
+      "the runtime must realize guest classes and patch the slots; Apple's absolute instance sizes are not baked into the app's code",
+  },
+  emittedIvarPlaceholders: emittedPlaceholders,
+  needsReferenceRun: [
+    "actual Apple instance sizes, only if a code path calls class_getInstanceSize or reads a superclass ivar directly",
     "NSString / NSArray / NSDictionary instance sizes (CF-backed; literal layouts are measured separately)",
     "NSObject/CF retain-count layout and weak-table semantics",
+  ],
+  unverified: [
     "UIKit's own ivars and method implementations",
+    "CF object layouts beyond the literal structs already measured",
   ],
   notes: [
     "Only the app's own classes carry metadata in this image.",
@@ -93,7 +108,7 @@ for (const klass of classes) {
         : ""),
   );
 }
-for (const [name, size] of Object.entries(derived)) {
-  console.log(`derived: ${name} instance size = ${size} (first subclass ivar offset)`);
+for (const [name, size] of Object.entries(emittedPlaceholders)) {
+  console.log(`placeholder: ${name} = ${size} (emitted, patched at realization)`);
 }
 console.log(`unverified: ${report.unverified.length} areas (see ${output})`);

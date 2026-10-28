@@ -1,70 +1,85 @@
 ---
 title: M1 ABI table (measured)
 sidebar_position: 6
-description: The measured layout facts for the minimal stock-SDK app, what is derived, and what remains unverified.
+description: What the stock app's metadata does and does not reveal, the ivar-slot contract, and what must be measured with a reference run.
 ---
 
 # M1 ABI table (measured)
 
-Step 1 of the [M1 charter](./m1-replacement-images.md) is provenance: every layout number must
-come from a measurement, a licensed reference run, or public documentation — never a guess. This
-page records the first measurements, taken from the app's own metadata with
+Step 1 of the [M1 charter](./m1-replacement-images.md) is provenance. This page records what was
+measured from the minimal stock-SDK app, and — just as important — what the numbers **do not**
+mean.
 
 ```bash
 bun run abi:measure     # reads fixtures/ios-app/build/SpikeApp, writes fixtures/ios-app/abi.json
 ```
 
-The binary is built locally and never committed; `abi.json` holds only numbers and names.
+The binary is built locally and never committed; `abi.json` holds only names and numbers.
 
-## Measured
+## Measured from `class_ro_t`
 
-| Fact                        | Value                | Source                       |
-| --------------------------- | -------------------- | ---------------------------- |
-| `AppDelegate` instance size | **24 bytes**         | `class_ro_t.instanceSize`    |
-| `AppDelegate` superclass    | `UIResponder`        | `class_ro_t.superclass`      |
-| `_window` offset            | **8**                | `ivar_t.offset` → int32 slot |
-| `_label` offset             | **16**               | `ivar_t.offset` → int32 slot |
-| SDK used for the fixture    | iPhoneSimulator 27.1 | Xcode install                |
-| Fixup format                | chained              | `LC_DYLD_CHAINED_FIXUPS`     |
+| Class                                 | Emitted instance size | First ivar(s)            | Note                          |
+| ------------------------------------- | --------------------: | ------------------------ | ----------------------------- |
+| `AppDelegate`                         |                    24 | `_window@8`, `_label@16` | app class, two strong ivars   |
+| `SampleView : UIView`                 |                    16 | `_sampleView@8`          | one measurement ivar          |
+| `SampleLabel : UILabel`               |                    16 | `_sampleLabel@8`         | one measurement ivar          |
+| `SampleButton : UIButton`             |                    16 | `_sampleButton@8`        | one measurement ivar          |
+| `SampleWindow : UIWindow`             |                    16 | `_sampleWindow@8`        | one measurement ivar          |
+| `SampleController : UIViewController` |                    16 | `_sampleController@8`    | one measurement ivar          |
+| SDK                                   |  iPhoneSimulator 27.1 |                          | pinned to the installed Xcode |
+| Fixups                                |               chained |                          | `LC_DYLD_CHAINED_FIXUPS`      |
 
-## Derived
+## The important correction: these are placeholders, not Apple's sizes
 
-A subclass's first ivar offset is the aligned instance size of its superclass:
+`SampleView` is _not_ 16 bytes and `UIView` is _not_ 8 bytes. Those numbers come from the
+compiler's inability to know an external superclass's size under the non-fragile ABI. What clang
+emits is a **placeholder**, and compiled code does **not** use it as a constant:
 
-| Derived fact                | Value       | Why it follows                                         |
-| --------------------------- | ----------- | ------------------------------------------------------ |
-| `UIResponder` instance size | **8 bytes** | `_window` is the first `AppDelegate` ivar, at offset 8 |
+```asm
+adrp x9, _OBJC_IVAR_$_SampleView._sampleView@PAGE
+ldrsw x9, [x9, _OBJC_IVAR_$_SampleView._sampleView@PAGEOFF]
+add   x0, x8, x9          ; object + offset
+```
 
-That is the number a binary-compatible `UIResponder` must have, and it is small enough to be
-believable (isa only). `UIView`, `UIWindow`, `UILabel`, `UIButton`, and `UIViewController` sizes do
-not appear in this image because the app only messages them, it does not subclass them.
+The app exports `_OBJC_IVAR_$<Class>._<ivar>` slots and loads the offset from them at runtime. The
+runtime is therefore expected to **realize classes and patch those slots** — which is exactly what
+Apple's runtime does.
 
-## Unverified (must not be guessed)
+**Consequences:**
 
-| Area                                                                               | Status                                               | How it will be resolved                                                                                         |
-| ---------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `UIView` / `UIWindow` / `UILabel` / `UIButton` / `UIViewController` instance sizes | unverified                                           | Add a fixture subclass for each in the app, or measure with `class_getInstanceSize` in a licensed reference run |
-| CF-backed `NSString` / `NSArray` / `NSDictionary` instance sizes                   | unverified (literal layouts are measured separately) | Reference run plus the layouts already recorded in [ABI](../native/abi.md)                                      |
-| `NSObject`/CF retain-count layout and weak-table semantics                         | unverified                                           | Reference run and Apple's open-source runtime where available                                                   |
-| UIKit's own ivars and method implementations                                       | out of reach                                         | Cannot be measured without Apple binaries; M1 only needs the app's surface                                      |
+1. A binary-compatible runtime does **not** need to reproduce Apple's absolute `UIView`/`UILabel`/
+   `UIButton` instance sizes to support this app's own ivars. It needs to realize the app's classes
+   with a consistent layout and patch the `_OBJC_IVAR_$` slots before the app touches them.
+2. Our shim's `UIResponder` being 8 bytes is compatible with the emitted placeholders by
+   construction (`AppDelegate`'s ivars land at 8/16), but it is not evidence of Apple's size.
+3. The earlier plan item "measure `UIView`'s instance size with subclasses" was based on a wrong
+   assumption. The subclass experiment now serves to _demonstrate_ the slot contract (see the
+   disassembly above), not to derive sizes.
 
-Every row above stays `unverified` until the evidence exists. An unverified number is a blocker for
-the step that needs it, not an invitation to pick a plausible value.
+## What still needs a licensed reference run
 
-## What this already buys us
+| Area                                                       | Why it is needed                                                                         | Blocking for M1?                              |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Real Apple instance sizes                                  | Only if a path calls `class_getInstanceSize` or reads a superclass ivar directly         | No for this app                               |
+| CF-backed `NSString`/`NSArray`/`NSDictionary` object sizes | Toll-free bridging and allocator behaviour outside the literal structs we already handle | Only if a path instantiates them via CF       |
+| `NSObject` retain-count/weak layout                        | `objc_retain`/`weak` must interoperate with guest objects                                | Needs a documented model; not measured yet    |
+| UIKit's own ivars and method bodies                        | Cannot be measured without Apple binaries                                                | Out of reach; M1 only needs the app's surface |
 
-- **`UIResponder` must be 8 bytes** in any binary-compatible image; our shim's `UIResponder` is 8
-  bytes too, so this one fact is already aligned.
-- The app's two strong ivars sit at 8 and 16, which means **any `UIResponder` subclass layout we
-  provide must keep those offsets**: `instanceSize = 8`, `_window` at 8, `_label` at 16, total 24.
-- The measurement process works end to end, so the remaining classes can be measured the same way by
-  adding subclasses to `fixtures/ios-app/main.m` — the cheapest way to learn Apple's sizes without
-  private headers.
+## What this buys the next step
 
-## Next measurement targets
+- The runtime contract for guest ivars is now explicit: **realize, then patch**.
+- The app's own layout is known relative to its superclass: two 8-byte strong ivars after the
+  superclass, so a realized `AppDelegate` is `superclassSize + 16`, aligned to 8.
+- `AppDelegate`'s class methods and the 31 symbols are covered; what remains is the realization
+  path, the replacement images, and the runtime calls the app reaches.
 
-1. Add `@interface SampleView : UIView { ... }` (and one subclass each for `UIWindow`, `UILabel`,
-   `UIButton`, `UIViewController`) to the fixture, so their instance sizes and first-ivar offsets
-   appear in `class_ro_t`.
-2. Re-run `bun run abi:measure` and extend this table.
-3. Only then generate replacement images with those sizes.
+## Next measurement / implementation targets
+
+1. Implement class realization: compute guest `instanceSize` and ivar offsets from our superclass
+   sizes, write them into `class_ro_t`/`ivar_t` slots, and record them in `inspect`.
+2. Use the five `Sample*` classes as the test corpus: a realized `SampleView` must report
+   `_sampleView` at our `UIView` size, and its accessor must read that patched slot.
+3. Only then generate the replacement images and start the stock-app E2E.
+
+The lesson is recorded here so the next reader does not spend a day chasing "UIView = 8 bytes":
+the metadata is a contract to patch, not a table of Apple's layouts.

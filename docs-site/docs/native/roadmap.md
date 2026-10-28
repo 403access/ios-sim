@@ -83,15 +83,15 @@ this repository's own, so none of it is binary-compatible with Apple's framework
 **Progress**
 
 - 31/31 undefined symbols covered (classes, runtime, blocks, literals, stack guard).
-- `bun run abi:measure` reports `AppDelegate` 24 bytes with `_window@8`/`_label@16`, deriving an
-  8-byte `UIResponder`; four areas remain explicitly **unverified**
-  ([table](../plans/m1-abi-table.md)).
+- `bun run abi:measure` reports the app's emitted layouts and proved the **ivar-slot contract**:
+  code loads offsets from `_OBJC_IVAR_$` slots, so the runtime must realize classes and patch
+  them; Apple's absolute sizes are not baked in ([table](../plans/m1-abi-table.md)).
 - Fixed `ivar_t.offset` parsing (a pointer to an int32 slot, not the value) — required for any real
   binary.
 - Not started: framework superclass sizes, replacement images, the E2E gate.
 
-**Next:** add fixture subclasses of `UIView`/`UILabel`/`UIButton`/`UIViewController`/`UIWindow` so
-their sizes become measurable, then generate the images. The full charter is
+**Next:** implement realize-then-patch for guest classes (using the five `Sample*` subclasses as
+the corpus), then generate the five replacement images and start the E2E. The full charter is
 [plans/m1-replacement-images.md](../plans/m1-replacement-images.md).
 
 ## A1 — Kernel boundary and threads (2–4 months)
