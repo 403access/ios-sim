@@ -113,10 +113,13 @@ frame 375x667 sha256=<deterministic>
 
 The digest is not pinned as a constant: it changes whenever the fixtures change. Instead the
 hermetic test asserts pixel properties and the gated clang test asserts that the two independent
-producers (this repository's writer and Apple clang) produce the **same** digest sequence for
-taps, drags, ticks, the button, the switch, the slider, and nested views, including timer fires and
-the animation timeline during ticks. A change in either path breaks the equality,
-which is the point.
+producers (this repository's writer and Apple clang) produce the **same** digest sequence across
+**13 scenarios**: tap, drag, nested views, button, switch, slider, segments, gesture, scroll,
+navigation, table, ticks (timers + animation), and nav-pop. A change in either path breaks the
+equality, which is the point.
+
+The stock-app side is tracked separately: **31/31** undefined symbols are covered, and the app's
+own ABI facts are measured in the [M1 ABI table](../plans/m1-abi-table.md).
 
 With `--tap 30,30` the same app renders three frames: red, blue after `touchesBegan:`, green after
 `touchesEnded:`. A drag adds yellow `touchesMoved:` samples. Both producers are compared on the

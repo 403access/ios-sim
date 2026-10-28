@@ -16,9 +16,10 @@ are planning aids, not commitments.
 
 :::info Where we are (2026-10-28)
 A0 and A0.5 are complete: a user-space substrate plus a clean-room shim with **45 host classes**,
-**162 hermetic tests**, **13 clang differential scenarios**, and **25 of 31** symbols for the
-minimal stock-SDK app. The [architecture dashboard](./dashboard.md) is the single-screen status;
-[limitations](./limitations.md) is the per-area boundary.
+**164 hermetic tests**, and **13 clang differential scenarios**. The M1 symbol surface is closed
+(**31 of 31**), and the first stock-app ABI facts are measured (`AppDelegate` 24 B, ivars at 8/16,
+derived `UIResponder` 8 B). The [architecture dashboard](./dashboard.md) is the single-screen
+status; [limitations](./limitations.md) is the per-area boundary.
 :::
 
 ## A0 — Substrate (implemented on this branch)
@@ -70,6 +71,28 @@ minimal stock-SDK app. The [architecture dashboard](./dashboard.md) is the singl
 **Status:** complete on this branch. It is a proof of the ABI and the pipeline, with a deliberately
 small but broad shim — not a claim of UIKit fidelity. Class layouts and selector semantics remain
 this repository's own, so none of it is binary-compatible with Apple's frameworks.
+
+## A0.6 — Stock-app ABI and replacement images (in progress)
+
+**Deliverables**
+
+- A measured ABI table for the minimal SDK app (instance sizes, ivar offsets, provenance).
+- Five replacement dylibs with Apple install names, implemented as host-backed thunks.
+- A gated end-to-end test that runs the stock app and records a frame.
+
+**Progress**
+
+- 31/31 undefined symbols covered (classes, runtime, blocks, literals, stack guard).
+- `bun run abi:measure` reports `AppDelegate` 24 bytes with `_window@8`/`_label@16`, deriving an
+  8-byte `UIResponder`; four areas remain explicitly **unverified**
+  ([table](../plans/m1-abi-table.md)).
+- Fixed `ivar_t.offset` parsing (a pointer to an int32 slot, not the value) — required for any real
+  binary.
+- Not started: framework superclass sizes, replacement images, the E2E gate.
+
+**Next:** add fixture subclasses of `UIView`/`UILabel`/`UIButton`/`UIViewController`/`UIWindow` so
+their sizes become measurable, then generate the images. The full charter is
+[plans/m1-replacement-images.md](../plans/m1-replacement-images.md).
 
 ## A1 — Kernel boundary and threads (2–4 months)
 

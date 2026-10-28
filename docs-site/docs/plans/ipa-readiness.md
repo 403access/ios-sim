@@ -156,7 +156,9 @@ These items have visible value even if G2 never lands:
 ## M1 charter
 
 The concrete plan for the stock-binary gate — replacement images, the ABI table, the step
-sequence, and the kill criteria — is in the [M1 charter](./m1-replacement-images.md).
+sequence, and the kill criteria — is in the [M1 charter](./m1-replacement-images.md). Step 1 is
+done: the [measured ABI table](./m1-abi-table.md) records `AppDelegate` 24 B, ivars at 8/16, and a
+derived 8-byte `UIResponder`, with four areas still marked unverified.
 
 ## Milestones
 

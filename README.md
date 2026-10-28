@@ -101,8 +101,16 @@ bun apps/native/src/bin.ts run fixtures/objc-window/build/ObjcWindow --out clang
 Implemented: Mach-O parsing and chained fixups, user-space dyld with slides and dependency
 linking, an AArch64 integer and scalar floating-point interpreter, Mach rights/messages/reply
 ports/bootstrap services, MIG-lite, an XPC-style codec, a Darwin syscall subset, launchd-style
-plists, an Objective-C 2 metadata/dispatch subset, a clean-room UIKit shim, and deterministic
-PNG frame capture. The generated ObjC app and a clang-built ObjC app render the same frame digest.
+plists, an Objective-C 2 metadata/dispatch subset, a 45-class clean-room UIKit/Foundation shim
+(controls, text, images, navigation, tables, transforms, literals), and deterministic PNG frame
+capture. The generated ObjC app and a clang-built ObjC app render the same digest across 13
+scenarios.
+
+Status, measured: **164 hermetic tests** (6 macOS-gated), **31/31** symbols for the minimal
+stock-SDK app, and the app's own ABI measured (`AppDelegate` 24 B, ivars at 8/16, derived
+`UIResponder` 8 B). The [architecture dashboard](docs-site/docs/native/dashboard.md) is the
+single-screen view; the [M1 charter](docs-site/docs/plans/m1-replacement-images.md) is the next
+block.
 
 Not implemented: threads/blocking Mach receive, the shared cache, real
 Apple Objective-C/Swift runtimes, Foundation, Apple UIKit/AppKit, Metal/IOSurface/QuartzCore,

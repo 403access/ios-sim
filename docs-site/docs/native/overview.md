@@ -70,7 +70,9 @@ The real fixture is built at test time and is not committed. Its source is
 | launchd-style jobs     | XML plists, MachServices, RunAtLoad, bounded KeepAlive                                |
 | Objective-C 2          | class lists, absolute + relative method lists, selectors, instances                   |
 | Message send           | `objc_msgSend`/`Super2`, guest IMP tail calls, framework IMP traps                    |
-| UIKit shim             | `UIApplicationMain`, `UIWindow`, `UIView`, `UIViewController`, `UIColor`              |
+| UIKit shim             | 45 host classes: views, controls, text, images, navigation, tables, transforms        |
+| ObjC literals          | constant `@"..."` strings, `@[]`, `@{}` with measured layouts                         |
+| Stock-app surface (M1) | 31/31 symbols; app ABI measured (`AppDelegate` 24 B, `UIResponder` 8 B)               |
 | Frame capture          | deterministic 375×667 RGBA frames, PNG/PPM encoding, stable SHA-256                   |
 | Inspection             | `inspect`: chained and legacy imports; `--objc` classes/categories/protocols/ivars    |
 | Input                  | scripted taps/drags/ticks, hit-testing, began/moved/ended callbacks                   |
