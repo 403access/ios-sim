@@ -31,7 +31,8 @@
     "format:check": "bun fmt --check",
     "check": "bun run format:check && bun run typecheck && bun run test && bun run docs:build",
     "verify": "./scripts/verify.sh",
-    "architecture:build": "bun scripts/build-architecture-progress.ts"
+    "architecture:build": "bun scripts/build-architecture-progress.ts",
+    "abi:measure": "bun scripts/measure-ios-abi.ts"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

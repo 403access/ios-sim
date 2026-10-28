@@ -42,6 +42,7 @@ const sidebars: SidebarsConfig = {
         "plans/native-poc-todo",
         "plans/ipa-readiness",
         "plans/m1-replacement-images",
+        "plans/m1-abi-table",
       ],
     },
     {

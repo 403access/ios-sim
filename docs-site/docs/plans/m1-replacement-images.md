@@ -110,7 +110,10 @@ and any app other than `fixtures/ios-app/main.m`. M2 starts with a second app on
 
 ## Next actions
 
-1. Land the ABI table skeleton with the app's own measured sizes (no guesses).
+1. ~~Land the ABI table skeleton with the app's own measured sizes~~ — done:
+   [M1 ABI table](./m1-abi-table.md) (`AppDelegate` 24 bytes, ivars at 8/16, derived
+   `UIResponder` size 8). Next: add fixture subclasses for `UIView`/`UILabel`/`UIButton`/
+   `UIViewController`/`UIWindow` so their sizes are measurable too.
 2. Generate the five replacement images and get the loader to `main`.
 3. Fill the runtime calls the app reaches, one reported symbol at a time.
 4. Write the gated E2E and publish the first stock-app frame.

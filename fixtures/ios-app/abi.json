@@ -1,0 +1,39 @@
+{
+  "app": "fixtures/ios-app/main.m",
+  "binary": "fixtures/ios-app/build/SpikeApp (not committed)",
+  "sdk": "iPhoneSimulator27.1.sdk",
+  "source": "class_ro_t.instanceSize and ivar_t offsets in the app image",
+  "classes": [
+    {
+      "name": "AppDelegate",
+      "superclass": "UIResponder",
+      "instanceSize": 24,
+      "ivars": [
+        {
+          "name": "_window",
+          "offset": 8,
+          "type": "@\"UIWindow\""
+        },
+        {
+          "name": "_label",
+          "offset": 16,
+          "type": "@\"UILabel\""
+        }
+      ]
+    }
+  ],
+  "derivedSuperclassSize": {
+    "UIResponder": 8
+  },
+  "unverified": [
+    "UIView / UIWindow / UILabel / UIButton / UIViewController instance sizes (no subclasses in this app)",
+    "NSString / NSArray / NSDictionary instance sizes (CF-backed; literal layouts are measured separately)",
+    "NSObject/CF retain-count layout and weak-table semantics",
+    "UIKit's own ivars and method implementations"
+  ],
+  "notes": [
+    "Only the app's own classes carry metadata in this image.",
+    "Ivar offsets were read through ivar_t.offset pointers after the chained-fixup pass.",
+    "The fixture is pinned to the installed Xcode; re-run after an SDK change."
+  ]
+}
