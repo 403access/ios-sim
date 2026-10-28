@@ -116,6 +116,7 @@ import {
   SYS_READ,
   SYS_READLINK,
   SYS_READV,
+  SYS_POLL,
   SYS_SYSCTL,
   SYS_TASK_SELF_TRAP,
   SYS_TRUNCATE,
@@ -335,6 +336,8 @@ export class DarwinSyscallKernel {
         return this.readlink(args[0]!, args[1]!, Number(args[2]!));
       case SYS_SYSCTL:
         return this.sysctl(args[0]!, Number(args[1]!), args[2]!, args[3]!);
+      case SYS_POLL:
+        return this.poll(args[0]!, Number(args[1]!), Number(args[2]!));
       case SYS_MMAP:
         return this.mmap(
           args[0]!,
@@ -785,6 +788,40 @@ export class DarwinSyscallKernel {
     } catch (error) {
       return this.errno(errnoFor(error));
     }
+  }
+
+  private poll(fds: bigint, count: number, _timeoutMs: number): SyscallResult {
+    if (count < 0 || count > 4096 || fds === 0n) return this.errno(ERRNO_MAP.EINVAL!);
+    const POLLIN = 0x1;
+    const POLLOUT = 0x4;
+    const POLLNVAL = 0x20;
+    let ready = 0;
+    for (let index = 0; index < count; index += 1) {
+      const at = fds + BigInt(index * 8);
+      const record = this.memory.readBytes(at, 8);
+      const view = new DataView(record.buffer, record.byteOffset, record.byteLength);
+      const fd = view.getInt32(0, true);
+      const events = view.getInt16(4, true);
+      let revents = 0;
+      if (fd >= 0) {
+        const entry = this.fds.get(fd);
+        if (!entry) revents = POLLNVAL;
+        else if (entry.kind === "stdin") {
+          if (this.stdin.offset < this.stdin.bytes.length) revents |= POLLIN;
+        } else if (entry.kind === "stdout" || entry.kind === "stderr") {
+          revents |= POLLOUT;
+        } else if (entry.kind === "file") {
+          revents |= POLLIN | POLLOUT;
+        } else if (entry.kind === "dir") {
+          revents |= POLLIN;
+        }
+        revents &= events | POLLNVAL;
+      }
+      view.setInt16(6, revents, true);
+      this.memory.writeBytes(at, record);
+      if (revents !== 0) ready += 1;
+    }
+    return this.ok(ready);
   }
 
   private sysctl(
