@@ -14,6 +14,8 @@ import {
   constants as fsConstants,
   mkdirSync,
   openSync,
+  renameSync,
+  rmdirSync,
   lstatSync,
   readFileSync,
   readdirSync,
@@ -95,6 +97,8 @@ import {
   SYS_MACH_MSG_TRAP,
   SYS_MACH_REPLY_PORT,
   SYS_MKDIR,
+  SYS_RENAME,
+  SYS_RMDIR,
   SYS_MMAP,
   SYS_MPROTECT,
   SYS_MUNMAP,
@@ -351,7 +355,11 @@ export class DarwinSyscallKernel {
       case SYS_DUP2:
         return this.dup2(Number(args[0]!), Number(args[1]!));
       case SYS_FCNTL:
-        return this.ok(0);
+        return this.fcntl(Number(args[0]!), Number(args[1]!), args[2]!);
+      case SYS_RENAME:
+        return this.rename(args[0]!, args[1]!);
+      case SYS_RMDIR:
+        return this.rmdir(args[0]!);
       case SYS_MACH_REPLY_PORT:
         return this.ok(this.mach.machReplyPort(this.task));
       case SYS_TASK_SELF_TRAP:
@@ -639,6 +647,40 @@ export class DarwinSyscallKernel {
     const path = this.guestPath(pathAddress);
     try {
       mkdirSync(path, { mode: mode & 0o777 });
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private fcntl(fd: number, command: number, argument: bigint): SyscallResult {
+    const entry = this.fds.get(fd);
+    if (!entry) return this.errno(ERRNO_MAP.EBADF!);
+    if (command === 50) {
+      const path = entry.path ? this.toGuestPath(entry.path) : "/";
+      this.memory.writeBytes(argument, new TextEncoder().encode(`${path}\0`));
+      return this.ok(0);
+    }
+    if (command === 0 || command === 67) {
+      const next = this.nextFd();
+      this.fds.set(next, entry);
+      return this.ok(next);
+    }
+    return this.ok(0);
+  }
+
+  private rename(oldAddress: bigint, newAddress: bigint): SyscallResult {
+    try {
+      renameSync(this.guestPath(oldAddress), this.guestPath(newAddress));
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private rmdir(pathAddress: bigint): SyscallResult {
+    try {
+      rmdirSync(this.guestPath(pathAddress));
       return this.ok(0);
     } catch (error) {
       return this.errno(errnoFor(error));
