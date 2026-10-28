@@ -55,7 +55,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-27 · CF strings, transforms, tables",
+  updated: "2026-10-27 · progress, CF strings, transforms",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -119,13 +119,14 @@ export const architecture: Architecture = {
       id: "uikit",
       name: "UIKit shim",
       kicker: "Views · controls · controllers",
-      percent: 78,
+      percent: 80,
       chips: [
         { label: "views", state: "done" },
         { label: "controls", state: "done" },
         { label: "segments", state: "done" },
         { label: "gestures", state: "done" },
         { label: "text", state: "done" },
+        { label: "progress", state: "done" },
         { label: "images", state: "done" },
         { label: "navigation", state: "done" },
         { label: "tables", state: "done" },
@@ -133,7 +134,7 @@ export const architecture: Architecture = {
       shipped: [
         "View tree, hit-testing, clipping, scroll drags, responder forwarding",
         "Label (bitmap, wrapping), button, switch, slider, segments, image view",
-        "Navigation controller with bar, title, and back button; row-based table",
+        "Navigation controller, row-based table, progress view",
         "Legacy and block animations on the virtual clock",
       ],
       open: [
@@ -318,6 +319,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "193c25d", text: "UIProgressView with float progress and fill" },
     { hash: "8ddaf21", text: 'Constant @"..." string literals via CFString reference' },
     { hash: "0a84fd3", text: "Affine transforms on view backgrounds" },
     { hash: "af15ed7", text: "UITableView rows, selection, and scroll offset" },
