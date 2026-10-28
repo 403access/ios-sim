@@ -56,7 +56,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-28 · M1 ABI measured, symbols 31/31",
+  updated: "2026-10-28 · realize-and-patch, M1 31/31",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -322,6 +322,8 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "696de03", text: "Guest class realization + ivar slot patching" },
+    { hash: "f9e4459", text: "Corrected ABI model: offsets are patched slots" },
     { hash: "ac9f5ab", text: "Stock-app ABI measured: ivar offsets are patched slots" },
     { hash: "82992a0", text: "Ivar offsets read through ivar_t pointers" },
     { hash: "a65b0c3", text: "M1 symbol surface closed: 31/31 with UIScreen + responder" },
