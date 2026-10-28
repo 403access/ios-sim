@@ -56,17 +56,17 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-28 · M1 symbols 31/31, literals, progress",
+  updated: "2026-10-28 · M1 ABI measured, symbols 31/31",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
-  tests: 162,
+  tests: 164,
   gated: 6,
   g2: 8,
   m1Budget: 31,
   m1Covered: 31,
   stats: [
-    { value: "162", label: "hermetic tests" },
+    { value: "164", label: "hermetic tests" },
     { value: "6", label: "macOS-gated" },
     { value: "33", label: "host classes" },
     { value: "36", label: "runtime symbols" },
@@ -84,7 +84,7 @@ export const architecture: Architecture = {
       ],
       shipped: [
         "ADR 0008 and the readiness plan record the goal and the gate",
-        "All 31 symbols for the minimal SDK app are covered",
+        "All 31 symbols covered; app ABI measured (24 B, ivars 8/16)",
         "App-bundle directories launch through Info.plist",
       ],
       open: [
@@ -299,7 +299,7 @@ export const architecture: Architecture = {
     {
       id: "m1",
       name: "M1 · one stock-SDK app",
-      detail: "Symbols 31/31; replacement images next.",
+      detail: "Symbols 31/31; ABI measured; images next.",
       done: 2,
       total: 7,
       state: "partial",
@@ -322,6 +322,8 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "ac9f5ab", text: "Stock-app ABI measured: AppDelegate 24 B, UIResponder 8 B" },
+    { hash: "82992a0", text: "Ivar offsets read through ivar_t pointers" },
     { hash: "a65b0c3", text: "M1 symbol surface closed: 31/31 with UIScreen + responder" },
     { hash: "b6bc8af", text: "Literal @[] / @{} collections with measured layouts" },
     { hash: "193c25d", text: "UIProgressView with float progress and fill" },
