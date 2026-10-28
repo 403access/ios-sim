@@ -34,6 +34,8 @@ export interface ProcessOptions {
   readonly stderr?: ByteSink;
   readonly stdin?: Uint8Array;
   readonly maxInstructions?: number;
+  /** Replacement images keyed by the install name the app depends on. */
+  readonly dependencyOverrides?: ReadonlyMap<string, Uint8Array>;
   readonly deadlineMs?: number;
   readonly strictSyscalls?: boolean;
   readonly traceSyscalls?: (event: SyscallTraceEvent) => void;
@@ -53,6 +55,8 @@ export interface RuntimeOptions {
   readonly defaultStdout?: ByteSink;
   readonly defaultStderr?: ByteSink;
   readonly maxInstructions?: number;
+  /** Replacement images keyed by the install name the app depends on. */
+  readonly dependencyOverrides?: ReadonlyMap<string, Uint8Array>;
   readonly deadlineMs?: number;
   readonly strictSyscalls?: boolean;
 }
@@ -173,6 +177,7 @@ export class DarwinRuntime {
       searchPaths: options.searchPaths ?? [],
       extraRpaths: options.extraRpaths ?? [],
       externalSymbols: objc?.symbols,
+      dependencyOverrides: options.dependencyOverrides,
     });
     const program = loader.load(options.program);
     objc?.attach(program);

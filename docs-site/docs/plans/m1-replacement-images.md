@@ -10,6 +10,28 @@ This page is the working charter for **M1** in the
 [readiness plan](./ipa-readiness.md): make `fixtures/ios-app/main.m` — a normal app compiled
 against the real iOS Simulator SDK — run through this loader without loading an Apple binary.
 
+:::info Status: met for this app
+The stock app loads six images (its own plus five replacement dylibs), renders, and handles a tap —
+`bun scripts/run-ios-app.ts --tap 170,222`. The gated test is `tests/native/ios-app.test.ts`.
+:::
+
+## What it took
+
+Beyond the symbol surface and realize-and-patch, the app needed a small, concrete API set:
+
+| Call                                                                             | Why it was missing                                   |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `+[UIButton buttonWithType:]`, `-setTitle:forState:`, `-setTitleColor:forState:` | button construction and its title                    |
+| `+[NSNumber numberWithUnsignedInteger:/Long:/UnsignedLong:]`                     | `@(count)` literals                                  |
+| `+[NSDictionary dictionaryWithObjects:forKeys:count:]`                           | non-constant `@{...}` literals                       |
+| `+[NSArray arrayWithObjects:count:]`                                             | non-constant `@[...]` literals                       |
+| `-objectForKeyedSubscript:`, `-objectAtIndexedSubscript:`                        | `dict[key]` / `array[i]`                             |
+| `NSString` delegate names in `UIApplicationMain`, `NSString` `NSLog` formats     | the SDK passes objects where the shim took C strings |
+
+Plus the loader change that makes it safe: `dependencyOverrides` serves the five install names from
+memory, so no Apple dylib is ever read, and binds that miss an ordinal fall back to the host symbol
+table (the host _is_ the framework).
+
 The symbol surface is already closed: 31 of 31 undefined symbols for that app are provided or
 understood. What remains is the part the symbol count hides: matching the **layouts and
 behaviour** the compiler baked into the app, and satisfying its five library dependencies with

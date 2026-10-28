@@ -88,6 +88,12 @@ export interface LoaderOptions {
   readonly extraRpaths?: readonly string[];
   readonly maxImages?: number;
   readonly externalSymbols?: ReadonlyMap<string, bigint>;
+  /**
+   * Replacement images keyed by the install name an app depends on (e.g.
+   * `/System/Library/Frameworks/UIKit.framework/UIKit`). They are mapped from
+   * memory instead of the host filesystem, so Apple binaries are never read.
+   */
+  readonly dependencyOverrides?: ReadonlyMap<string, Uint8Array>;
   /** Inspection mode: do not attempt to load LC_LOAD_DYLIB dependencies. */
   readonly skipDependencies?: boolean;
   /** Inspection mode: bind unresolved imports to zero instead of failing. */
@@ -102,6 +108,7 @@ interface LoadContext {
   readonly executablePath: string;
   readonly maxImages: number;
   readonly externalSymbols: ReadonlyMap<string, bigint>;
+  readonly dependencyOverrides: ReadonlyMap<string, Uint8Array>;
   readonly skipDependencies: boolean;
   readonly missingSymbols: "error" | "zero";
   readonly cache: Map<string, LoadedImage>;
@@ -208,6 +215,7 @@ export class ImageLoader {
   private readonly extraRpaths: readonly string[];
   private readonly maxImages: number;
   private readonly externalSymbols: ReadonlyMap<string, bigint>;
+  private readonly dependencyOverrides: ReadonlyMap<string, Uint8Array>;
   private readonly skipDependencies: boolean;
   private readonly missingSymbols: "error" | "zero";
   private readonly cache = new Map<string, LoadedImage>();
@@ -221,6 +229,7 @@ export class ImageLoader {
     this.extraRpaths = options.extraRpaths ?? [];
     this.maxImages = Math.min(options.maxImages ?? MAX_IMAGES, MAX_IMAGES);
     this.externalSymbols = options.externalSymbols ?? new Map();
+    this.dependencyOverrides = options.dependencyOverrides ?? new Map();
     this.skipDependencies = options.skipDependencies ?? false;
     this.missingSymbols = options.missingSymbols ?? "error";
   }
@@ -239,6 +248,7 @@ export class ImageLoader {
       executablePath,
       maxImages: this.maxImages,
       externalSymbols: this.externalSymbols,
+      dependencyOverrides: this.dependencyOverrides,
       skipDependencies: this.skipDependencies,
       missingSymbols: this.missingSymbols,
       cache: this.cache,
@@ -267,7 +277,7 @@ export class ImageLoader {
     };
   }
 
-  private loadImage(path: string, context: LoadContext): LoadedImage {
+  private loadImage(path: string, context: LoadContext, override?: Uint8Array): LoadedImage {
     const cached = context.cache.get(path);
     if (cached) {
       context.stats.cacheHits += 1;
@@ -281,13 +291,17 @@ export class ImageLoader {
     }
 
     let bytes: Uint8Array;
-    try {
-      bytes = context.provider.readFile(path);
-    } catch (error) {
-      throw new LoaderError("file_not_found", `cannot read Mach-O ${path}`, {
-        path,
-        cause: error instanceof Error ? error.message : String(error),
-      });
+    if (override) {
+      bytes = override;
+    } else {
+      try {
+        bytes = context.provider.readFile(path);
+      } catch (error) {
+        throw new LoaderError("file_not_found", `cannot read Mach-O ${path}`, {
+          path,
+          cause: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     const parsed = parseMachO(bytes);
@@ -333,7 +347,10 @@ export class ImageLoader {
 
     for (const dylib of image.dylibs) {
       if (dylib.kind === "id" || context.skipDependencies) continue;
-      const resolved = resolveDependency(path, dylib.name, image.rpaths, context);
+      const replacement = context.dependencyOverrides.get(dylib.name);
+      const resolved = replacement
+        ? dylib.name
+        : resolveDependency(path, dylib.name, image.rpaths, context);
       if (!resolved) {
         if (dylib.kind === "weak") {
           loaded.dependencies[dylib.ordinal - 1] = null;
@@ -345,7 +362,7 @@ export class ImageLoader {
           { from: path, dependency: dylib.name },
         );
       }
-      loaded.dependencies[dylib.ordinal - 1] = this.loadImage(resolved, context);
+      loaded.dependencies[dylib.ordinal - 1] = this.loadImage(resolved, context, replacement);
     }
 
     applyFixups(loaded, context, slice);

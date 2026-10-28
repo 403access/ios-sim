@@ -153,6 +153,26 @@ These items have visible value even if G2 never lands:
 4. **Licensing path.** If the endpoint needs Apple binaries, the project is macOS-hosted and
    distribution-limited; the Linux claim must then be dropped explicitly.
 
+## M1 status: met for the minimal app
+
+`fixtures/ios-app/main.m`, compiled against the real iPhoneSimulator SDK, now runs without loading
+an Apple binary:
+
+```text
+bun scripts/build-ios-app-images.ts   # five replacement dylibs
+bun scripts/spike-ios-symbols.ts      # build the stock app
+bun scripts/run-ios-app.ts --tap 170,222
+# exit 0 · images 6 · frames 2 · "stock app launching"
+```
+
+It renders its window, label, and button, and a tap updates the label through
+`NSUserDefaults`/`stringWithFormat:` ("Taps: 1"). The gated test is
+`tests/native/ios-app.test.ts` (prints its skip reason without Xcode).
+
+This does **not** mean arbitrary `.ipa` files run: the app is the fixture, the frameworks are the
+host runtime with five stub images, and the missing-API list below is real. It means the M1 gate
+was reachable with a bounded, clean-room implementation.
+
 ## M1 charter
 
 The concrete plan for the stock-binary gate — replacement images, the ABI table, the step
@@ -173,7 +193,8 @@ ABI-compatible subset of the 13 classes and 8 runtime entry points it needs. Acc
 - a frame digest is recorded and the test is gated with its skip reason;
 - the stubs and known deviations are listed in the docs, and the app is never committed.
 
-If M1 cannot be reached in a bounded spike, the `.ipa` claim stays out of scope.
+The M1 gate is met for `fixtures/ios-app/main.m`. The next milestone, M2, starts with a second app
+and the missing-API list the first one exposed.
 
 **M2 — a chosen app family runs.**
 Pick two or three small real apps (one UIKit-only, one table-view-based). Extend Foundation,

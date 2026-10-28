@@ -107,9 +107,11 @@ capture. The generated ObjC app and a clang-built ObjC app render the same diges
 scenarios.
 
 Status, measured: **164 hermetic tests** (6 macOS-gated), **31/31** symbols for the minimal
-stock-SDK app, and the app's own ABI measured. The measurement proved the ivar-slot contract, and the
-runtime now realizes guest classes and patches `_OBJC_IVAR_$` slots (the clang fixture proves a
-guest ivar moves from the placeholder 8 to 64 and still renders). The [architecture dashboard](docs-site/docs/native/dashboard.md) is the
+stock-SDK app, and the app's own ABI measured. The measurement proved the ivar-slot contract, the runtime
+realizes guest classes and patches `_OBJC_IVAR_$` slots, and **a stock-SDK app now runs**: it loads
+six images (its own plus five replacement dylibs), renders a label/button frame, and a tap updates
+the label. `bun scripts/run-ios-app.ts --tap 170,222` reproduces it; arbitrary `.ipa` files remain
+out of scope. The [architecture dashboard](docs-site/docs/native/dashboard.md) is the
 single-screen view; the [M1 charter](docs-site/docs/plans/m1-replacement-images.md) is the next
 block.
 

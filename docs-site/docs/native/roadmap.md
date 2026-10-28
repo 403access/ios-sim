@@ -72,7 +72,7 @@ the single-screen status; [limitations](./limitations.md) is the per-area bounda
 small but broad shim — not a claim of UIKit fidelity. Class layouts and selector semantics remain
 this repository's own, so none of it is binary-compatible with Apple's frameworks.
 
-## A0.6 — Stock-app ABI and replacement images (in progress)
+## A0.6 — Stock-app ABI and replacement images (complete for the fixture app)
 
 **Deliverables**
 
@@ -90,7 +90,11 @@ this repository's own, so none of it is binary-compatible with Apple's framework
   binary.
 - **Realize-and-patch**: guest classes are realized superclass-first and their `_OBJC_IVAR_$` slots
   are patched with our offsets; the clang fixture proves `_pressed` moves 8 → 64 and still renders.
-- Not started: the five replacement images and the E2E gate.
+- Five replacement dylibs are served from memory (`dependencyOverrides`); ordinal binds fall back
+  to the host symbol table, so no Apple binary is read.
+- The stock app runs: six images, exit 0, label + button render, a tap updates the label, gated by
+  `tests/native/ios-app.test.ts`.
+- Still open: arbitrary `.ipa` files, cells/delegates, exceptions, threads, the shared cache.
 
 **Next:** implement realize-then-patch for guest classes (using the five `Sample*` subclasses as
 the corpus), then generate the five replacement images and start the E2E. The full charter is

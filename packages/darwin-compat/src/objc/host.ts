@@ -360,6 +360,7 @@ export class ObjcHost {
   private readonly superviews = new Map<bigint, bigint>();
   private readonly gestures = new Map<bigint, bigint[]>();
   private readonly segments = new Map<bigint, string[]>();
+  private readonly buttonTitles = new Map<bigint, { title: bigint; color: bigint }>();
   private readonly tableRows = new Map<bigint, string[]>();
   private readonly viewLayers = new Map<bigint, bigint>();
   private constantStringClass: bigint | null = null;
@@ -723,7 +724,8 @@ export class ObjcHost {
     this.registerSymbol("_NSLog", (cpu) => {
       const pointer = cpu.readRegister(0);
       if (pointer !== 0n && this.log) {
-        const text = this.formatVariadic(this.memory.readCString(pointer, 4096), cpu);
+        // Apple's NSLog takes an NSString; shim apps may pass a C string.
+        const text = this.formatVariadic(this.stringValue(pointer), cpu);
         this.log(new TextEncoder().encode(`${text}\n`));
       }
       return { value: 0n };
@@ -1419,8 +1421,45 @@ export class ObjcHost {
           run: (cpu, receiver) =>
             this.sendControlActions(cpu, receiver, CONTROL_EVENT_TOUCH_UP_INSIDE),
         },
+        {
+          selector: "setTitle:forState:",
+          types: "v32@0:8@16Q24",
+          run: (cpu, receiver) => {
+            const entry = this.buttonTitles.get(receiver) ?? { title: 0n, color: 0n };
+            entry.title = cpu.readRegister(2);
+            this.buttonTitles.set(receiver, entry);
+          },
+        },
+        {
+          selector: "titleForState:",
+          types: "@24@0:8Q16",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(0, this.buttonTitles.get(receiver)?.title ?? 0n),
+        },
+        {
+          selector: "setTitleColor:forState:",
+          types: "v32@0:8@16Q24",
+          run: (cpu, receiver) => {
+            const entry = this.buttonTitles.get(receiver) ?? { title: 0n, color: 0n };
+            entry.color = cpu.readRegister(2);
+            this.buttonTitles.set(receiver, entry);
+          },
+        },
       ],
-      classMethods: [],
+      classMethods: [
+        {
+          selector: "buttonWithType:",
+          types: "@24@0:8q16",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass) throw new ObjcError("bad_receiver", "buttonWithType: is not a class");
+            const instance = this.allocateInstance(klass);
+            this.writeDouble(instance, VIEW_ALPHA, 1);
+            this.autoreleaseObject(instance);
+            cpu.writeRegister(0, instance);
+          },
+        },
+      ],
     });
     this.registerClass(button);
 
@@ -1779,6 +1818,36 @@ export class ObjcHost {
           },
         },
         {
+          selector: "numberWithUnsignedInteger:",
+          types: "@24@0:8Q16",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "numberWithUnsignedInteger: is not a class");
+            }
+            cpu.writeRegister(0, this.newNumber(cpu.readRegister(2)));
+          },
+        },
+        {
+          selector: "numberWithLong:",
+          types: "@24@0:8q16",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "numberWithLong: is not a class");
+            }
+            cpu.writeRegister(0, this.newNumber(cpu.readRegister(2)));
+          },
+        },
+        {
+          selector: "numberWithUnsignedLong:",
+          types: "@24@0:8Q16",
+          run: (cpu, receiver) => {
+            if (!this.byAddress.has(receiver)) {
+              throw new ObjcError("bad_receiver", "numberWithUnsignedLong: is not a class");
+            }
+            cpu.writeRegister(0, this.newNumber(cpu.readRegister(2)));
+          },
+        },
+        {
           selector: "numberWithBool:",
           types: "@20@0:8B16",
           run: (cpu, receiver) => {
@@ -1801,6 +1870,21 @@ export class ObjcHost {
           selector: "count",
           types: "Q16@0:8",
           run: (cpu, receiver) => cpu.writeRegister(0, BigInt(this.arrayOf(receiver).length)),
+        },
+        {
+          selector: "objectAtIndexedSubscript:",
+          types: "@24@0:8Q16",
+          run: (cpu, receiver) => {
+            const list = this.arrayOf(receiver);
+            const index = Number(cpu.readRegister(2));
+            if (!Number.isInteger(index) || index < 0 || index >= list.length) {
+              throw new ObjcError(
+                "range_error",
+                `objectAtIndexedSubscript: ${index} is outside 0..${list.length - 1}`,
+              );
+            }
+            cpu.writeRegister(0, list[index]!);
+          },
         },
         {
           selector: "objectAtIndex:",
@@ -1832,6 +1916,20 @@ export class ObjcHost {
         },
       ],
       classMethods: [
+        {
+          selector: "arrayWithObjects:count:",
+          types: "@32@0:8r^@16Q24",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass)
+              throw new ObjcError("bad_receiver", "arrayWithObjects:count: is not a class");
+            const list = this.readObjectBuffer(cpu.readRegister(2), Number(cpu.readRegister(3)));
+            const instance = this.allocateInstance(klass);
+            this.arrays.set(instance, list);
+            this.autoreleaseObject(instance);
+            cpu.writeRegister(0, instance);
+          },
+        },
         {
           selector: "array",
           types: "@16@0:8",
@@ -1907,6 +2005,15 @@ export class ObjcHost {
           run: (cpu, receiver) => cpu.writeRegister(0, BigInt(this.dictionaryOf(receiver).size)),
         },
         {
+          selector: "objectForKeyedSubscript:",
+          types: "@24@0:8@16",
+          run: (cpu, receiver) =>
+            cpu.writeRegister(
+              0,
+              this.dictionaryOf(receiver).get(this.stringValue(cpu.readRegister(2))) ?? 0n,
+            ),
+        },
+        {
           selector: "objectForKey:",
           types: "@24@0:8@16",
           run: (cpu, receiver) =>
@@ -1917,6 +2024,30 @@ export class ObjcHost {
         },
       ],
       classMethods: [
+        {
+          selector: "dictionaryWithObjects:forKeys:count:",
+          types: "@40@0:8r^@16r^@24Q32",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass) {
+              throw new ObjcError(
+                "bad_receiver",
+                "dictionaryWithObjects:forKeys:count: is not a class",
+              );
+            }
+            const objects = this.readObjectBuffer(cpu.readRegister(2), Number(cpu.readRegister(4)));
+            const keys = this.readObjectBuffer(cpu.readRegister(3), objects.length);
+            const instance = this.allocateInstance(klass);
+            const entries = new Map<string, bigint>();
+            objects.forEach((object, index) => {
+              const key = keys[index];
+              if (key !== undefined) entries.set(this.stringValue(key), object);
+            });
+            this.dictionaries.set(instance, entries);
+            this.autoreleaseObject(instance);
+            cpu.writeRegister(0, instance);
+          },
+        },
         {
           selector: "dictionary",
           types: "@16@0:8",
@@ -4181,6 +4312,16 @@ export class ObjcHost {
   }
 
   /** Arrays live in host memory; guest code sees only the object handle. */
+  /** Read `count` object pointers from a guest array buffer. */
+  private readObjectBuffer(address: bigint, count: number): bigint[] {
+    if (address === 0n || count <= 0) return [];
+    const values: bigint[] = [];
+    for (let index = 0; index < Math.min(count, 1024); index += 1) {
+      values.push(this.memory.read(address + BigInt(index * 8), 8));
+    }
+    return values;
+  }
+
   private arrayOf(instance: bigint): bigint[] {
     const list = this.arrays.get(instance);
     if (list) return list;
@@ -4508,8 +4649,10 @@ export class ObjcHost {
   }
 
   private uiApplicationMain(cpu: Arm64Cpu): SyscallResult {
+    const delegateArgument = cpu.readRegister(3);
+    // Apple's API takes an NSString; older shim apps pass a C string.
     const delegateName =
-      cpu.readRegister(3) === 0n ? "AppDelegate" : this.readCString(cpu.readRegister(3));
+      delegateArgument === 0n ? "AppDelegate" : this.stringValue(delegateArgument);
     const delegateClass = this.classes.get(delegateName);
     if (!delegateClass) {
       throw new ObjcError(
@@ -4950,6 +5093,20 @@ export class ObjcHost {
       this.paintProgress(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UITableView") {
       this.paintTable(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
+    } else if (klass?.name === "UIButton") {
+      const entry = this.buttonTitles.get(view);
+      if (entry && entry.title !== 0n) {
+        const title = this.stringValue(entry.title);
+        const scale = 2;
+        const color = entry.color === 0n ? BLACK : (this.colorAtPointer(entry.color) ?? BLACK);
+        drawText(
+          framebuffer,
+          absoluteX + Math.max(2, (rect.width - textWidth(title, scale)) / 2),
+          absoluteY + Math.max(2, (rect.height - 5 * scale) / 2),
+          title,
+          { scale, color: { ...color, a: color.a * alpha } },
+        );
+      }
     } else if (klass?.name === "UISegmentedControl") {
       this.paintSegmentedControl(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UIImageView") {
