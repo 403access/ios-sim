@@ -465,7 +465,13 @@ export class DarwinSyscallKernel {
       if (flags & DARWIN_O_TRUNC) nodeFlags |= fsConstants.O_TRUNC;
       if (flags & DARWIN_O_APPEND) nodeFlags |= fsConstants.O_APPEND;
       if (flags & DARWIN_O_EXCL) nodeFlags |= fsConstants.O_EXCL;
-      if (statSync(path).isDirectory()) {
+      let directory = false;
+      try {
+        directory = statSync(path).isDirectory();
+      } catch {
+        // Missing paths can still be created below.
+      }
+      if (directory) {
         if (access !== DARWIN_O_RDONLY) return this.errno(ERRNO_MAP.EACCES!);
         const fd = this.nextFd();
         this.fds.set(fd, { kind: "dir", path, position: 0, append: false });
