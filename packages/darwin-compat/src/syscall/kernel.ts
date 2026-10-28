@@ -434,6 +434,7 @@ export class DarwinSyscallKernel {
     const entry = this.fds.get(fd);
     if (!entry || entry.kind === "stdout" || entry.kind === "stderr")
       return this.errno(ERRNO_MAP.EBADF!);
+    if (entry.kind === "dir") return this.errno(ERRNO_MAP.EISDIR!);
     if (entry.kind === "stdin") {
       const available = this.stdin.bytes.length - this.stdin.offset;
       const length = Math.min(count, available);

@@ -80,5 +80,6 @@ describe("getdirentries", () => {
     expect(result.value).toBeGreaterThan(0);
     expect(entries(memory, 0x2000n, Number(result.value)).length).toBe(1);
     expect(call(SYS_GETDIRENTRIES, [1n, 0x2000n, 64n, 0x3000n]).error).toBe(true);
+    expect(call(3, [BigInt(open.value), 0x2000n, 8n]).error).toBe(true); // read(2) on a directory
   });
 });
