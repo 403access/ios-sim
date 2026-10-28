@@ -15,7 +15,7 @@ Estimates are engineer-months for one experienced systems engineer, with low con
 are planning aids, not commitments.
 
 :::info Where we are (2026-10-28)
-A0 and A0.5 are complete: a user-space substrate plus a clean-room shim with **43 host classes**,
+A0 and A0.5 are complete: a user-space substrate plus a clean-room shim with **45 host classes**,
 **162 hermetic tests**, **13 clang differential scenarios**, and **25 of 31** symbols for the
 minimal stock-SDK app. The [architecture dashboard](./dashboard.md) is the single-screen status;
 [limitations](./limitations.md) is the per-area boundary.
@@ -51,7 +51,7 @@ minimal stock-SDK app. The [architecture dashboard](./dashboard.md) is the singl
 - Apple-ABI ObjC 2 metadata parser (absolute and relative method lists).
 - `objc_msgSend`/`objc_msgSendSuper2` with guest-IMP tail calls and host-IMP traps.
 - Instance allocation, `+alloc`, `-init`, `respondsToSelector:`, `isKindOfClass:`.
-- Clean-room shim classes: 43 host classes, including `NSObject`, `NSString`/`NSNumber`/collections
+- Clean-room shim classes: 45 host classes, including `NSObject`, `NSString`/`NSNumber`/collections
   (and literal strings/arrays/dictionaries), `NSData`, `NSJSONSerialization`, `NSBundle`,
   `NSUserDefaults`, notifications, timers, images, and `UIApplicationMain`.
 - UIKit shim: window/view tree, labels (bitmap text, wrapping), button/switch/slider/segmented
@@ -141,7 +141,8 @@ path, the window, and the frame loop remain open.
 ## A5 — UIKit and host UI (6–12 months)
 
 - Build or obtain a UIKit-compatible layer for the simulator runtime. **A0.5 delivered a
-  clean-room shim for six classes and one lifecycle callback**, not a UIKit implementation.
+  clean-room shim (45 classes: views, controls, text, images, navigation, tables)** — not a UIKit
+  implementation, and not binary-compatible with Apple's.
 - AppKit replacement for host windows, menus, and pasteboard.
 - Accessibility translation and a test harness.
 - Text, fonts, locale, and input-method plumbing.

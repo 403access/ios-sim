@@ -84,18 +84,20 @@ exercises (`[label setText:@"TAPPED"]`). Literal _collections_ (`@[]`, `@{}`) ar
 ### Current coverage of that budget
 
 Re-running the spike on 2026-10-28 and comparing each symbol with the runtime's exports gives
-**25 of 31** symbols covered:
+**31 of 31** symbols covered for the minimal app:
 
-- 11 of 13 classes (missing `UIResponder`, `UIScreen`);
+- 13 of 13 classes (`UIResponder` and `UIScreen` are now real shim classes);
 - 8 of 8 Objective-C runtime entry points;
 - the blocks class, `_UIApplicationMain`, `_NSLog`, `___CFConstantStringClassReference`,
-  the `NSObject` metaclass, and `__objc_empty_cache`;
-- still missing: `UIResponder` (+ its metaclass), `UIScreen`, `NSStringFromClass`,
-  `___stack_chk_fail`, `___stack_chk_guard`.
+  the `NSObject`/`UIResponder` metaclasses, `___stack_chk_fail`/`___stack_chk_guard`, and
+  `__objc_empty_cache`.
+
+The generated and clang fixtures assert the new services (`UIScreen` bounds/scale,
+`NSStringFromClass`, the responder hierarchy) and still agree frame-for-frame.
 
 Symbol presence is necessary, not sufficient: each class still needs Apple-compatible layout and
-behaviour, and the app's five Apple dylib dependencies must be replaced. The missing six are the
-next bounded M1 step.
+behaviour, and the app's five Apple dylib dependencies must be replaced. That replacement-image
+work is the next M1 step; the symbol surface itself is closed.
 
 **Reading the number honestly.** Thirty-one is the _link-time_ surface of that app, not the size of
 the job. Each missing class must behave like Apple's at the ABI level, and the frameworks the app

@@ -77,7 +77,7 @@ is recorded in ADR 0007.
 The PoC now covers far more than the original gates: controls, gestures, navigation, tables,
 transforms, literal collections, and PNG images. The [architecture dashboard](./dashboard.md)
 tracks per-layer status; the table below keeps the original gate contract. Since this page was
-written, the shim grew from six classes to 43 host classes and the clang differential from one
+written, the shim grew from six classes to 45 host classes and the clang differential from one
 scenario to 13.
 :::
 

@@ -309,6 +309,7 @@ export class ObjcHost {
   private readonly observers = new Map<string, Array<{ observer: bigint; selector: bigint }>>();
   private notificationCenter: bigint | null = null;
   private userDefaults: bigint | null = null;
+  private mainScreen: bigint | null = null;
   private readonly defaults = new Map<string, bigint>();
   private readonly arrays = new Map<bigint, bigint[]>();
   private readonly timerDefs = new Map<
@@ -674,6 +675,18 @@ export class ObjcHost {
       return { value: 0n };
     });
 
+    this.registerSymbol("_NSStringFromClass", (cpu) => {
+      const klass = this.byAddress.get(cpu.readRegister(0));
+      // Trap results are written into x0 by the CPU, so return the object.
+      return { value: klass ? this.newString(this.internString(klass.name)) : 0n };
+    });
+    this.registerSymbol("___stack_chk_fail", () => {
+      throw new ObjcError("stack_smash", "___stack_chk_fail: stack canary mismatch");
+    });
+    const guard = this.allocBytes(8);
+    this.memory.write(guard, 8, 0x5a5a_1234_4321_a5a5n);
+    this.symbols.set("___stack_chk_guard", guard);
+
     this.registerSymbol("_NSLog", (cpu) => {
       const pointer = cpu.readRegister(0);
       if (pointer !== 0n && this.log) {
@@ -877,6 +890,64 @@ export class ObjcHost {
     });
     this.registerClass(object);
 
+    const responder = this.defineClass({
+      name: "UIResponder",
+      superclass: "NSObject",
+      instanceSize: 8,
+      methods: [
+        {
+          selector: "nextResponder",
+          types: "@16@0:8",
+          run: (cpu) => cpu.writeRegister(0, 0n),
+        },
+        {
+          selector: "canBecomeFirstResponder",
+          types: "B16@0:8",
+          run: (cpu) => cpu.writeRegister(0, 0n),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(responder);
+
+    // UIScreen is a singleton describing the simulated display.
+    const screen = this.defineClass({
+      name: "UIScreen",
+      superclass: "NSObject",
+      instanceSize: 16,
+      methods: [
+        {
+          selector: "bounds",
+          types: "{CGRect={CGPoint=dd}{CGSize=dd}}16@0:8",
+          run: (cpu) =>
+            this.writeRectToRegisters(cpu, {
+              x: 0,
+              y: 0,
+              width: this.width,
+              height: this.height,
+            }),
+        },
+        {
+          selector: "scale",
+          types: "d16@0:8",
+          run: (cpu) => cpu.writeVectorDouble(0, 2),
+        },
+      ],
+      classMethods: [
+        {
+          selector: "mainScreen",
+          types: "@16@0:8",
+          run: (cpu, receiver) => {
+            const klass = this.byAddress.get(receiver);
+            if (!klass) throw new ObjcError("bad_receiver", "mainScreen receiver is not a class");
+            this.mainScreen ??= this.allocateInstance(klass);
+            cpu.writeRegister(0, this.mainScreen);
+          },
+        },
+      ],
+    });
+    this.registerClass(screen);
+
     const set = this.defineClass({
       name: "NSSet",
       superclass: "NSObject",
@@ -934,7 +1005,7 @@ export class ObjcHost {
 
     const view = this.defineClass({
       name: "UIView",
-      superclass: "NSObject",
+      superclass: "UIResponder",
       instanceSize: VIEW_INSTANCE_SIZE,
       methods: [
         { selector: "init", types: "@16@0:8", run: self },
@@ -2842,7 +2913,7 @@ export class ObjcHost {
 
     const controller = this.defineClass({
       name: "UIViewController",
-      superclass: "NSObject",
+      superclass: "UIResponder",
       instanceSize: CONTROLLER_INSTANCE_SIZE,
       methods: [
         { selector: "init", types: "@16@0:8", run: self },
@@ -3030,7 +3101,7 @@ export class ObjcHost {
 
     const application = this.defineClass({
       name: "UIApplication",
-      superclass: "NSObject",
+      superclass: "UIResponder",
       instanceSize: 8,
       methods: [
         {

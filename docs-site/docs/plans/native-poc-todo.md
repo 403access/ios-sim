@@ -86,6 +86,7 @@ started.
 - [x] `NSJSONSerialization` + `-[NSString dataUsingEncoding:]`
 - [x] Constant `@"..."` strings (`___CFConstantStringClassReference`)
 - [x] Literal collections `@[]` / `@{}` (`NSConstantArray` / `NSConstantDictionary`)
+- [x] M1 symbol surface: `UIResponder`, `UIScreen`, `NSStringFromClass`, stack guard (31/31)
 - [~] `CALayer` corner radius on view backgrounds (masks/opacity stored)
 - [~] `UIView` affine transforms on backgrounds (children/hit-testing untransformed)
 - [x] `UISegmentedControl` selection, rendering, and value-changed actions

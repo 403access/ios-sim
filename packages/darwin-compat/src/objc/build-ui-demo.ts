@@ -42,6 +42,7 @@ import {
   movz,
   ret,
   stpPre,
+  strDouble,
   strUnsigned,
   ubfm,
 } from "../arm64/assembler.js";
@@ -105,6 +106,8 @@ const SELECTORS = {
   setRowHeight: "setRowHeight:",
   selectedRow: "selectedRow",
   rowSelected: "rowSelected:",
+  mainScreen: "mainScreen",
+  scale: "scale",
   setTransform: "setTransform:",
   initWithProgressViewStyle: "initWithProgressViewStyle:",
   setProgress: "setProgress:",
@@ -286,7 +289,12 @@ type SlotName =
   | "literalArrayCount"
   | "literalArrayEqual"
   | "literalDictCount"
-  | "literalDictEqual";
+  | "literalDictEqual"
+  | "classScreen"
+  | "screenScaleBits"
+  | "classAppDelegate"
+  | "stringFromClass"
+  | "classNameEqual";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -543,6 +551,11 @@ function planData(): Plan {
     "literalArrayEqual",
     "literalDictCount",
     "literalDictEqual",
+    "classScreen",
+    "screenScaleBits",
+    "classAppDelegate",
+    "stringFromClass",
+    "classNameEqual",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -587,6 +600,7 @@ function planData(): Plan {
     "key",
     "VALUE",
     "items",
+    "AppDelegate",
     "ROOT",
     "DETAIL",
     "OPEN",
@@ -1306,6 +1320,16 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
         sectionIndex: 2,
       },
       {
+        name: "_screenScaleBits",
+        value: dataAddress(plan.slotOffsets.screenScaleBits),
+        sectionIndex: 2,
+      },
+      {
+        name: "_classNameEqual",
+        value: dataAddress(plan.slotOffsets.classNameEqual),
+        sectionIndex: 2,
+      },
+      {
         name: "_literalDictCount",
         value: dataAddress(plan.slotOffsets.literalDictCount),
         sectionIndex: 2,
@@ -1886,6 +1910,25 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
     emitStore(0, slot("jsonItemsValue"));
+
+    // (void)[[UIScreen mainScreen] scale]; (void)NSStringFromClass([AppDelegate class]);
+    emitPointer(0, slot("classScreen"));
+    emitAddress(1, selector(SELECTORS.mainScreen));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitAddress(1, selector(SELECTORS.scale));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(adrp(9, dataAddress(plan.slotOffsets.screenScaleBits), pc()));
+    emitWord(strDouble(0, 9, dataAddress(plan.slotOffsets.screenScaleBits) & 0xfff));
+    emitPointer(0, slot("classAppDelegate"));
+    emitPointer(16, slot("stringFromClass"));
+    emitWord(blr(16));
+    emitAddress(1, selector(SELECTORS.isEqualToString));
+    emitAddress(2, dataAddress(plan.stringOffsets.AppDelegate!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("classNameEqual"));
 
     // NSData *data = [NSData dataWithContentsOfFile:found];
     // UIImage *fromData = [UIImage imageWithData:data];
@@ -2980,6 +3023,7 @@ function emitData(
     "key",
     "VALUE",
     "items",
+    "AppDelegate",
     "ROOT",
     "DETAIL",
     "OPEN",
@@ -3262,6 +3306,9 @@ function emitData(
   bind(plan.slotOffsets.classNav, "_OBJC_CLASS_$_UINavigationController");
   bind(plan.slotOffsets.classTable, "_OBJC_CLASS_$_UITableView");
   bind(plan.slotOffsets.classProgress, "_OBJC_CLASS_$_UIProgressView");
+  bind(plan.slotOffsets.classScreen, "_OBJC_CLASS_$_UIScreen");
+  rebase(plan.slotOffsets.classAppDelegate, address(plan.appClass));
+  bind(plan.slotOffsets.stringFromClass, "_NSStringFromClass");
   bind(plan.slotOffsets.classTapGesture, "_OBJC_CLASS_$_UITapGestureRecognizer");
   bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
   bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");

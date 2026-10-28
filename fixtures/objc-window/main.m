@@ -33,6 +33,7 @@ static int gDelayed;
 static int gBundle;
 static int gGesture;
 static BOOL gLiteralOK;
+static BOOL gScreenOK;
 static int gSegment = -1;
 static UIWindow *gWindow;
 static UINavigationController *gNav;
@@ -79,7 +80,7 @@ static UILabel *gLabel;
   (void)touches;
   (void)event;
   if (!(gBaseInit && gTapInit && gInitOrder == 2 && gLifecycle == 1 && gString == 1 &&
-        gCollections == 1 && gBundle == 1 && gLiteralOK)) {
+        gCollections == 1 && gBundle == 1 && gLiteralOK && gScreenOK)) {
     self.backgroundColor = [UIColor purpleColor];
     return;
   }
@@ -283,6 +284,11 @@ static unsigned gTick;
   [detail setTitle:"DETAIL"];
   detail.view.backgroundColor = [UIColor purpleColor];
   NSArray *literalRows = @[ @"ALPHA", @"BETA" ];
+  UIScreen *screen = [UIScreen mainScreen];
+  CGRect screenBounds = [screen bounds];
+  gScreenOK = screenBounds.size.width == 375 && screenBounds.size.height == 667 &&
+              [screen scale] == 2 &&
+              [NSStringFromClass([AppDelegate class]) isEqualToString:@"AppDelegate"];
   NSDictionary *literalDict = @{ @"key" : @"VALUE" };
   gLiteralOK = literalRows.count == 2 &&
                [[literalRows objectAtIndex:1] isEqualToString:@"BETA"] &&

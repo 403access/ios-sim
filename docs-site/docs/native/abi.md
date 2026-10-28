@@ -180,7 +180,8 @@ Recognised runtime entry points: `objc_retain`, `objc_release`, `objc_autoreleas
 `objc_opt_class`, `objc_opt_isKindOfClass`, `objc_alloc`, `sel_registerName`, `objc_getClass`,
 `objc_setAssociatedObject`, `objc_getAssociatedObject`, `objc_removeAssociatedObjects`,
 `objc_storeWeak`, `objc_loadWeakRetained`, `objc_loadWeak`, `objc_destroyWeak`,
-`objc_alloc_init`, `objc_sync_enter/exit`, and `NSLog` (a C string written to the process stderr sink). Retain/release update a host-side refcount (objects start at 1; convenience
+`objc_alloc_init`, `objc_sync_enter/exit`, `NSStringFromClass`, the stack guard
+(`___stack_chk_guard`/`___stack_chk_fail`), and `NSLog` (a C string written to the process stderr sink). Retain/release update a host-side refcount (objects start at 1; convenience
 constructors return autoreleased objects), and autorelease pools are real stacks drained on pop.
 When a direct `-release`/`objc_release` reaches zero and the class overrides `-dealloc`, a generated
 stub calls it and returns to the release caller. Bookkeeping releases (pool drain, storeStrong,

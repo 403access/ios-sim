@@ -350,6 +350,14 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (UIImage *)image;
 @end
 
+@interface UIScreen : NSObject
++ (UIScreen *)mainScreen;
+- (CGRect)bounds;
+- (double)scale;
+@end
+
+extern id NSStringFromClass(id cls);
+
 @interface UIWindow : UIView
 - (void)makeKeyAndVisible;
 - (void)setRootViewController:(id)controller;
