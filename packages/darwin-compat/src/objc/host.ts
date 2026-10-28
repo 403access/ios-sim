@@ -361,6 +361,8 @@ export class ObjcHost {
   private readonly tableRows = new Map<bigint, string[]>();
   private readonly viewLayers = new Map<bigint, bigint>();
   private constantStringClass: bigint | null = null;
+  private constantArrayClass: bigint | null = null;
+  private constantDictionaryClass: bigint | null = null;
   private readonly viewTransforms = new Map<
     bigint,
     { a: number; b: number; c: number; d: number; tx: number; ty: number }
@@ -1741,6 +1743,17 @@ export class ObjcHost {
     });
     this.registerClass(array);
 
+    // `@[...]` literals are constant array objects; the loader needs the class.
+    const constantArray = this.defineClass({
+      name: "NSConstantArray",
+      superclass: "NSArray",
+      instanceSize: 32,
+      methods: [],
+      classMethods: [],
+    });
+    this.registerClass(constantArray);
+    this.constantArrayClass = constantArray.address;
+
     const mutableArray = this.defineClass({
       name: "NSMutableArray",
       superclass: "NSArray",
@@ -1814,6 +1827,16 @@ export class ObjcHost {
       ],
     });
     this.registerClass(dictionary);
+
+    const constantDictionary = this.defineClass({
+      name: "NSConstantDictionary",
+      superclass: "NSDictionary",
+      instanceSize: 32,
+      methods: [],
+      classMethods: [],
+    });
+    this.registerClass(constantDictionary);
+    this.constantDictionaryClass = constantDictionary.address;
 
     const mutableDictionary = this.defineClass({
       name: "NSMutableDictionary",
@@ -4033,15 +4056,44 @@ export class ObjcHost {
   /** Dictionaries also live in host memory, keyed by their string value. */
   private dictionaryOf(instance: bigint): Map<string, bigint> {
     const map = this.dictionaries.get(instance);
-    if (!map) throw new ObjcError("bad_receiver", "object is not a dictionary");
-    return map;
+    if (map) return map;
+    // `@{...}` literals are { isa, count, capacity, keys, values } in __DATA_CONST.
+    if (
+      this.constantDictionaryClass !== null &&
+      this.memory.read(instance, 8) === this.constantDictionaryClass
+    ) {
+      const count = Number(this.memory.read(instance + 8n, 8));
+      const keys = this.memory.read(instance + 24n, 8);
+      const values = this.memory.read(instance + 32n, 8);
+      const entries = new Map<string, bigint>();
+      for (let index = 0; index < count; index += 1) {
+        const key = this.memory.read(keys + BigInt(index * 8), 8);
+        const value = this.memory.read(values + BigInt(index * 8), 8);
+        entries.set(this.stringValue(key), value);
+      }
+      return entries;
+    }
+    throw new ObjcError("bad_receiver", "object is not a dictionary");
   }
 
   /** Arrays live in host memory; guest code sees only the object handle. */
   private arrayOf(instance: bigint): bigint[] {
     const list = this.arrays.get(instance);
-    if (!list) throw new ObjcError("bad_receiver", "object is not an array");
-    return list;
+    if (list) return list;
+    // `@[...]` literals are { isa, count, element-buffer } in __DATA_CONST.
+    if (
+      this.constantArrayClass !== null &&
+      this.memory.read(instance, 8) === this.constantArrayClass
+    ) {
+      const count = Number(this.memory.read(instance + 8n, 8));
+      const buffer = this.memory.read(instance + 16n, 8);
+      const values: bigint[] = [];
+      for (let index = 0; index < count; index += 1) {
+        values.push(this.memory.read(buffer + BigInt(index * 8), 8));
+      }
+      return values;
+    }
+    throw new ObjcError("bad_receiver", "object is not an array");
   }
 
   /** Allocate an NSString holding a copy-free pointer to a guest C string. */

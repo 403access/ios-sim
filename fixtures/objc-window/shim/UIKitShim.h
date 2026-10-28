@@ -229,6 +229,7 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 
 @interface NSArray : NSObject
 + (id)array;
++ (id)arrayWithObjects:(const id [])objects count:(unsigned long)count;
 - (unsigned long)count;
 - (id)objectAtIndex:(unsigned long)index;
 - (id)firstObject;
@@ -243,6 +244,7 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 // Dictionary keys are C strings in this shim; Apple's API takes NSString.
 @interface NSDictionary : NSObject
 + (id)dictionary;
++ (id)dictionaryWithObjects:(const id [])objects forKeys:(const id [])keys count:(unsigned long)count;
 - (unsigned long)count;
 - (id)objectForKey:(const char *)key;
 @end

@@ -200,6 +200,20 @@ navigation view from its superview (a demo convenience). There are no animated t
 interactive pop gesture, no navigation-bar customisation, and pushed controllers' lifecycle
 callbacks are not sent.
 
+### Literal collections
+
+Compiled `@[...]` and `@{...}` literals bind to `NSConstantArray` and `NSConstantDictionary`, both
+of which this runtime exports as subclasses of their mutable-free parents. The layouts are
+measured from Apple clang output:
+
+```text
+NSConstantArray:      isa @0, count @8, element-buffer pointer @16
+NSConstantDictionary: isa @0, count @8, capacity @16, keys @24, values @32
+```
+
+Element, key, and value buffers hold `count` object pointers, so `count`, `objectAtIndex:`,
+`objectForKey:`, and equality work on literals without copying them into host maps.
+
 ### Constant strings
 
 Compiled `@"..."` literals bind their `isa` to `___CFConstantStringClassReference`, which this

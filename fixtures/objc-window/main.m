@@ -32,6 +32,7 @@ static UISlider *gSlider;
 static int gDelayed;
 static int gBundle;
 static int gGesture;
+static BOOL gLiteralOK;
 static int gSegment = -1;
 static UIWindow *gWindow;
 static UINavigationController *gNav;
@@ -78,7 +79,7 @@ static UILabel *gLabel;
   (void)touches;
   (void)event;
   if (!(gBaseInit && gTapInit && gInitOrder == 2 && gLifecycle == 1 && gString == 1 &&
-        gCollections == 1 && gBundle == 1)) {
+        gCollections == 1 && gBundle == 1 && gLiteralOK)) {
     self.backgroundColor = [UIColor purpleColor];
     return;
   }
@@ -281,6 +282,11 @@ static unsigned gTick;
   UIViewController *detail = [[UIViewController alloc] init];
   [detail setTitle:"DETAIL"];
   detail.view.backgroundColor = [UIColor purpleColor];
+  NSArray *literalRows = @[ @"ALPHA", @"BETA" ];
+  NSDictionary *literalDict = @{ @"key" : @"VALUE" };
+  gLiteralOK = literalRows.count == 2 &&
+               [[literalRows objectAtIndex:1] isEqualToString:@"BETA"] &&
+               [[literalDict objectForKey:"key"] isEqualToString:@"VALUE"];
   NSMutableArray *rows = [NSMutableArray array];
   [rows addObject:[NSString stringWithUTF8String:"ALPHA"]];
   [rows addObject:[NSString stringWithUTF8String:"BETA"]];

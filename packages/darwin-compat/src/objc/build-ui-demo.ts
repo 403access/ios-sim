@@ -282,7 +282,11 @@ type SlotName =
   | "rotatedView"
   | "literalLength"
   | "classProgress"
-  | "progressView";
+  | "progressView"
+  | "literalArrayCount"
+  | "literalArrayEqual"
+  | "literalDictCount"
+  | "literalDictEqual";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -345,6 +349,15 @@ interface Plan {
   readonly stringLiteral: number;
   readonly progressRect: number;
   readonly progressValue: number;
+  readonly literalA: number;
+  readonly literalB: number;
+  readonly arrayElements: number;
+  readonly arrayLiteral: number;
+  readonly literalKey: number;
+  readonly literalValue: number;
+  readonly dictKeys: number;
+  readonly dictValues: number;
+  readonly dictLiteral: number;
   readonly cornerRadius: number;
   readonly wrapRect: number;
   readonly animationDuration: number;
@@ -526,6 +539,10 @@ function planData(): Plan {
     "literalLength",
     "classProgress",
     "progressView",
+    "literalArrayCount",
+    "literalArrayEqual",
+    "literalDictCount",
+    "literalDictEqual",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -567,6 +584,8 @@ function planData(): Plan {
     "OK-7",
     "ONE",
     "TWO",
+    "key",
+    "VALUE",
     "items",
     "ROOT",
     "DETAIL",
@@ -720,6 +739,24 @@ function planData(): Plan {
   cursor += 32;
   const progressValue = cursor;
   cursor += 8;
+  const literalA = cursor;
+  cursor += 32;
+  const literalB = cursor;
+  cursor += 32;
+  const arrayElements = cursor;
+  cursor += 16;
+  const arrayLiteral = cursor;
+  cursor += 24;
+  const literalKey = cursor;
+  cursor += 32;
+  const literalValue = cursor;
+  cursor += 32;
+  const dictKeys = cursor;
+  cursor += 8;
+  const dictValues = cursor;
+  cursor += 8;
+  const dictLiteral = cursor;
+  cursor += 40;
   const cornerRadius = cursor;
   cursor += 8;
   const timerInterval = cursor;
@@ -846,6 +883,15 @@ function planData(): Plan {
     stringLiteral,
     progressRect,
     progressValue,
+    literalA,
+    literalB,
+    arrayElements,
+    arrayLiteral,
+    literalKey,
+    literalValue,
+    dictKeys,
+    dictValues,
+    dictLiteral,
     cornerRadius,
     wrapRect,
     animationDuration,
@@ -1257,6 +1303,26 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
       {
         name: "_gestureMarker",
         value: dataAddress(plan.slotOffsets.gestureMarker),
+        sectionIndex: 2,
+      },
+      {
+        name: "_literalDictCount",
+        value: dataAddress(plan.slotOffsets.literalDictCount),
+        sectionIndex: 2,
+      },
+      {
+        name: "_literalDictEqual",
+        value: dataAddress(plan.slotOffsets.literalDictEqual),
+        sectionIndex: 2,
+      },
+      {
+        name: "_literalArrayCount",
+        value: dataAddress(plan.slotOffsets.literalArrayCount),
+        sectionIndex: 2,
+      },
+      {
+        name: "_literalArrayEqual",
+        value: dataAddress(plan.slotOffsets.literalArrayEqual),
         sectionIndex: 2,
       },
       {
@@ -2472,6 +2538,40 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // NSArray *literal = @[@"ALPHA", @"BETA"];
+    emitAddress(0, dataAddress(plan.arrayLiteral));
+    emitAddress(1, selector(SELECTORS.count));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("literalArrayCount"));
+    emitAddress(0, dataAddress(plan.arrayLiteral));
+    emitAddress(1, selector(SELECTORS.objectAtIndex));
+    emitWord(movz(2, 1));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitAddress(1, selector(SELECTORS.isEqualToString));
+    emitAddress(2, dataAddress(plan.literalB));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("literalArrayEqual"));
+
+    // NSDictionary *literal = @{@"key": @"VALUE"};
+    emitAddress(0, dataAddress(plan.dictLiteral));
+    emitAddress(1, selector(SELECTORS.count));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("literalDictCount"));
+    emitAddress(0, dataAddress(plan.dictLiteral));
+    emitAddress(1, selector(SELECTORS.objectForKey));
+    emitAddress(2, dataAddress(plan.stringOffsets.key!));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitAddress(1, selector(SELECTORS.isEqualToString));
+    emitAddress(2, dataAddress(plan.literalValue));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(0, slot("literalDictEqual"));
+
     // NSMutableArray *rows = [NSMutableArray array]; ... ALPHA..DELTA
     emitPointer(0, slot("classMutableArray"));
     emitAddress(1, selector(SELECTORS.array));
@@ -2877,6 +2977,8 @@ function emitData(
     "OK-7",
     "ONE",
     "TWO",
+    "key",
+    "VALUE",
     "items",
     "ROOT",
     "DETAIL",
@@ -3261,6 +3363,37 @@ function emitData(
   f64(plan.rotation + 24, cos45);
   f64(plan.rotation + 32, 0);
   f64(plan.rotation + 40, 0);
+  // A constant dictionary literal (@{@"key": @"VALUE"}).
+  bind(plan.literalKey, "___CFConstantStringClassReference");
+  rebase(plan.literalKey + 16, address(plan.stringOffsets.key!));
+  u32(plan.literalKey + 24, 3);
+  bind(plan.literalValue, "___CFConstantStringClassReference");
+  rebase(plan.literalValue + 16, address(plan.stringOffsets.VALUE!));
+  u32(plan.literalValue + 24, 5);
+  rebase(plan.dictKeys, address(plan.literalKey));
+  rebase(plan.dictValues, address(plan.literalValue));
+  bind(plan.dictLiteral, "_OBJC_CLASS_$_NSConstantDictionary");
+  u32(plan.dictLiteral + 8, 1);
+  u32(plan.dictLiteral + 12, 0);
+  u32(plan.dictLiteral + 16, 1);
+  u32(plan.dictLiteral + 20, 0);
+  rebase(plan.dictLiteral + 24, address(plan.dictKeys));
+  rebase(plan.dictLiteral + 32, address(plan.dictValues));
+
+  // Two more literals plus a constant array object (@[@"ALPHA", @"BETA"]).
+  bind(plan.literalA, "___CFConstantStringClassReference");
+  rebase(plan.literalA + 16, address(plan.stringOffsets.ALPHA!));
+  u32(plan.literalA + 24, 5);
+  bind(plan.literalB, "___CFConstantStringClassReference");
+  rebase(plan.literalB + 16, address(plan.stringOffsets.BETA!));
+  u32(plan.literalB + 24, 4);
+  rebase(plan.arrayElements, address(plan.literalA));
+  rebase(plan.arrayElements + 8, address(plan.literalB));
+  bind(plan.arrayLiteral, "_OBJC_CLASS_$_NSConstantArray");
+  u32(plan.arrayLiteral + 8, 2);
+  u32(plan.arrayLiteral + 12, 0);
+  rebase(plan.arrayLiteral + 16, address(plan.arrayElements));
+
   // A compiled @"..." literal: isa, flags, UTF-8 pointer, length.
   bind(plan.stringLiteral, "___CFConstantStringClassReference");
   u32(plan.stringLiteral + 8, 0);
