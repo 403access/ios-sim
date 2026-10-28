@@ -56,7 +56,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-28 · M1 symbols 25/31, literals, progress",
+  updated: "2026-10-28 · M1 symbols 31/31, literals, progress",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -64,7 +64,7 @@ export const architecture: Architecture = {
   gated: 6,
   g2: 8,
   m1Budget: 31,
-  m1Covered: 25,
+  m1Covered: 31,
   stats: [
     { value: "162", label: "hermetic tests" },
     { value: "6", label: "macOS-gated" },
@@ -84,7 +84,7 @@ export const architecture: Architecture = {
       ],
       shipped: [
         "ADR 0008 and the readiness plan record the goal and the gate",
-        "31-symbol budget measured from a real SDK app",
+        "All 31 symbols for the minimal SDK app are covered",
         "App-bundle directories launch through Info.plist",
       ],
       open: [
@@ -299,7 +299,7 @@ export const architecture: Architecture = {
     {
       id: "m1",
       name: "M1 · one stock-SDK app",
-      detail: "Symbols 25/31; replacement images next.",
+      detail: "Symbols 31/31; replacement images next.",
       done: 2,
       total: 7,
       state: "partial",
@@ -322,6 +322,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "a65b0c3", text: "M1 symbol surface closed: 31/31 with UIScreen + responder" },
     { hash: "b6bc8af", text: "Literal @[] / @{} collections with measured layouts" },
     { hash: "193c25d", text: "UIProgressView with float progress and fill" },
     { hash: "8ddaf21", text: 'Constant @"..." string literals via CFString reference' },
