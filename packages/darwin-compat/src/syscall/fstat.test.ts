@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -6,7 +6,7 @@ import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { MachKernel } from "../mach/kernel.js";
 import { DarwinSyscallKernel } from "./kernel.js";
-import { SYS_FSTAT, SYS_LSTAT, SYS_OPEN, SYS_STAT } from "./numbers.js";
+import { SYS_FSTAT, SYS_LSTAT, SYS_OPEN, SYS_READLINK, SYS_STAT } from "./numbers.js";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -24,7 +24,7 @@ function setup(contents = "hello") {
   const task = kernel.createTask(1);
   const syscalls = new DarwinSyscallKernel({ memory, mach: kernel, task, rootDir: root });
   const cpu = new Arm64Cpu();
-  return { memory, syscalls, cpu, size: contents.length };
+  return { root, memory, syscalls, cpu, size: contents.length };
 }
 
 function call(syscalls: DarwinSyscallKernel, cpu: Arm64Cpu, number: number, args: bigint[]) {
@@ -58,6 +58,21 @@ describe("fstat", () => {
     expect(call(syscalls, cpu, SYS_LSTAT, [0x1000n, 0x3000n]).value).toBe(0);
     memory.writeBytes(0x1000n, new TextEncoder().encode("/missing\0"));
     expect(call(syscalls, cpu, SYS_STAT, [0x1000n, 0x3000n]).error).toBe(true);
+  });
+
+  it("reads symlink targets and distinguishes stat from lstat", () => {
+    const { root, memory, syscalls, cpu } = setup("target");
+    symlinkSync("file", join(root, "link"));
+    memory.writeBytes(0x1000n, new TextEncoder().encode("/link\0"));
+    expect(call(syscalls, cpu, SYS_READLINK, [0x1000n, 0x2000n, 32n]).value).toBe(4);
+    expect(new TextDecoder().decode(memory.readBytes(0x2000n, 4))).toBe("file");
+    expect(call(syscalls, cpu, SYS_LSTAT, [0x1000n, 0x3000n]).value).toBe(0);
+    const lstat = new DataView(memory.readBytes(0x3000n, 144).buffer);
+    expect(lstat.getUint16(4, true) & 0xf000).toBe(0xa000);
+    expect(call(syscalls, cpu, SYS_STAT, [0x1000n, 0x3000n]).value).toBe(0);
+    const stat = new DataView(memory.readBytes(0x3000n, 144).buffer);
+    expect(stat.getUint16(4, true) & 0xf000).toBe(0x8000);
+    expect(call(syscalls, cpu, SYS_READLINK, [0x1000n, 0x2000n, 2n]).value).toBe(2);
   });
 
   it("marks stdio as character devices and rejects unknown fds", () => {

@@ -14,8 +14,10 @@ import {
   constants as fsConstants,
   mkdirSync,
   openSync,
+  lstatSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   readSync,
   statSync,
   unlinkSync,
@@ -97,6 +99,7 @@ import {
   SYS_NAMES,
   SYS_OPEN,
   SYS_READ,
+  SYS_READLINK,
   SYS_READV,
   SYS_SYSCTL,
   SYS_TASK_SELF_TRAP,
@@ -294,8 +297,11 @@ export class DarwinSyscallKernel {
       case SYS_GETDIRENTRIES64:
         return this.getdirentries(Number(args[0]!), args[1]!, Number(args[2]!), args[3]!);
       case SYS_STAT:
+        return this.statPath(args[0]!, args[1]!, true);
       case SYS_LSTAT:
-        return this.statPath(args[0]!, args[1]!);
+        return this.statPath(args[0]!, args[1]!, false);
+      case SYS_READLINK:
+        return this.readlink(args[0]!, args[1]!, Number(args[2]!));
       case SYS_SYSCTL:
         return this.sysctl(args[0]!, Number(args[1]!), args[2]!, args[3]!);
       case SYS_MMAP:
@@ -734,10 +740,24 @@ export class DarwinSyscallKernel {
     return this.ok(written);
   }
 
-  private statPath(pathPointer: bigint, address: bigint): SyscallResult {
+  private statPath(pathPointer: bigint, address: bigint, follow: boolean): SyscallResult {
     try {
       const path = this.memory.readCString(pathPointer);
-      return this.writeStat(address, statSync(this.resolveGuestPath(path)));
+      const resolved = this.resolveGuestPath(path);
+      return this.writeStat(address, follow ? statSync(resolved) : lstatSync(resolved));
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private readlink(pathPointer: bigint, buffer: bigint, size: number): SyscallResult {
+    if (size < 0 || size > MAX_IO) return this.errno(ERRNO_MAP.EINVAL!);
+    try {
+      const path = this.memory.readCString(pathPointer);
+      const target = readlinkSync(this.resolveGuestPath(path));
+      const bytes = new TextEncoder().encode(target).subarray(0, size);
+      this.memory.writeBytes(buffer, bytes);
+      return this.ok(bytes.length);
     } catch (error) {
       return this.errno(errnoFor(error));
     }

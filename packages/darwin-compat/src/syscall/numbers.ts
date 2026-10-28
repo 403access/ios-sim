@@ -9,6 +9,7 @@
 
 export const SYS_EXIT = 1;
 export const SYS_READ = 3;
+export const SYS_READLINK = 58;
 export const SYS_WRITE = 4;
 export const SYS_OPEN = 5;
 export const SYS_CLOSE = 6;
