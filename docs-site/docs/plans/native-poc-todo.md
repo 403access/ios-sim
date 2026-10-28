@@ -90,6 +90,7 @@ started.
 - [x] `UISegmentedControl` selection, rendering, and value-changed actions
 - [x] `UINavigationController` push/pop with a host-built bar, title, and back button
 - [x] `UITableView` with host-managed rows, selection, and value-changed actions
+- [x] `UIProgressView` with float progress and track/fill rendering
 - [ ] `UITableViewCell`/reuse, `UICollectionView`, and a delegate protocol
 - [x] Tap and pan gesture recognisers (fire on touches that reach the default handler)
 - [x] Block literals bind (`__NSConcreteStackBlock`) and `+[UIView animateWithDuration:animations:]`

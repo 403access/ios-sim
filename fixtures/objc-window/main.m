@@ -36,6 +36,7 @@ static int gSegment = -1;
 static UIWindow *gWindow;
 static UINavigationController *gNav;
 static UITableView *gTable;
+static UIProgressView *gProgress;
 static int gTableRow = -1;
 static UILabel *gLabel;
 
@@ -289,6 +290,10 @@ static unsigned gTick;
   rotated.backgroundColor = [UIColor redColor];
   [rotated setTransform:CGAffineTransformMakeRotation(0.7853981633974483)];
   [detail.view addSubview:rotated];
+  gProgress = [[UIProgressView alloc] initWithProgressViewStyle:0];
+  [gProgress setFrame:CGRectMake(20, 320, 300, 6)];
+  [gProgress setProgress:0.5];
+  [detail.view addSubview:gProgress];
   gTable = [[UITableView alloc] initWithFrame:CGRectMake(20, 60, 300, 120)];
   [gTable setRowHeight:30];
   [gTable setRows:rows];
@@ -355,6 +360,7 @@ static unsigned gTick;
 
 - (void)rowSelected:(id)sender {
   gTableRow = (int)[sender selectedRow];
+  [gProgress setProgress:0.75];
 }
 
 - (void)openScreen:(id)sender {

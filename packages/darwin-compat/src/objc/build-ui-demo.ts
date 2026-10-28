@@ -28,6 +28,7 @@ import {
   addReg,
   and,
   adrp,
+  fcvtSingleFromDouble,
   subImm,
   b,
   blr,
@@ -105,6 +106,8 @@ const SELECTORS = {
   selectedRow: "selectedRow",
   rowSelected: "rowSelected:",
   setTransform: "setTransform:",
+  initWithProgressViewStyle: "initWithProgressViewStyle:",
+  setProgress: "setProgress:",
   initWithImage: "initWithImage:",
   setNumberOfLines: "setNumberOfLines:",
   beginAnimations: "beginAnimations:context:",
@@ -277,7 +280,9 @@ type SlotName =
   | "tableView"
   | "tableSelection"
   | "rotatedView"
-  | "literalLength";
+  | "literalLength"
+  | "classProgress"
+  | "progressView";
 
 interface Plan {
   readonly slotOffsets: Readonly<Record<SlotName, number>>;
@@ -338,6 +343,8 @@ interface Plan {
   readonly rotatedRect: number;
   readonly rotation: number;
   readonly stringLiteral: number;
+  readonly progressRect: number;
+  readonly progressValue: number;
   readonly cornerRadius: number;
   readonly wrapRect: number;
   readonly animationDuration: number;
@@ -517,6 +524,8 @@ function planData(): Plan {
     "tableSelection",
     "rotatedView",
     "literalLength",
+    "classProgress",
+    "progressView",
   ];
   const slotOffsets = {} as Record<SlotName, number>;
   for (const name of slotNames) {
@@ -707,6 +716,10 @@ function planData(): Plan {
   cursor += 48;
   const stringLiteral = cursor;
   cursor += 32;
+  const progressRect = cursor;
+  cursor += 32;
+  const progressValue = cursor;
+  cursor += 8;
   const cornerRadius = cursor;
   cursor += 8;
   const timerInterval = cursor;
@@ -831,6 +844,8 @@ function planData(): Plan {
     rotatedRect,
     rotation,
     stringLiteral,
+    progressRect,
+    progressValue,
     cornerRadius,
     wrapRect,
     animationDuration,
@@ -994,6 +1009,12 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
   emitPointer(16, slot("msgSend"));
   emitWord(blr(16));
   emitStore(0, slot("tableSelection"));
+  emitPointer(0, slot("progressView"));
+  emitAddress(1, selector(SELECTORS.setProgress));
+  emitDouble(0, dataAddress(plan.progressValue));
+  emitWord(fcvtSingleFromDouble(0, 0));
+  emitPointer(16, slot("msgSend"));
+  emitWord(blr(16));
   emitWord(ldpPost(19, 20, 31, 16));
   emitWord(ldpPost(29, 30, 31, 16));
   emitWord(ret());
@@ -2553,6 +2574,44 @@ function emit(bases: { textBase: number; dataBase: number }, plan: Plan): Emissi
     emitPointer(16, slot("msgSend"));
     emitWord(blr(16));
 
+    // UIProgressView *progress = [[UIProgressView alloc]
+    //     initWithProgressViewStyle:0]; [progress setFrame:(20,320,300,6)];
+    emitPointer(0, slot("classProgress"));
+    emitAddress(1, selector(SELECTORS.alloc));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(21, 0));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.initWithProgressViewStyle));
+    emitWord(movz(2, 0));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setFrame));
+    emitDouble(0, dataAddress(plan.progressRect));
+    emitDouble(1, dataAddress(plan.progressRect + 8));
+    emitDouble(2, dataAddress(plan.progressRect + 16));
+    emitDouble(3, dataAddress(plan.progressRect + 24));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(0, 21));
+    emitAddress(1, selector(SELECTORS.setProgress));
+    emitDouble(0, dataAddress(plan.half));
+    emitWord(fcvtSingleFromDouble(0, 0));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitStore(21, slot("progressView"));
+    emitPointer(0, slot("detailController"));
+    emitAddress(1, selector(SELECTORS.view));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+    emitWord(movReg(20, 0));
+    emitWord(movReg(0, 20));
+    emitAddress(1, selector(SELECTORS.addSubview));
+    emitPointer(2, slot("progressView"));
+    emitPointer(16, slot("msgSend"));
+    emitWord(blr(16));
+
     // UIButton *open = [[UIButton alloc] initWithFrame:(20,586,140,28)];
     emitPointer(0, slot("classButton"));
     emitAddress(1, selector(SELECTORS.alloc));
@@ -3100,6 +3159,7 @@ function emitData(
   bind(plan.slotOffsets.classJson, "_OBJC_CLASS_$_NSJSONSerialization");
   bind(plan.slotOffsets.classNav, "_OBJC_CLASS_$_UINavigationController");
   bind(plan.slotOffsets.classTable, "_OBJC_CLASS_$_UITableView");
+  bind(plan.slotOffsets.classProgress, "_OBJC_CLASS_$_UIProgressView");
   bind(plan.slotOffsets.classTapGesture, "_OBJC_CLASS_$_UITapGestureRecognizer");
   bind(plan.slotOffsets.classImage, "_OBJC_CLASS_$_UIImage");
   bind(plan.slotOffsets.classImageView, "_OBJC_CLASS_$_UIImageView");
@@ -3208,6 +3268,11 @@ function emitData(
   rebase(plan.stringLiteral + 16, address(plan.stringOffsets.TAPPED!));
   u32(plan.stringLiteral + 24, 6);
   u32(plan.stringLiteral + 28, 0);
+  f64(plan.progressRect, 20);
+  f64(plan.progressRect + 8, 320);
+  f64(plan.progressRect + 16, 300);
+  f64(plan.progressRect + 24, 6);
+  f64(plan.progressValue, 0.75);
   f64(plan.cornerRadius, 12);
   f64(plan.imageRect, 250);
   f64(plan.imageRect + 8, 140);

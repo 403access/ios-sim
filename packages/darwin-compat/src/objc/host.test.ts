@@ -293,6 +293,8 @@ describe("ObjC UIKit demo", () => {
     };
     expect(at(25, 119)).toEqual([255, 255, 255]);
     expect(at(25, 179)).toEqual([214, 228, 250]);
+    // Selecting a row also advances the progress view from 50% to 75%.
+    expect(at(240, 367)).toEqual([52, 199, 89]);
   });
 
   it("pushes and pops view controllers in a navigation stack", () => {
@@ -307,6 +309,9 @@ describe("ObjC UIKit demo", () => {
     expect(at(30, 100)).toEqual([128, 0, 128]);
     expect(at(200, 10)).toEqual([242, 242, 247]);
     expect(at(20, 20)).toEqual([209, 209, 219]);
+    // The progress view starts at 50% (150pt of 300pt).
+    expect(at(30, 367)).toEqual([52, 199, 89]);
+    expect(at(240, 367)).toEqual([200, 200, 205]);
     // The title is drawn in the bar.
     let ink = 0;
     for (let y = 10; y <= 34; y += 1) {

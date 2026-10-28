@@ -87,6 +87,9 @@ const SCROLL_CONTENT_WIDTH = 80;
 const SCROLL_CONTENT_HEIGHT = 88;
 const SCROLL_INSTANCE_SIZE = 96;
 
+const PROGRESS_VALUE = 64;
+const PROGRESS_INSTANCE_SIZE = 72;
+
 const TABLE_SELECTED = 96;
 const TABLE_ROW_HEIGHT = 104;
 const TABLE_INSTANCE_SIZE = 112;
@@ -2252,6 +2255,59 @@ export class ObjcHost {
       classMethods: [],
     });
     this.registerClass(scroll);
+
+    const progressView = this.defineClass({
+      name: "UIProgressView",
+      superclass: "UIView",
+      instanceSize: PROGRESS_INSTANCE_SIZE,
+      methods: [
+        {
+          selector: "initWithProgressViewStyle:",
+          types: "@24@0:8q16",
+          run: (cpu, receiver) => {
+            this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, doubleBits(1));
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "initWithFrame:",
+          types: "@48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16",
+          run: (cpu, receiver) => {
+            this.writeRect(receiver, this.readRect(cpu));
+            this.memory.write(receiver + BigInt(VIEW_ALPHA), 8, doubleBits(1));
+            cpu.writeRegister(0, receiver);
+          },
+        },
+        {
+          selector: "setProgress:",
+          types: "v24@0:8f16",
+          run: (cpu, receiver) =>
+            this.writeDouble(
+              receiver,
+              PROGRESS_VALUE,
+              Math.max(0, Math.min(1, cpu.readVectorSingle(0))),
+            ),
+        },
+        {
+          selector: "setProgress:animated:",
+          types: "v28@0:8f16B20",
+          run: (cpu, receiver) =>
+            this.writeDouble(
+              receiver,
+              PROGRESS_VALUE,
+              Math.max(0, Math.min(1, cpu.readVectorSingle(0))),
+            ),
+        },
+        {
+          selector: "progress",
+          types: "f16@0:8",
+          run: (cpu, receiver) =>
+            cpu.writeVectorSingle(0, this.readDouble(receiver, PROGRESS_VALUE)),
+        },
+      ],
+      classMethods: [],
+    });
+    this.registerClass(progressView);
 
     const table = this.defineClass({
       name: "UITableView",
@@ -4734,6 +4790,8 @@ export class ObjcHost {
       this.paintSwitch(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UISlider") {
       this.paintSlider(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
+    } else if (klass?.name === "UIProgressView") {
+      this.paintProgress(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UITableView") {
       this.paintTable(view, framebuffer, absoluteX, absoluteY, rect, clip, alpha);
     } else if (klass?.name === "UISegmentedControl") {
@@ -5039,6 +5097,50 @@ export class ObjcHost {
     this.writeDouble(instance, COLOR_BLUE, b);
     this.writeDouble(instance, COLOR_ALPHA, a);
     return instance;
+  }
+
+  /** Draw a progress track and its filled portion. */
+  private paintProgress(
+    view: bigint,
+    framebuffer: Framebuffer,
+    x: number,
+    y: number,
+    rect: { width: number; height: number },
+    clip: { x: number; y: number; width: number; height: number },
+    alpha: number,
+  ): void {
+    const value = Math.max(0, Math.min(1, this.readDouble(view, PROGRESS_VALUE)));
+    const trackHeight = Math.max(2, Math.min(4, rect.height));
+    const top = y + (rect.height - trackHeight) / 2;
+    framebuffer.fillRect(
+      x,
+      top,
+      rect.width,
+      trackHeight,
+      {
+        r: 200,
+        g: 200,
+        b: 205,
+        a: 255 * alpha,
+      },
+      clip,
+    );
+    const filled = rect.width * value;
+    if (filled > 0) {
+      framebuffer.fillRect(
+        x,
+        top,
+        filled,
+        trackHeight,
+        {
+          r: 52,
+          g: 199,
+          b: 89,
+          a: 255 * alpha,
+        },
+        clip,
+      );
+    }
   }
 
   /** Draw table rows (offset by the scroll position), selection, and separators. */

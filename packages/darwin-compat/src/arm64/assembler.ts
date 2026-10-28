@@ -108,6 +108,11 @@ export function stpDouble(rt: number, rt2: number, rn: number, offset: number): 
   return 0x6d000000 | ((offset / 8) << 15) | (rt2 << 10) | (rn << 5) | rt;
 }
 
+/** `fcvt sN, dM` — narrow a double lane to a single lane. */
+export function fcvtSingleFromDouble(rd: number, rn: number): number {
+  return 0x1e624000 | (rn << 5) | rd;
+}
+
 /** `fmov dN, #imm` for representable immediates. */
 export function fmovDoubleImmediate(rd: number, imm8: number): number {
   return 0x1e601000 | ((imm8 & 0xff) << 13) | rd;

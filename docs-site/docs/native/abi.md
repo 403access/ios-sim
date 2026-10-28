@@ -209,6 +209,13 @@ string reads (`-UTF8String`, equality, length, formatting, dictionary keys) dete
 read the literal layout, so both clang-emitted literals and the generated fixture's hand-built
 struct behave like `NSString` objects. Release/retain on literals is a no-op.
 
+### Progress
+
+`UIProgressView` stores a clamped float and paints a grey track with a green filled portion; the
+animated variant applies immediately. Progress arrives in `s0` (single precision), which is why the
+generated fixture narrows its double literal with `fcvt s0, d0` before the call — the clang fixture
+passes a float directly and both frames match.
+
 ### Tables
 
 `UITableView` is a `UIScrollView` with host-managed rows: `-setRows:` takes an `NSArray` of strings

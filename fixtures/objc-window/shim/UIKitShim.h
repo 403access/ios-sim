@@ -278,6 +278,13 @@ static inline CGSize CGSizeMake(CGFloat width, CGFloat height) {
 - (void)addTarget:(id)target action:(SEL)action forControlEvents:(NSUInteger)events;
 @end
 
+@interface UIProgressView : UIView
+- (id)initWithProgressViewStyle:(long)style;
+- (void)setProgress:(float)progress;
+- (void)setProgress:(float)progress animated:(BOOL)animated;
+- (float)progress;
+@end
+
 @interface UILabel : UIView
 - (void)setText:(id)text;
 - (id)text;
