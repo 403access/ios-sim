@@ -6,7 +6,7 @@ import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { MachKernel } from "../mach/kernel.js";
 import { DarwinSyscallKernel } from "./kernel.js";
-import { SYS_FCNTL, SYS_MKDIR, SYS_OPEN, SYS_RENAME, SYS_RMDIR } from "./numbers.js";
+import { SYS_ACCESS, SYS_FCNTL, SYS_MKDIR, SYS_OPEN, SYS_RENAME, SYS_RMDIR } from "./numbers.js";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -59,5 +59,9 @@ describe("file operations", () => {
     expect(memory.readCString(0x2000n)).toBe("/file");
     expect(call(SYS_FCNTL, [BigInt(fd.value), 0n, 0n]).value).toBeGreaterThanOrEqual(3);
     expect(call(SYS_RMDIR, [0x1000n]).error).toBe(true);
+    expect(call(SYS_ACCESS, [0x1000n, 0n]).value).toBe(0);
+    expect(call(SYS_ACCESS, [0x1000n, 4n]).value).toBe(0);
+    path(0x1000, "/missing");
+    expect(call(SYS_ACCESS, [0x1000n, 0n]).error).toBe(true);
   });
 });

@@ -345,7 +345,7 @@ export class DarwinSyscallKernel {
       case SYS_GETENTROPY:
         return this.getentropy(args[0]!, Number(args[1]!));
       case SYS_ACCESS:
-        return this.access(args[0]!);
+        return this.access(args[0]!, Number(args[1]!));
       case SYS_MKDIR:
         return this.mkdir(args[0]!, Number(args[1]!));
       case SYS_UNLINK:
@@ -633,10 +633,17 @@ export class DarwinSyscallKernel {
     return this.ok(0);
   }
 
-  private access(pathAddress: bigint): SyscallResult {
+  private access(pathAddress: bigint, mode: number): SyscallResult {
     const path = this.guestPath(pathAddress);
+    const requested = mode & 0x7;
+    const nodeMode =
+      requested === 0
+        ? fsConstants.F_OK
+        : (requested & 0x4 ? fsConstants.R_OK : 0) |
+          (requested & 0x2 ? fsConstants.W_OK : 0) |
+          (requested & 0x1 ? fsConstants.X_OK : 0);
     try {
-      accessSync(path, fsConstants.R_OK);
+      accessSync(path, nodeMode);
       return this.ok(0);
     } catch (error) {
       return this.errno(errnoFor(error));
