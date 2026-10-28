@@ -59,7 +59,9 @@ import {
   DARWIN_SEEK_SET,
   ERRNO_MAP,
   SYS_ACCESS,
+  SYS_CHDIR,
   SYS_CLOSE,
+  SYS_FCHDIR,
   SYS_DUP,
   SYS_DUP2,
   SYS_EXIT,
@@ -199,6 +201,7 @@ export class DarwinSyscallKernel {
   readonly blocking: BlockingMachBridge | undefined;
   private libcHeap: MallocHeap | null = null;
   private readonly kqueues = new Map<number, Kqueue>();
+  private cwd = "/";
   exitStatus: number | null = null;
   readonly unsupported = new Map<number, number>();
   private readonly trace: SyscallKernelOptions["trace"];
@@ -289,6 +292,10 @@ export class DarwinSyscallKernel {
         );
       case SYS_CLOSE:
         return this.close(Number(args[0]!));
+      case SYS_CHDIR:
+        return this.chdir(args[0]!);
+      case SYS_FCHDIR:
+        return this.fchdir(Number(args[0]!));
       case SYS_LSEEK:
         return this.seek(Number(args[0]!), BigInt.asIntN(64, args[1]!), Number(args[2]!));
       case SYS_FSTAT:
@@ -741,6 +748,30 @@ export class DarwinSyscallKernel {
     return this.ok(written);
   }
 
+  private chdir(pathPointer: bigint): SyscallResult {
+    try {
+      const guest = this.memory.readCString(pathPointer);
+      const resolved = this.resolveGuestPath(guest);
+      if (!statSync(resolved).isDirectory()) return this.errno(ERRNO_MAP.ENOTDIR!);
+      this.cwd = this.toGuestPath(resolved);
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private fchdir(fd: number): SyscallResult {
+    const entry = this.fds.get(fd);
+    if (!entry || entry.kind !== "dir" || !entry.path) return this.errno(ERRNO_MAP.EBADF!);
+    this.cwd = this.toGuestPath(entry.path);
+    return this.ok(0);
+  }
+
+  private toGuestPath(hostPath: string): string {
+    const rel = relative(this.rootDir, hostPath);
+    return rel.length === 0 ? "/" : `/${rel}`;
+  }
+
   private statPath(pathPointer: bigint, address: bigint, follow: boolean): SyscallResult {
     try {
       const path = this.memory.readCString(pathPointer);
@@ -933,7 +964,8 @@ export class DarwinSyscallKernel {
 
   private resolveGuestPath(guest: string): string {
     if (guest.includes("\u0000")) throw new SyscallError("bad_path", "path contains a null byte");
-    const relativePath = guest.startsWith("/") ? guest.slice(1) : guest;
+    const normalized = guest.startsWith("/") ? guest : join(this.cwd, guest);
+    const relativePath = normalized.startsWith("/") ? normalized.slice(1) : normalized;
     const candidate = resolve(this.rootDir, relativePath);
     const rel = relative(this.rootDir, candidate);
     if (rel.startsWith("..") || isAbsolute(rel)) {

@@ -6,7 +6,7 @@ import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { MachKernel } from "../mach/kernel.js";
 import { DarwinSyscallKernel } from "./kernel.js";
-import { SYS_GETDIRENTRIES, SYS_OPEN } from "./numbers.js";
+import { SYS_CHDIR, SYS_FCHDIR, SYS_FSTAT, SYS_GETDIRENTRIES, SYS_OPEN } from "./numbers.js";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -19,6 +19,7 @@ function setup() {
   writeFileSync(join(root, "alpha"), "a");
   writeFileSync(join(root, "beta"), "bb");
   mkdirSync(join(root, "dir"));
+  writeFileSync(join(root, "dir", "inside"), "x");
   const memory = new VirtualMemory();
   memory.mapFixed(0x1000n, 0x4000, { tag: "test", protection: 3 });
   memory.writeBytes(0x1000n, new TextEncoder().encode("/\0"));
@@ -71,6 +72,29 @@ describe("getdirentries", () => {
     expect(list.every((entry) => entry.ino > 0n)).toBe(true);
     expect(Number(memory.read(0x3000n, 8))).toBe(3);
     expect(call(SYS_GETDIRENTRIES, [BigInt(open.value), 0x2000n, 4096n, 0x3000n]).value).toBe(0);
+  });
+
+  it("resolves relative paths against chdir/fchdir", () => {
+    const { memory, call } = setup();
+    const path = (value: string) =>
+      memory.writeBytes(0x1000n, new TextEncoder().encode(`${value}\0`));
+    path("/dir");
+    expect(call(SYS_CHDIR, [0x1000n]).value).toBe(0);
+    path("inside");
+    const opened = call(SYS_OPEN, [0x1000n, 0n, 0n]);
+    expect(opened.value).toBeGreaterThanOrEqual(3);
+    expect(call(SYS_FSTAT, [BigInt(opened.value), 0x2000n]).value).toBe(0);
+    expect(Number(new DataView(memory.readBytes(0x2000n, 144).buffer).getBigInt64(96, true))).toBe(
+      1,
+    );
+
+    path("/");
+    const rootFd = call(SYS_OPEN, [0x1000n, 0n, 0n]);
+    expect(call(SYS_FCHDIR, [BigInt(rootFd.value)]).value).toBe(0);
+    path("alpha");
+    expect(call(SYS_OPEN, [0x1000n, 0n, 0n]).value).toBeGreaterThanOrEqual(3);
+    path("missing");
+    expect(call(SYS_CHDIR, [0x1000n]).error).toBe(true);
   });
 
   it("honors a short buffer and rejects non-directory fds", () => {
