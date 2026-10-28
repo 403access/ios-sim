@@ -18,6 +18,10 @@ import {
   SYS_RENAME,
   SYS_RMDIR,
   SYS_TRUNCATE,
+  SYS_UMASK,
+  SYS_GETRLIMIT,
+  SYS_SETRLIMIT,
+  SYS_UTIMES,
 } from "./numbers.js";
 
 const roots: string[] = [];
@@ -75,6 +79,33 @@ describe("file operations", () => {
     expect(call(SYS_ACCESS, [0x1000n, 4n]).value).toBe(0);
     path(0x1000, "/missing");
     expect(call(SYS_ACCESS, [0x1000n, 0n]).error).toBe(true);
+  });
+
+  it("applies umask, rlimits, and utimes", () => {
+    const { root, memory, call, path } = setup();
+    expect(call(SYS_UMASK, [0o077n]).value).toBe(0o022);
+    path(0x1000, "/created");
+    const fd = call(SYS_OPEN, [0x1000n, 0x202n, 0o777n]);
+    expect(fd.value).toBeGreaterThanOrEqual(3);
+    expect(statSync(join(root, "created")).mode & 0o777).toBe(0o700);
+
+    memory.write(0x2000n, 8, 256n);
+    memory.write(0x2008n, 8, 1024n);
+    expect(call(SYS_GETRLIMIT, [8n, 0x2100n]).value).toBe(0);
+    expect(Number(memory.read(0x2100n, 8))).toBe(256);
+    memory.write(0x2000n, 8, 64n);
+    memory.write(0x2008n, 8, 128n);
+    expect(call(SYS_SETRLIMIT, [8n, 0x2000n]).value).toBe(0);
+    expect(call(SYS_GETRLIMIT, [8n, 0x2100n]).value).toBe(0);
+    expect(Number(memory.read(0x2100n, 8))).toBe(64);
+
+    path(0x1000, "/created");
+    memory.write(0x2000n, 8, 1000n);
+    memory.write(0x2008n, 8, 0n);
+    memory.write(0x2010n, 8, 2000n);
+    memory.write(0x2018n, 8, 0n);
+    expect(call(SYS_UTIMES, [0x1000n, 0x2000n]).value).toBe(0);
+    expect(Math.round(statSync(join(root, "created")).mtimeMs / 1000)).toBe(2000);
   });
 
   it("truncates, chmods, and fsyncs files", () => {

@@ -11,16 +11,20 @@ import { randomBytes } from "node:crypto";
 import {
   accessSync,
   chmodSync,
+  chownSync,
   closeSync,
   constants as fsConstants,
   fchmodSync,
+  fchownSync,
   fsyncSync,
   ftruncateSync,
+  futimesSync,
   mkdirSync,
   openSync,
   renameSync,
   rmdirSync,
   truncateSync,
+  utimesSync,
   lstatSync,
   readFileSync,
   readdirSync,
@@ -66,6 +70,13 @@ import {
   DARWIN_SEEK_SET,
   ERRNO_MAP,
   SYS_ACCESS,
+  SYS_CHOWN,
+  SYS_UMASK,
+  SYS_FCHOWN,
+  SYS_UTIMES,
+  SYS_FUTIMES,
+  SYS_GETRLIMIT,
+  SYS_SETRLIMIT,
   SYS_CHDIR,
   SYS_CHMOD,
   SYS_CLOSE,
@@ -217,7 +228,9 @@ export class DarwinSyscallKernel {
   readonly blocking: BlockingMachBridge | undefined;
   private libcHeap: MallocHeap | null = null;
   private readonly kqueues = new Map<number, Kqueue>();
+  private readonly limits = new Map<number, [bigint, bigint]>();
   private cwd = "/";
+  private umask = 0o022;
   exitStatus: number | null = null;
   readonly unsupported = new Map<number, number>();
   private readonly trace: SyscallKernelOptions["trace"];
@@ -310,6 +323,28 @@ export class DarwinSyscallKernel {
         return this.close(Number(args[0]!));
       case SYS_CHDIR:
         return this.chdir(args[0]!);
+      case SYS_UMASK:
+        return this.umaskCall(Number(args[0]!));
+      case SYS_CHOWN:
+        return this.chown(
+          args[0]!,
+          Number(BigInt.asIntN(32, args[1]!)),
+          Number(BigInt.asIntN(32, args[2]!)),
+        );
+      case SYS_FCHOWN:
+        return this.fchown(
+          Number(args[0]!),
+          Number(BigInt.asIntN(32, args[1]!)),
+          Number(BigInt.asIntN(32, args[2]!)),
+        );
+      case SYS_UTIMES:
+        return this.utimes(args[0]!, args[1]!);
+      case SYS_FUTIMES:
+        return this.futimes(Number(args[0]!), args[1]!);
+      case SYS_GETRLIMIT:
+        return this.getrlimit(Number(args[0]!), args[1]!);
+      case SYS_SETRLIMIT:
+        return this.setrlimit(Number(args[0]!), args[1]!);
       case SYS_CHMOD:
         return this.chmod(args[0]!, Number(args[1]!));
       case SYS_FCHMOD:
@@ -525,7 +560,7 @@ export class DarwinSyscallKernel {
         this.fds.set(fd, { kind: "dir", path, position: 0, append: false });
         return this.ok(fd);
       }
-      const handle = openSync(path, nodeFlags, mode & 0o777 || 0o644);
+      const handle = openSync(path, nodeFlags, mode & 0o777 & ~this.umask || 0o644);
       const fd = this.nextFd();
       this.fds.set(fd, {
         kind: "file",
@@ -679,7 +714,7 @@ export class DarwinSyscallKernel {
   private mkdir(pathAddress: bigint, mode: number): SyscallResult {
     const path = this.guestPath(pathAddress);
     try {
-      mkdirSync(path, { mode: mode & 0o777 });
+      mkdirSync(path, { mode: mode & 0o777 & ~this.umask });
       return this.ok(0);
     } catch (error) {
       return this.errno(errnoFor(error));
@@ -693,6 +728,83 @@ export class DarwinSyscallKernel {
     } catch (error) {
       return this.errno(errnoFor(error));
     }
+  }
+
+  private umaskCall(mask: number): SyscallResult {
+    const previous = this.umask;
+    this.umask = mask & 0o777;
+    return this.ok(previous);
+  }
+
+  private chown(pathAddress: bigint, uid: number, gid: number): SyscallResult {
+    try {
+      chownSync(this.guestPath(pathAddress), uid, gid);
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private fchown(fd: number, uid: number, gid: number): SyscallResult {
+    const entry = this.fds.get(fd);
+    if (!entry) return this.errno(ERRNO_MAP.EBADF!);
+    try {
+      if (entry.handle !== undefined) fchownSync(entry.handle, uid, gid);
+      else if (entry.path) chownSync(entry.path, uid, gid);
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private utimes(pathAddress: bigint, timeval: bigint): SyscallResult {
+    try {
+      const [atime, mtime] = this.readTimevals(timeval);
+      utimesSync(this.guestPath(pathAddress), atime, mtime);
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private futimes(fd: number, timeval: bigint): SyscallResult {
+    const entry = this.fds.get(fd);
+    if (!entry || entry.handle === undefined) return this.errno(ERRNO_MAP.EBADF!);
+    try {
+      const [atime, mtime] = this.readTimevals(timeval);
+      futimesSync(entry.handle, atime, mtime);
+      return this.ok(0);
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+  }
+
+  private readTimevals(pointer: bigint): [Date, Date] {
+    if (pointer === 0n) return [new Date(), new Date()];
+    const read = (offset: bigint): Date => {
+      const seconds = Number(this.memory.read(pointer + offset, 8));
+      const micros = Number(this.memory.read(pointer + offset + 8n, 8));
+      return new Date(seconds * 1000 + micros / 1000);
+    };
+    return [read(0n), read(16n)];
+  }
+
+  private getrlimit(resource: number, address: bigint): SyscallResult {
+    const [current, maximum] = this.limits.get(resource) ?? defaultLimit(resource);
+    const bytes = new Uint8Array(16);
+    const view = new DataView(bytes.buffer);
+    view.setBigUint64(0, current, true);
+    view.setBigUint64(8, maximum, true);
+    this.memory.writeBytes(address, bytes);
+    return this.ok(0);
+  }
+
+  private setrlimit(resource: number, address: bigint): SyscallResult {
+    const current = this.memory.read(address, 8);
+    const maximum = this.memory.read(address + 8n, 8);
+    if (current > maximum) return this.errno(ERRNO_MAP.EINVAL!);
+    this.limits.set(resource, [current, maximum]);
+    return this.ok(0);
   }
 
   private fchmod(fd: number, mode: number): SyscallResult {
@@ -1222,6 +1334,13 @@ function writeKevent(
   view.setBigInt64(16, event.data, true);
   view.setBigUint64(24, event.udata, true);
   memory.writeBytes(address, bytes);
+}
+
+function defaultLimit(resource: number): [bigint, bigint] {
+  if (resource === 3) return [8n * 1024n * 1024n, 64n * 1024n * 1024n];
+  if (resource === 5) return [512n * 1024n * 1024n, 512n * 1024n * 1024n];
+  if (resource === 8) return [256n, 1024n];
+  return [0n, 0n];
 }
 
 function errnoFor(error: unknown): number {
