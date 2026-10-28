@@ -55,7 +55,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-27 · progress, CF strings, transforms",
+  updated: "2026-10-28 · literals, progress, CF strings",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -172,13 +172,14 @@ export const architecture: Architecture = {
       id: "foundation",
       name: "Foundation shim",
       kicker: "The objects apps share",
-      percent: 66,
+      percent: 70,
       chips: [
         { label: "NSString", state: "done" },
         { label: "NSData", state: "done" },
         { label: "formatting", state: "done" },
         { label: "JSON", state: "done" },
         { label: "CF strings", state: "done" },
+        { label: "literals", state: "done" },
         { label: "collections", state: "done" },
         { label: "timers", state: "done" },
         { label: "bundle", state: "done" },
@@ -188,7 +189,7 @@ export const architecture: Architecture = {
       shipped: [
         "NSString, NSNumber, NSArray/NSMutableArray, NSDictionary/NSMutableDictionary",
         "NSUserDefaults, notifications with userInfo, NSTimer, delayed perform",
-        "NSBundle, formatted NSLog, NSData, JSON, constant strings, PNG images",
+        "NSBundle, formatted NSLog, NSData, JSON, constant strings/collections, PNG",
       ],
       open: [
         "NSDate, NSURL, NSError, NSFileManager",
@@ -319,6 +320,7 @@ export const architecture: Architecture = {
     },
   ],
   recent: [
+    { hash: "b6bc8af", text: "Literal @[] / @{} collections with measured layouts" },
     { hash: "193c25d", text: "UIProgressView with float progress and fill" },
     { hash: "8ddaf21", text: 'Constant @"..." string literals via CFString reference' },
     { hash: "0a84fd3", text: "Affine transforms on view backgrounds" },
