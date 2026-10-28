@@ -153,6 +153,11 @@ These items have visible value even if G2 never lands:
 4. **Licensing path.** If the endpoint needs Apple binaries, the project is macOS-hosted and
    distribution-limited; the Linux claim must then be dropped explicitly.
 
+## M1 charter
+
+The concrete plan for the stock-binary gate — replacement images, the ABI table, the step
+sequence, and the kill criteria — is in the [M1 charter](./m1-replacement-images.md).
+
 ## Milestones
 
 **M1 — one stock-SDK app runs (the gate).**
