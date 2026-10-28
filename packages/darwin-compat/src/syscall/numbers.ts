@@ -47,6 +47,7 @@ export const SYS_LSTAT = 190;
 export const SYS_MMAP = 197;
 export const SYS_LSEEK = 199;
 export const SYS_SYSCTL = 202;
+export const SYS_SELECT = 93;
 export const SYS_POLL = 230;
 export const SYS_KQUEUE = 362;
 export const SYS_KEVENT = 363;

@@ -117,6 +117,7 @@ import {
   SYS_READLINK,
   SYS_READV,
   SYS_POLL,
+  SYS_SELECT,
   SYS_SYSCTL,
   SYS_TASK_SELF_TRAP,
   SYS_TRUNCATE,
@@ -338,6 +339,8 @@ export class DarwinSyscallKernel {
         return this.sysctl(args[0]!, Number(args[1]!), args[2]!, args[3]!);
       case SYS_POLL:
         return this.poll(args[0]!, Number(args[1]!), Number(args[2]!));
+      case SYS_SELECT:
+        return this.select(Number(args[0]!), args[1]!, args[2]!, args[3]!);
       case SYS_MMAP:
         return this.mmap(
           args[0]!,
@@ -788,6 +791,48 @@ export class DarwinSyscallKernel {
     } catch (error) {
       return this.errno(errnoFor(error));
     }
+  }
+
+  private select(
+    nfds: number,
+    readSet: bigint,
+    writeSet: bigint,
+    _exceptSet: bigint,
+  ): SyscallResult {
+    if (nfds < 0 || nfds > 1024) return this.errno(ERRNO_MAP.EINVAL!);
+    const readBytes = readSet === 0n ? new Uint8Array(128) : this.memory.readBytes(readSet, 128);
+    const writeBytes = writeSet === 0n ? new Uint8Array(128) : this.memory.readBytes(writeSet, 128);
+    const nextRead = new Uint8Array(128);
+    const nextWrite = new Uint8Array(128);
+    let ready = 0;
+    for (let fd = 0; fd < nfds; fd += 1) {
+      const byte = fd >> 3;
+      const bit = 1 << (fd & 7);
+      const entry = this.fds.get(fd);
+      let readable = false;
+      let writable = false;
+      if (entry?.kind === "stdin") readable = this.stdin.offset < this.stdin.bytes.length;
+      else if (entry?.kind === "stdout" || entry?.kind === "stderr") writable = true;
+      else if (entry?.kind === "file") {
+        readable = true;
+        writable = true;
+      } else if (entry?.kind === "dir") readable = true;
+      const wantsRead = (readBytes[byte]! & bit) !== 0;
+      const wantsWrite = (writeBytes[byte]! & bit) !== 0;
+      let matched = false;
+      if (wantsRead && readable) {
+        nextRead[byte] = (nextRead[byte]! | bit) >>> 0;
+        matched = true;
+      }
+      if (wantsWrite && writable) {
+        nextWrite[byte] = (nextWrite[byte]! | bit) >>> 0;
+        matched = true;
+      }
+      if (matched) ready += 1;
+    }
+    if (readSet !== 0n) this.memory.writeBytes(readSet, nextRead);
+    if (writeSet !== 0n) this.memory.writeBytes(writeSet, nextWrite);
+    return this.ok(ready);
   }
 
   private poll(fds: bigint, count: number, _timeoutMs: number): SyscallResult {

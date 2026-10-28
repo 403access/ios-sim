@@ -3,7 +3,7 @@ import { Arm64Cpu } from "../arm64/cpu.js";
 import { VirtualMemory } from "../dyld/vm.js";
 import { MachKernel } from "../mach/kernel.js";
 import { DarwinSyscallKernel } from "./kernel.js";
-import { SYS_POLL } from "./numbers.js";
+import { SYS_POLL, SYS_SELECT } from "./numbers.js";
 
 function setup() {
   const memory = new VirtualMemory();
@@ -29,7 +29,12 @@ function setup() {
     view.setInt16(4, events, true);
     memory.writeBytes(0x1000n + BigInt(index * 8), bytes);
   };
-  return { memory, call, pollfd };
+  const selectCall = (args: bigint[]) => {
+    args.forEach((value, index) => cpu.writeRegister(index, value));
+    cpu.writeRegister(16, BigInt(SYS_SELECT));
+    return syscalls.handle(SYS_SELECT, cpu);
+  };
+  return { memory, call, pollfd, selectCall };
 }
 
 describe("poll", () => {
@@ -42,6 +47,21 @@ describe("poll", () => {
     const second = new DataView(memory.readBytes(0x1008n, 8).buffer).getInt16(6, true);
     expect(first & 1).toBe(1);
     expect(second & 4).toBe(4);
+  });
+
+  it("reports select readiness in fd_set bitmaps", () => {
+    const { memory, selectCall } = setup();
+    memory.writeBytes(0x2000n, new Uint8Array(128));
+    memory.writeBytes(0x2100n, new Uint8Array(128));
+    const read = memory.readBytes(0x2000n, 128);
+    read[0] = 1; // stdin
+    memory.writeBytes(0x2000n, read);
+    const write = memory.readBytes(0x2100n, 128);
+    write[0] = 2; // stdout
+    memory.writeBytes(0x2100n, write);
+    expect(selectCall([4n, 0x2000n, 0x2100n, 0n, 0n]).value).toBe(2);
+    expect(memory.readBytes(0x2000n, 1)[0]).toBe(1);
+    expect(memory.readBytes(0x2100n, 1)[0]).toBe(2);
   });
 
   it("marks unknown descriptors POLLNVAL and ignores negative fds", () => {
