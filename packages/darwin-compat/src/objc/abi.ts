@@ -213,7 +213,9 @@ function parseIvarList(memory: VirtualMemory, address: bigint): ObjcIvar[] {
   const ivars: ObjcIvar[] = [];
   for (let index = 0; index < count; index += 1) {
     const entry = address + 8n + BigInt(index * entrySize);
-    const offset = readS32(memory, entry, "ivar offset");
+    // `ivar_t.offset` is a pointer to the int32 offset, not the value itself.
+    const offsetSlot = readPointer(memory, entry, "ivar offset slot");
+    const offset = offsetSlot === 0n ? 0 : readS32(memory, offsetSlot, "ivar offset");
     let namePointer: bigint;
     let typePointer: bigint;
     let alignment: number;

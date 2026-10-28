@@ -312,6 +312,7 @@ interface Plan {
   readonly tapEmptyMethods: number;
   readonly tapMethods: number;
   readonly tapIvars: number;
+  readonly tapIvarOffset: number;
   readonly tapProtocols: number;
   readonly tappableProtocol: number;
   readonly baseRo: number;
@@ -649,6 +650,8 @@ function planData(): Plan {
   cursor += 8 + 5 * 24;
   const tapIvars = cursor;
   cursor += 8 + 32;
+  const tapIvarOffset = cursor;
+  cursor += 8;
   const tapProtocols = cursor;
   cursor += 16;
   const tappableProtocol = cursor;
@@ -853,6 +856,7 @@ function planData(): Plan {
     tapEmptyMethods,
     tapMethods,
     tapIvars,
+    tapIvarOffset,
     tapProtocols,
     tappableProtocol,
     baseRo,
@@ -3225,7 +3229,9 @@ function emitData(
   // ivar_list_t { entsize 32, count 1, [offset, name, type, alignment, size] }
   u32(plan.tapIvars, 32);
   u32(plan.tapIvars + 4, 1);
-  u32(plan.tapIvars + 8, 8); // offset
+  // ivar_t.offset points at an int32 offset slot, as Apple's runtime expects.
+  u32(plan.tapIvarOffset, 8);
+  rebase(plan.tapIvars + 8, address(plan.tapIvarOffset));
   rebase(plan.tapIvars + 16, address(plan.stringOffsets["_pressed"]!));
   rebase(plan.tapIvars + 24, address(plan.stringOffsets.B!));
   u32(plan.tapIvars + 32, 0); // alignment 2^0

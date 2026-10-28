@@ -38,6 +38,7 @@ function relativeImage(): { memory: VirtualMemory; image: LoadedImage } {
   const ivars = 0x300;
   const ivarName = 0x328;
   const ivarType = 0x330;
+  const ivarOffset = 0x3b0;
   const categoryMethods = 0x338;
   const category = 0x350;
   const categoryList = 0x380;
@@ -79,7 +80,8 @@ function relativeImage(): { memory: VirtualMemory; image: LoadedImage } {
 
   u32(ivars, 32);
   u32(ivars + 4, 1);
-  s32(ivars + 8, 8); // offset
+  s32(ivarOffset, 8);
+  u64(ivars + 8, at(ivarOffset)); // ivar_t.offset points at the int32 offset
   u64(ivars + 16, at(ivarName));
   u64(ivars + 24, at(ivarType));
   u32(ivars + 32, 2); // alignment
