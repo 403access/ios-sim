@@ -964,6 +964,9 @@ export class DarwinSyscallKernel {
 
   private resolveGuestPath(guest: string): string {
     if (guest.includes("\u0000")) throw new SyscallError("bad_path", "path contains a null byte");
+    if (guest.split("/").includes("..")) {
+      throw new SyscallError("path_escape", `path ${guest} escapes the runtime root`);
+    }
     const normalized = guest.startsWith("/") ? guest : join(this.cwd, guest);
     const relativePath = normalized.startsWith("/") ? normalized.slice(1) : normalized;
     const candidate = resolve(this.rootDir, relativePath);
