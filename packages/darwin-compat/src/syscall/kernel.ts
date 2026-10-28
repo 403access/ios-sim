@@ -15,12 +15,13 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  readdirSync,
   readSync,
   statSync,
   unlinkSync,
   writeSync,
 } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { CompatError, SyscallError } from "../errors.js";
 import type { Arm64Cpu, SyscallResult } from "../arm64/cpu.js";
 import type { VirtualMemory } from "../dyld/vm.js";
@@ -47,6 +48,7 @@ import {
   DARWIN_O_APPEND,
   DARWIN_O_CREAT,
   DARWIN_O_EXCL,
+  DARWIN_O_RDONLY,
   DARWIN_O_RDWR,
   DARWIN_O_TRUNC,
   DARWIN_O_WRONLY,
@@ -64,6 +66,8 @@ import {
   SYS_LSTAT,
   SYS_STAT,
   SYS_GETEGID,
+  SYS_GETDIRENTRIES,
+  SYS_GETDIRENTRIES64,
   SYS_GETENTROPY,
   SYS_GETEUID,
   SYS_GETGID,
@@ -150,7 +154,7 @@ interface StdinState {
 }
 
 interface FdEntry {
-  readonly kind: "stdin" | "stdout" | "stderr" | "file" | "kqueue";
+  readonly kind: "stdin" | "stdout" | "stderr" | "file" | "dir" | "kqueue";
   readonly handle?: number;
   readonly path?: string;
   position: number;
@@ -286,6 +290,9 @@ export class DarwinSyscallKernel {
         return this.seek(Number(args[0]!), BigInt.asIntN(64, args[1]!), Number(args[2]!));
       case SYS_FSTAT:
         return this.fstat(Number(args[0]!), args[1]!);
+      case SYS_GETDIRENTRIES:
+      case SYS_GETDIRENTRIES64:
+        return this.getdirentries(Number(args[0]!), args[1]!, Number(args[2]!), args[3]!);
       case SYS_STAT:
       case SYS_LSTAT:
         return this.statPath(args[0]!, args[1]!);
@@ -458,6 +465,12 @@ export class DarwinSyscallKernel {
       if (flags & DARWIN_O_TRUNC) nodeFlags |= fsConstants.O_TRUNC;
       if (flags & DARWIN_O_APPEND) nodeFlags |= fsConstants.O_APPEND;
       if (flags & DARWIN_O_EXCL) nodeFlags |= fsConstants.O_EXCL;
+      if (statSync(path).isDirectory()) {
+        if (access !== DARWIN_O_RDONLY) return this.errno(ERRNO_MAP.EACCES!);
+        const fd = this.nextFd();
+        this.fds.set(fd, { kind: "dir", path, position: 0, append: false });
+        return this.ok(fd);
+      }
       const handle = openSync(path, nodeFlags, mode & 0o777 || 0o644);
       const fd = this.nextFd();
       this.fds.set(fd, {
@@ -479,6 +492,10 @@ export class DarwinSyscallKernel {
     if (entry?.kind === "kqueue") {
       this.fds.delete(fd);
       this.kqueues.delete(fd);
+      return this.ok(0);
+    }
+    if (entry?.kind === "dir") {
+      this.fds.delete(fd);
       return this.ok(0);
     }
     if (!entry || entry.kind !== "file") return this.errno(ERRNO_MAP.EBADF!);
@@ -662,6 +679,53 @@ export class DarwinSyscallKernel {
     view.setInt32(112, 4096, true);
     this.memory.writeBytes(address, bytes);
     return this.ok(0);
+  }
+
+  private getdirentries(
+    fd: number,
+    buffer: bigint,
+    byteCount: number,
+    basePointer: bigint,
+  ): SyscallResult {
+    const entry = this.fds.get(fd);
+    if (!entry || entry.kind !== "dir" || !entry.path) return this.errno(ERRNO_MAP.EBADF!);
+    if (byteCount < 0 || byteCount > MAX_IO) return this.errno(ERRNO_MAP.EINVAL!);
+    let names: string[];
+    try {
+      names = readdirSync(entry.path).sort();
+    } catch (error) {
+      return this.errno(errnoFor(error));
+    }
+    let index = entry.position;
+    let written = 0;
+    while (index < names.length) {
+      const name = names[index]!;
+      const recordLength = Math.ceil((21 + name.length + 1) / 8) * 8;
+      if (written + recordLength > byteCount) break;
+      let ino = 0n;
+      let type = 0;
+      try {
+        const stats = statSync(join(entry.path, name));
+        ino = BigInt(stats.ino);
+        type = stats.isDirectory() ? 4 : stats.isSymbolicLink?.() ? 10 : stats.isFile() ? 8 : 0;
+      } catch {
+        // Unreadable entries remain present with type 0.
+      }
+      index += 1;
+      const record = new Uint8Array(recordLength);
+      const view = new DataView(record.buffer);
+      view.setBigUint64(0, ino, true);
+      view.setBigUint64(8, BigInt(index), true);
+      view.setUint16(16, recordLength, true);
+      view.setUint16(18, name.length, true);
+      record[20] = type;
+      record.set(new TextEncoder().encode(`${name}\0`), 21);
+      this.memory.writeBytes(buffer + BigInt(written), record);
+      written += recordLength;
+    }
+    entry.position = index;
+    if (basePointer !== 0n) this.memory.write(basePointer, 8, BigInt(index));
+    return this.ok(written);
   }
 
   private statPath(pathPointer: bigint, address: bigint): SyscallResult {

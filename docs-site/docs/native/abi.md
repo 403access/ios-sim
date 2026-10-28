@@ -44,40 +44,42 @@ routine; this layer documents its own entry contract instead of pretending libSy
 is in `x0`; on error the layer returns a positive errno in `x0` and sets the carry flag, matching
 Darwin's ABI. Mach traps return a `kern_return_t` in `x0` without touching carry.
 
-| Number | Name           | Status | Notes                                            |
-| -----: | -------------- | ------ | ------------------------------------------------ |
-|      1 | `exit`         | ✓      | halts; status is `x0 & 0xff`                     |
-|      3 | `read`         | ✓      | stdin is an in-memory buffer; files use the jail |
-|      4 | `write`        | ✓      | fds 1/2 go to sinks; files use the jail          |
-|      5 | `open`         | ✓      | Darwin flags; relative paths resolve under root  |
-|      6 | `close`        | ✓      | fds ≤ 2 cannot be closed                         |
-|     10 | `unlink`       | ✓      |                                                  |
-|     20 | `getpid`       | ✓      |                                                  |
-|     24 | `getuid`       | ✓      | fixed 501                                        |
-|     25 | `geteuid`      | ✓      | fixed 501                                        |
-|     33 | `access`       | ✓      | read access only                                 |
-|     39 | `getppid`      | ✓      | fixed 1                                          |
-|     41 | `dup`          | ✓      | shares the descriptor entry                      |
-|     43 | `getegid`      | ✓      | fixed 20                                         |
-|     47 | `getgid`       | ✓      | fixed 20                                         |
-|     73 | `munmap`       | ✓      | page-rounded                                     |
-|     74 | `mprotect`     | ✓      | recorded but not enforced                        |
-|     90 | `dup2`         | ✓      |                                                  |
-|     92 | `fcntl`        | ✓      | returns 0; options are not interpreted           |
-|    116 | `gettimeofday` | ✓      | two 64-bit fields                                |
-|    120 | `readv`        | ✓      | up to 1024 iovecs; short reads stop              |
-|    121 | `writev`       | ✓      | up to 1024 iovecs; short writes report count     |
-|    136 | `mkdir`        | ✓      |                                                  |
-|    188 | `stat`         | ✓      | jailed path; Darwin stat64 layout                |
-|    189 | `fstat`        | ✓      | Darwin stat64 layout; stdio = character device   |
-|    190 | `lstat`        | ✓      | same as stat (symlinks followed)                 |
-|    197 | `mmap`         | ✓      | anonymous and file-backed; `MAP_FIXED` with hint |
-|    199 | `lseek`        | ✓      | per-descriptor position                          |
-|    202 | `sysctl`       | ✓      | kern.osrelease, hw.ncpu, hw.memsize, hw.machine  |
-|    362 | `kqueue`       | ✓      | semantic queue descriptor                        |
-|    363 | `kevent`       | ✓      | read/write/timer filters; nonblocking timeout    |
-|    327 | `issetugid`    | ✓      | returns 0                                        |
-|    500 | `getentropy`   | ✓      | up to 256 bytes                                  |
+| Number | Name              | Status | Notes                                            |
+| -----: | ----------------- | ------ | ------------------------------------------------ |
+|      1 | `exit`            | ✓      | halts; status is `x0 & 0xff`                     |
+|      3 | `read`            | ✓      | stdin is an in-memory buffer; files use the jail |
+|      4 | `write`           | ✓      | fds 1/2 go to sinks; files use the jail          |
+|      5 | `open`            | ✓      | Darwin flags; relative paths resolve under root  |
+|      6 | `close`           | ✓      | fds ≤ 2 cannot be closed                         |
+|     10 | `unlink`          | ✓      |                                                  |
+|     20 | `getpid`          | ✓      |                                                  |
+|     24 | `getuid`          | ✓      | fixed 501                                        |
+|     25 | `geteuid`         | ✓      | fixed 501                                        |
+|     33 | `access`          | ✓      | read access only                                 |
+|     39 | `getppid`         | ✓      | fixed 1                                          |
+|     41 | `dup`             | ✓      | shares the descriptor entry                      |
+|     43 | `getegid`         | ✓      | fixed 20                                         |
+|     47 | `getgid`          | ✓      | fixed 20                                         |
+|     73 | `munmap`          | ✓      | page-rounded                                     |
+|     74 | `mprotect`        | ✓      | recorded but not enforced                        |
+|     90 | `dup2`            | ✓      |                                                  |
+|     92 | `fcntl`           | ✓      | returns 0; options are not interpreted           |
+|    116 | `gettimeofday`    | ✓      | two 64-bit fields                                |
+|    120 | `readv`           | ✓      | up to 1024 iovecs; short reads stop              |
+|    121 | `writev`          | ✓      | up to 1024 iovecs; short writes report count     |
+|    136 | `mkdir`           | ✓      |                                                  |
+|    188 | `stat`            | ✓      | jailed path; Darwin stat64 layout                |
+|    189 | `fstat`           | ✓      | Darwin stat64 layout; stdio = character device   |
+|    190 | `lstat`           | ✓      | same as stat (symlinks followed)                 |
+|    196 | `getdirentries`   | ✓      | directory fd; variable `dirent` records          |
+|    197 | `mmap`            | ✓      | anonymous and file-backed; `MAP_FIXED` with hint |
+|    199 | `lseek`           | ✓      | per-descriptor position                          |
+|    202 | `sysctl`          | ✓      | kern.osrelease, hw.ncpu, hw.memsize, hw.machine  |
+|    362 | `kqueue`          | ✓      | semantic queue descriptor                        |
+|    363 | `kevent`          | ✓      | read/write/timer filters; nonblocking timeout    |
+|    327 | `issetugid`       | ✓      | returns 0                                        |
+|    344 | `getdirentries64` | ✓      | same dirent records                              |
+|    500 | `getentropy`      | ✓      | up to 256 bytes                                  |
 
 Everything else is `ENOSYS` in lenient mode and a hard `unsupported_syscall` error in strict
 mode.
