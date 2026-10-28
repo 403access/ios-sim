@@ -158,8 +158,8 @@ These items have visible value even if G2 never lands:
 The concrete plan for the stock-binary gate — replacement images, the ABI table, the step
 sequence, and the kill criteria — is in the [M1 charter](./m1-replacement-images.md). Step 1 is
 done: the [measured ABI table](./m1-abi-table.md) records the emitted layouts **and** the
-ivar-slot contract — the compiler emits placeholders and code loads offsets at runtime, so the
-runtime must realize classes and patch the slots rather than reproduce Apple's absolute sizes.
+ivar-slot contract. Realize-and-patch is now implemented — guest classes get layouts from our
+superclass sizes and their `_OBJC_IVAR_$` slots are patched (the clang fixture proves it).
 
 ## Milestones
 

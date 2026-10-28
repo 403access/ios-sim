@@ -84,7 +84,7 @@ export const architecture: Architecture = {
       ],
       shipped: [
         "ADR 0008 and the readiness plan record the goal and the gate",
-        "All 31 symbols covered; ivar-slot ABI contract measured",
+        "31/31 symbols; realize-and-patch implemented for guest ivars",
         "App-bundle directories launch through Info.plist",
       ],
       open: [
@@ -299,7 +299,7 @@ export const architecture: Architecture = {
     {
       id: "m1",
       name: "M1 · one stock-SDK app",
-      detail: "Symbols 31/31; realize-and-patch next.",
+      detail: "31/31 symbols; realize-and-patch done; images next.",
       done: 2,
       total: 7,
       state: "partial",

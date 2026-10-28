@@ -119,6 +119,9 @@ static UILabel *gLabel;
   }
 }
 - (void)touchesBegan:(id)touches withEvent:(id)event {
+  // An inherited ivar: the runtime must have patched its offset slot to land
+  // after UIView's layout, not at the compiler's placeholder.
+  _pressed = YES;
   [super touchesBegan:touches withEvent:event];
 }
 - (void)touchesMoved:(id)touches withEvent:(id)event {
@@ -129,7 +132,7 @@ static UILabel *gLabel;
 - (void)touchesEnded:(id)touches withEvent:(id)event {
   (void)touches;
   (void)event;
-  self.backgroundColor = [UIColor greenColor];
+  self.backgroundColor = _pressed ? [UIColor greenColor] : [UIColor purpleColor];
 }
 @end
 

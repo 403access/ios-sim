@@ -17,9 +17,9 @@ are planning aids, not commitments.
 :::info Where we are (2026-10-28)
 A0 and A0.5 are complete: a user-space substrate plus a clean-room shim with **45 host classes**,
 **164 hermetic tests**, and **13 clang differential scenarios**. The M1 symbol surface is closed
-(**31 of 31**), and the first stock-app ABI facts are measured (`AppDelegate` 24 B, ivars at 8/16,
-derived `UIResponder` 8 B). The [architecture dashboard](./dashboard.md) is the single-screen
-status; [limitations](./limitations.md) is the per-area boundary.
+(**31 of 31**), and the ivar-slot ABI contract is measured and implemented: guest classes are
+realized and their `_OBJC_IVAR_$` slots patched. The [architecture dashboard](./dashboard.md) is
+the single-screen status; [limitations](./limitations.md) is the per-area boundary.
 :::
 
 ## A0 — Substrate (implemented on this branch)
@@ -88,7 +88,9 @@ this repository's own, so none of it is binary-compatible with Apple's framework
   them; Apple's absolute sizes are not baked in ([table](../plans/m1-abi-table.md)).
 - Fixed `ivar_t.offset` parsing (a pointer to an int32 slot, not the value) — required for any real
   binary.
-- Not started: framework superclass sizes, replacement images, the E2E gate.
+- **Realize-and-patch**: guest classes are realized superclass-first and their `_OBJC_IVAR_$` slots
+  are patched with our offsets; the clang fixture proves `_pressed` moves 8 → 64 and still renders.
+- Not started: the five replacement images and the E2E gate.
 
 **Next:** implement realize-then-patch for guest classes (using the five `Sample*` subclasses as
 the corpus), then generate the five replacement images and start the E2E. The full charter is

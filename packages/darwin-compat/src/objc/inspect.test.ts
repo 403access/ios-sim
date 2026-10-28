@@ -16,7 +16,7 @@ describe("ObjC inspection", () => {
     expect(baseView.superclass).toBe("UIView");
     expect(tapView.instanceSize).toBe(16);
     expect(tapView.protocols).toEqual(["Tappable"]);
-    expect(tapView.ivars).toEqual([
+    expect(tapView.ivars).toMatchObject([
       { name: "_pressed", type: "B", offset: 8, size: 1, alignment: 0 },
     ]);
     expect(tapView.methods).toEqual(

@@ -169,7 +169,16 @@ describe("ObjC metadata", () => {
   it("parses an absolute ivar list", () => {
     const { memory, image } = relativeImage();
     const parsed = parseObjcClasses(memory, image)[0]!;
-    expect(parsed.ivars).toEqual([{ name: "_count", type: "i", offset: 8, size: 4, alignment: 2 }]);
+    expect(parsed.ivars).toEqual([
+      {
+        name: "_count",
+        type: "i",
+        offset: 8,
+        slot: BigInt(BASE + 0x3b0),
+        size: 4,
+        alignment: 2,
+      },
+    ]);
   });
 
   it("parses a category list and its relative methods", () => {

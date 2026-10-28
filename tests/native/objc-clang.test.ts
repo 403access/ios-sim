@@ -120,6 +120,11 @@ describe.skipIf(!available)("real clang ObjC app", () => {
         expect(result.objcClasses, label).toEqual(
           expect.arrayContaining(["AppDelegate", "UIWindow", "UIView", "BaseView", "TapView"]),
         );
+        // Guest ivar offsets are realized and patched: `_pressed` must land
+        // after UIView's 64 bytes, not at the compiler's placeholder (8).
+        const slot = result.program.resolveExport("_OBJC_IVAR_$_TapView._pressed");
+        expect(slot, label).not.toBeNull();
+        expect(Number(result.program.memory.read(slot!, 4)), label).toBe(64);
         expect(result.objcProtocols, label).toContain("TapView:Tappable");
         expect(result.objcStats.allocations, label).toBeGreaterThan(0);
         expect(new TextDecoder().decode(result.stderr), label).toContain("hello from clang objc");

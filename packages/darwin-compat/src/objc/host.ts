@@ -47,6 +47,7 @@ import {
   parseObjcClasses,
   type ObjcCategory,
   type ObjcClass,
+  type ObjcIvar,
   type ObjcMethod,
 } from "./abi.js";
 
@@ -459,6 +460,7 @@ export class ObjcHost {
 
   /** Register the classes of every loaded image, then merge categories. */
   attach(program: LoadedProgram): void {
+    const parsedClasses: ObjcClass[] = [];
     for (const image of program.images) {
       for (const parsed of parseObjcClasses(this.memory, image)) {
         const existing = this.classes.get(parsed.name);
@@ -469,12 +471,43 @@ export class ObjcHost {
           );
         }
         this.registerClass(parsed);
+        parsedClasses.push(parsed);
       }
     }
+    this.realizeGuestClasses(parsedClasses);
     for (const image of program.images) {
       for (const category of parseObjcCategories(this.memory, image)) {
         this.applyCategory(category);
       }
+    }
+  }
+
+  /**
+   * Realize guest classes: compute the actual instance size and ivar offsets
+   * from our superclass sizes, then patch the `_OBJC_IVAR_$` slots that
+   * compiled code loads at runtime. The offsets in the image are placeholders
+   * (the compiler cannot know an external superclass's size), so this is the
+   * step that makes a guest subclass of a shim class layout-correct.
+   */
+  private realizeGuestClasses(classes: readonly ObjcClass[]): void {
+    const ordered = [...classes].sort(
+      (left, right) => depth(this.byAddress, left) - depth(this.byAddress, right),
+    );
+    for (const klass of ordered) {
+      const parent = klass.superclass === 0n ? undefined : this.byAddress.get(klass.superclass);
+      let size = parent?.instanceSize ?? 8;
+      const ivars = klass.ivars.map((ivar) => {
+        const layout = ivarLayout(ivar);
+        const offset = alignUp(size, layout.alignment);
+        if (ivar.slot !== 0n) this.memory.write(ivar.slot, 4, BigInt(offset));
+        size = offset + layout.size;
+        return { ...ivar, offset };
+      });
+      const instanceSize = alignUp(Math.max(8, size), 8);
+      const updated: ObjcClass = { ...klass, ivars, instanceSize };
+      this.classes.set(updated.name, updated);
+      this.byAddress.set(updated.address, updated);
+      this.byMetaAddress.set(updated.metaclass, updated);
     }
   }
 
@@ -5567,6 +5600,25 @@ function buildTouchScript(events: readonly InputEvent[]): TouchStep[] {
     steps.push({ kind: "touch", x: event.toX, y: event.toY, selector: ended });
   }
   return steps;
+}
+
+function alignUp(value: number, alignment: number): number {
+  return Math.ceil(value / alignment) * alignment;
+}
+
+/** Size/alignment for an ivar; relative lists carry no explicit values. */
+function ivarLayout(ivar: ObjcIvar): { size: number; alignment: number } {
+  if (ivar.size > 0) {
+    return {
+      size: ivar.size,
+      alignment: ivar.alignment > 0 ? 1 << ivar.alignment : 1,
+    };
+  }
+  const type = ivar.type.trim();
+  const first = type[0] ?? "@";
+  if (first === "B" || first === "c") return { size: 1, alignment: 1 };
+  if (first === "i" || first === "f") return { size: 4, alignment: 4 };
+  return { size: 8, alignment: 8 };
 }
 
 function depth(classes: ReadonlyMap<bigint, ObjcClass>, klass: ObjcClass): number {

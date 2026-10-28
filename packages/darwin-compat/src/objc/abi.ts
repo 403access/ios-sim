@@ -36,6 +36,8 @@ export interface ObjcIvar {
   readonly name: string;
   readonly type: string;
   readonly offset: number;
+  /** Address of the int32 offset slot, or 0 when the list is relative. */
+  readonly slot: bigint;
   readonly size: number;
   readonly alignment: number;
 }
@@ -214,8 +216,10 @@ function parseIvarList(memory: VirtualMemory, address: bigint): ObjcIvar[] {
   for (let index = 0; index < count; index += 1) {
     const entry = address + 8n + BigInt(index * entrySize);
     // `ivar_t.offset` is a pointer to the int32 offset, not the value itself.
-    const offsetSlot = readPointer(memory, entry, "ivar offset slot");
-    const offset = offsetSlot === 0n ? 0 : readS32(memory, offsetSlot, "ivar offset");
+    const offsetSlot = relative ? 0n : readPointer(memory, entry, "ivar offset slot");
+    const offset = relative
+      ? readS32(memory, entry, "ivar offset")
+      : readS32(memory, offsetSlot, "ivar offset");
     let namePointer: bigint;
     let typePointer: bigint;
     let alignment: number;
@@ -235,6 +239,7 @@ function parseIvarList(memory: VirtualMemory, address: bigint): ObjcIvar[] {
       name: readCString(memory, namePointer),
       type: readTypes(memory, typePointer),
       offset,
+      slot: offsetSlot,
       size,
       alignment,
     });

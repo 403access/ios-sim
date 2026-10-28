@@ -73,13 +73,29 @@ Apple's runtime does.
 - `AppDelegate`'s class methods and the 31 symbols are covered; what remains is the realization
   path, the replacement images, and the runtime calls the app reaches.
 
-## Next measurement / implementation targets
+## Realize-and-patch is implemented
 
-1. Implement class realization: compute guest `instanceSize` and ivar offsets from our superclass
-   sizes, write them into `class_ro_t`/`ivar_t` slots, and record them in `inspect`.
-2. Use the five `Sample*` classes as the test corpus: a realized `SampleView` must report
-   `_sampleView` at our `UIView` size, and its accessor must read that patched slot.
-3. Only then generate the replacement images and start the stock-app E2E.
+The runtime now realizes every guest class at load time: it walks classes superclass-first,
+computes `instanceSize` and ivar offsets from **our** superclass sizes, writes each offset into its
+`_OBJC_IVAR_$` slot, and uses the realized size for allocation.
+
+Proven by the clang fixture's `TapView : BaseView : UIView`:
+
+```text
+placeholder offset for _pressed: 8        (in the image)
+after realization:               64       (after UIView's 64 bytes)
+```
+
+The fixture asserts the slot reads 64, writes `_pressed` from `touchesBegan:`, reads it in
+`touchesEnded:`, and still produces the same green frame as the generated app — so the guest ivar
+landed after the shim's view layout instead of corrupting `frame.x`.
+
+## Next targets
+
+1. Generate the five replacement images (`UIKit`, `Foundation`, `libobjc`, `libSystem`,
+   `CoreFoundation`) so the stock app links without Apple dylibs.
+2. Reach `main`: fill the runtime calls the app hits, one reported symbol at a time.
+3. Add the gated stock-app E2E (frame digest + tap updates the label).
 
 The lesson is recorded here so the next reader does not spend a day chasing "UIView = 8 bytes":
 the metadata is a contract to patch, not a table of Apple's layouts.

@@ -88,8 +88,8 @@ started.
 - [x] Literal collections `@[]` / `@{}` (`NSConstantArray` / `NSConstantDictionary`)
 - [x] M1 symbol surface: `UIResponder`, `UIScreen`, `NSStringFromClass`, stack guard (31/31)
 - [x] `ivar_t.offset` pointer parsing (real clang images report correct ivar offsets)
-- [x] Stock-app ABI measured (`bun run abi:measure` → 24 B, ivars 8/16, `UIResponder` 8 B)
-- [ ] Class realization: compute guest sizes/offsets and patch `_OBJC_IVAR_$` slots (corpus: the five `Sample*` classes)
+- [x] Stock-app ABI measured; ivar offsets are runtime-patched slots (`bun run abi:measure`)
+- [x] Class realization: guest sizes/offsets computed from shim superclasses and `_OBJC_IVAR_$` slots patched (`TapView._pressed` 8 → 64)
 - [ ] M1 replacement images (five dylibs) and the gated stock-app E2E
 - [~] `CALayer` corner radius on view backgrounds (masks/opacity stored)
 - [~] `UIView` affine transforms on backgrounds (children/hit-testing untransformed)
