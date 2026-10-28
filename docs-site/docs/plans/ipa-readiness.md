@@ -81,6 +81,22 @@ symbols are `NSLog`, `NSStringFromClass`, the `NSObject`/`UIResponder` metaclass
 `___CFConstantStringClassReference` and reads the 32-byte literal layout, which the clang fixture
 exercises (`[label setText:@"TAPPED"]`). Literal _collections_ (`@[]`, `@{}`) are still missing.
 
+### Current coverage of that budget
+
+Re-running the spike on 2026-10-28 and comparing each symbol with the runtime's exports gives
+**25 of 31** symbols covered:
+
+- 11 of 13 classes (missing `UIResponder`, `UIScreen`);
+- 8 of 8 Objective-C runtime entry points;
+- the blocks class, `_UIApplicationMain`, `_NSLog`, `___CFConstantStringClassReference`,
+  the `NSObject` metaclass, and `__objc_empty_cache`;
+- still missing: `UIResponder` (+ its metaclass), `UIScreen`, `NSStringFromClass`,
+  `___stack_chk_fail`, `___stack_chk_guard`.
+
+Symbol presence is necessary, not sufficient: each class still needs Apple-compatible layout and
+behaviour, and the app's five Apple dylib dependencies must be replaced. The missing six are the
+next bounded M1 step.
+
 **Reading the number honestly.** Thirty-one is the _link-time_ surface of that app, not the size of
 the job. Each missing class must behave like Apple's at the ABI level, and the frameworks the app
 loads must be replaced by something this runtime can map. The number is still useful: it is the

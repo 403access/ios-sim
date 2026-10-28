@@ -46,6 +46,7 @@ export interface Architecture {
   readonly gated: number;
   readonly g2: number;
   readonly m1Budget: number;
+  readonly m1Covered: number;
   readonly stats: ReadonlyArray<{ readonly value: string; readonly label: string }>;
   readonly layers: readonly Layer[];
   readonly milestones: readonly Milestone[];
@@ -55,7 +56,7 @@ export interface Architecture {
 }
 
 export const architecture: Architecture = {
-  updated: "2026-10-28 · literals, progress, CF strings",
+  updated: "2026-10-28 · M1 symbols 25/31, literals, progress",
   goal: "Run an unmodified iOS app on a non-Apple host",
   subline:
     "Two tracks: shim-linked apps (G1, shipping) and stock SDK binaries (G2, gated by the measured symbol budget).",
@@ -63,6 +64,7 @@ export const architecture: Architecture = {
   gated: 6,
   g2: 8,
   m1Budget: 31,
+  m1Covered: 25,
   stats: [
     { value: "162", label: "hermetic tests" },
     { value: "6", label: "macOS-gated" },
@@ -297,7 +299,7 @@ export const architecture: Architecture = {
     {
       id: "m1",
       name: "M1 · one stock-SDK app",
-      detail: "Launch, render, tap, persist, with a digest.",
+      detail: "Symbols 25/31; replacement images next.",
       done: 2,
       total: 7,
       state: "partial",
@@ -749,7 +751,7 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
           <div class="track">
             <div class="trackRow"><span>G1 shim</span><div class="trackBar"><span style="--p:${g1 / 100};background:linear-gradient(90deg,#34d399,#22d3ee)"></span></div><b>${g1}%</b></div>
             <div class="trackRow"><span>G2 .ipa</span><div class="trackBar"><span style="--p:${data.g2 / 100};background:linear-gradient(90deg,#fbbf24,#fb7185)"></span></div><b>${data.g2}%</b></div>
-            <div class="trackRow"><span>M1 budget</span><div class="trackBar"><span style="--p:1;background:linear-gradient(90deg,#a78bfa,#22d3ee)"></span></div><b>${data.m1Budget}</b></div>
+            <div class="trackRow"><span>M1 symbols</span><div class="trackBar"><span style="--p:${data.m1Covered / data.m1Budget};background:linear-gradient(90deg,#a78bfa,#22d3ee)"></span></div><b>${data.m1Covered}/${data.m1Budget}</b></div>
           </div>
         </div>
       </section>
